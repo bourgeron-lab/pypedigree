@@ -186,6 +186,10 @@ Standard 6-column format (TSV/CSV/space-separated):
 | 5 | sex | 1=male, 2=female, 0/-9=unknown |
 | 6 | phenotype | 1=unaffected, 2=affected, 0/-9=unknown |
 
+Parent IDs with no row become phantoms keeping that ID (`_create_phantom_parents`,
+which returns one warning message per missing parent); a child with one parent given
+gets a `_phantom_*` parent with no label. Same behaviour as `PedigreeBuilder`.
+
 Extended format adds:
 - Column 7: date_of_birth (YYYYMMDD, YYYYMM, or YYYY)
 - Column 8: twins (comma-separated TYPE:sample_id entries)
