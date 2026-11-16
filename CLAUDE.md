@@ -289,7 +289,10 @@ Interactive SVG: `svg_renderer.py` draws the same figure as `renderer.py`
 (bands, outline colors, PGS curves, annotations, carrier notation, legend) from
 the same `phenotypes.py` / `carriers.py` / `symbols.py` decisions, plus per-individual tooltips,
 click highlighting and zoom/pan. Families are laid side by side; element ids are
-generated (`f<family>n<node>`), never derived from sample IDs. Text is placed
+generated (`f<family>n<node>`), never derived from sample IDs. Each node group
+carries `data-id`, `data-parents/children/siblings` and `data-x`, `data-y`,
+`data-size` (symbol centre and size in `#main-group` coordinates, which zoom/pan
+transform) for host overlays; `TestSvgNodePositions` checks them. Text is placed
 with explicit baseline offsets (`_BASELINE_SHIFT`), not `dominant-baseline`,
 which librsvg and older Inkscape ignore. Font sizes and line widths in points are
 scaled by `_PT` layout units per point. No circular layout in the SVG.

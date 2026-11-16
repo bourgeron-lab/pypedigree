@@ -1129,6 +1129,7 @@ and the legend (hidden with <code>--no-legend</code>). Both renderers take
 their decisions from the same code (<code>pypedigree.phenotypes</code> and
 <code>pypedigree.carriers</code>), so the two outputs always agree. Several
 families are drawn side by side, each with its title.</p>
+<p>For a page that embeds the SVG, each individual is a <code>&lt;g class="node"&gt;</code> with <code>data-id</code>, <code>data-parents</code>, <code>data-children</code>, <code>data-siblings</code>, and <code>data-x</code>, <code>data-y</code> (the centre of the symbol) and <code>data-size</code> (its size), in the coordinates of <code>#main-group</code>: an element appended inside that group at those coordinates stays on the node through zoom and pan, so a host can draw overlays (observed relatedness, links the pedigree does not show).</p>
 <p>Each individual's tooltip also lists every value, for example
 <code>ID: 1 | Sex: Male | Phenotype: Affected | IQ: 90 | Dx: ASD</code>.
 The circular layout (<code>--circular</code>) is not available in interactive

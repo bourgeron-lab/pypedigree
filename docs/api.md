@@ -425,6 +425,22 @@ svg_str = render_interactive_svg(ped, output="family.svg")
 - The legend below the pedigree, with the same rows and proportions as the PNG legend
 - Several families side by side, each titled
 
+**Node attributes, for host pages.** Each individual is a `<g class="node">`
+with `data-id` (sample ID), `data-parents`, `data-children`, `data-siblings`
+(comma-separated IDs), and `data-x`, `data-y` (the centre of the symbol) and
+`data-size` (its size). Positions are in the coordinates of `#main-group`, the
+drawing's user units as set by the `viewBox`; zoom and pan transform that
+group, so an element a host appends inside it, at those coordinates, stays on
+the node:
+
+```js
+const node = svg.querySelector('.node[data-id="S7"]');
+const x = +node.dataset.x, y = +node.dataset.y, r = +node.dataset.size / 2;
+const ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+ring.setAttribute('cx', x); ring.setAttribute('cy', y); ring.setAttribute('r', r * 1.4);
+svg.getElementById('main-group').appendChild(ring);
+```
+
 The circular layout is not available in the interactive SVG. Text is placed
 with explicit offsets rather than `dominant-baseline`, so the file renders the
 same in browsers, Inkscape and librsvg.

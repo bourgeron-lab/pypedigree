@@ -626,8 +626,13 @@ def _svg_node(
     """
     style = ctx.style
     half = style.shape_size / 2
+    # data-x/data-y: the symbol's centre and data-size its size, in the
+    # coordinates of #main-group (the viewBox's user units before zoom and
+    # pan), so a host can draw an overlay in the same system.
     parts = [
         f'<g class="node" data-id="{html.escape(node.individual_id)}" '
+        f'data-x="{node.x + 0.0:.3f}" data-y="{node.y + 0.0:.3f}" '
+        f'data-size="{style.shape_size:.3f}" '
         f'data-parents="{html.escape(",".join(adj.get("parents", [])))}" '
         f'data-children="{html.escape(",".join(adj.get("children", [])))}" '
         f'data-siblings="{html.escape(",".join(adj.get("siblings", [])))}">'

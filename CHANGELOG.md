@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Interactive SVG: each node carries `data-x`, `data-y` (the centre of its
+  symbol) and `data-size`, in the coordinates of `#main-group`, so a page
+  embedding the SVG can draw overlays (observed relatedness, links the
+  pedigree does not show) in the same coordinate system through zoom and pan
+  (bourgeron-lab/pypedigree#12).
 - A family holding only two parents, a man and a woman, with no child in the
   file (a trio whose child is missing) is drawn as their couple, father on the
   left, with a descent line to a "?", instead of two unrelated symbols, in

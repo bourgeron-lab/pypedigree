@@ -5,6 +5,8 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import pytest
+
 from pypedigree.api import PedigreeBuilder
 from pypedigree.config import PedigreeStyle
 from pypedigree.models import Pedigree
@@ -492,3 +494,62 @@ class TestSvgSize:
         width, height, vb_w, vb_h = self._sizes(_build_trio())
         assert width == 600
         assert abs(width / height - vb_w / vb_h) < 0.02 * vb_w / vb_h
+
+
+class TestSvgNodePositions:
+    """Each node carries its centre and size, for host overlays (issue #12)."""
+
+    NS = {"svg": "http://www.w3.org/2000/svg"}
+
+    @staticmethod
+    def _shape_centre(group):
+        for el in group.iter():
+            if el.get("class") != "shape":
+                continue
+            tag = el.tag.rsplit("}", 1)[-1]
+            if tag == "rect":
+                x, y = float(el.get("x")), float(el.get("y"))
+                return x + float(el.get("width")) / 2, y + float(el.get("height")) / 2
+            if tag == "circle":
+                return float(el.get("cx")), float(el.get("cy"))
+            if tag == "polygon":  # the diamond: centre of its bounding box
+                pts = [tuple(map(float, p.split(","))) for p in el.get("points").split()]
+                xs, ys = zip(*pts, strict=True)
+                return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+        return None
+
+    def _nodes(self, svg):
+        root = ET.fromstring(svg)
+        return [g for g in root.iter("{http://www.w3.org/2000/svg}g") if g.get("class") == "node"]
+
+    def test_attributes_give_the_symbol_centre_and_size(self):
+        from conftest import TEST_DATA_DIR
+
+        from pypedigree.parser import parse_pedigree
+
+        for rel in ("basic/three_gen.ped", "twins/twins_triplets.ped", "basic/affected_mixed.ped"):
+            svg = render_interactive_svg(parse_pedigree(TEST_DATA_DIR / rel))
+            nodes = self._nodes(svg)
+            assert nodes
+            for g in nodes:
+                centre = self._shape_centre(g)
+                assert centre is not None, rel
+                assert (float(g.get("data-x")), float(g.get("data-y"))) == pytest.approx(
+                    centre, abs=1e-3
+                )
+                assert float(g.get("data-size")) == pytest.approx(PedigreeStyle().shape_size)
+                assert not g.get("data-x").startswith("-0.000")
+                assert not g.get("data-y").startswith("-0.000")
+
+    def test_families_side_by_side_have_distinct_positions_inside_the_view(self):
+        from conftest import TEST_DATA_DIR
+
+        from pypedigree.parser import parse_pedigree
+
+        svg = render_interactive_svg(parse_pedigree(TEST_DATA_DIR / "basic/multi_family.ped"))
+        root = ET.fromstring(svg)
+        vb_x, vb_y, vb_w, vb_h = map(float, root.get("viewBox").split())
+        points = [(float(g.get("data-x")), float(g.get("data-y"))) for g in self._nodes(svg)]
+        assert len(set(points)) == len(points)
+        for x, y in points:
+            assert vb_x <= x <= vb_x + vb_w and vb_y <= y <= vb_y + vb_h
