@@ -696,7 +696,13 @@ without writing .ped files. All methods return <code>self</code> for method chai
   <dt>art: str | ReproductiveRole | None = None</dt><dd><code>"D"</code> gamete donor or <code>"S"</code> surrogate.</dd>
   <dt>gender: str | Gender | None = None</dt><dd>Gender identity, <code>"man"</code>, <code>"woman"</code> or <code>"nonbinary"</code>: the symbol follows it, and <code>sex</code> is the sex assigned at birth.</dd>
   <dt>consultand: bool = False</dt><dd>Arrow without &ldquo;P&rdquo;.</dd>
+  <dt>twin_of: str | list[str] | None = None</dt><dd>Sample ID of this individual's twin (a list for triplets and more), added before or after.</dd>
+  <dt>twin_type: str | TwinType = "TW"</dt><dd><code>"MZ"</code> monozygotic, <code>"DZ"</code> dizygotic or <code>"TW"</code> zygosity unknown.</dd>
 </dl>
+
+<h3><code>add_twins(sample_ids, twin_type="TW")</code></h3>
+<p>Declare a group of twins (or triplets) of one zygosity, as the <code>twins</code> column does: every member is recorded as the twin of every other, and the individuals may be added before or after. A twin never added, twins in different families or not sharing their parents give a <code>PedigreeDataWarning</code> at <code>build()</code>.</p>
+<pre><code>builder.add_twins([<span class="string">"S7"</span>, <span class="string">"S8"</span>], <span class="string">"MZ"</span>)</code></pre>
 
 <h3><code>add_union(partner1, partner2, ...)</code></h3>
 <p>Explicitly add a union between two individuals. Unions are auto-inferred from parent references,

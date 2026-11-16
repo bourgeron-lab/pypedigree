@@ -21,10 +21,12 @@ Example::
 from __future__ import annotations
 
 import io
+import warnings
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from pypedigree.config import PedigreeStyle, resolve_style
-from pypedigree.errors import PedigreeError
+from pypedigree.errors import PedigreeDataWarning, PedigreeError
 from pypedigree.models import (
     Adoption,
     Childlessness,
@@ -37,6 +39,8 @@ from pypedigree.models import (
     Pregnancy,
     ReproductiveRole,
     Sex,
+    TwinInfo,
+    TwinType,
     Union,
 )
 from pypedigree.parser import _strip_display_prefix, build_notation
@@ -56,6 +60,29 @@ _SEX_MAP = {
     "u": Sex.UNKNOWN,
     "0": Sex.UNKNOWN,
 }
+
+_TWIN_TYPE_MAP = {
+    "mz": TwinType.MONOZYGOTIC,
+    "monozygotic": TwinType.MONOZYGOTIC,
+    "dz": TwinType.DIZYGOTIC,
+    "dizygotic": TwinType.DIZYGOTIC,
+    "tw": TwinType.UNKNOWN,
+    "unknown": TwinType.UNKNOWN,
+}
+
+
+def _twin_type(value: TwinType | str) -> TwinType:
+    """A twin type from a `TwinType` or a code ("MZ", "DZ", "TW", ...)."""
+    if isinstance(value, TwinType):
+        return value
+    key = str(value).strip().lower()
+    if key not in _TWIN_TYPE_MAP:
+        raise PedigreeError(
+            f"Unknown twin type {value!r}: expected MZ, DZ or TW "
+            "(monozygotic, dizygotic, unknown zygosity)"
+        )
+    return _TWIN_TYPE_MAP[key]
+
 
 _PHENO_MAP = {
     "affected": Phenotype.AFFECTED,
@@ -78,6 +105,7 @@ class PedigreeBuilder:
         self._default_family = family_id
         self._individuals: dict[str, dict[str, Any]] = {}
         self._unions: list[dict[str, Any]] = []
+        self._twins: list[tuple[list[str], TwinType]] = []
         self._phenotype_names: list[str] = []
         self._phenotype_display_modes: dict[str, PhenotypeDisplayMode] = {}
         self._style: PedigreeStyle | None = None
@@ -104,6 +132,8 @@ class PedigreeBuilder:
         art: ReproductiveRole | str | None = None,
         gender: Gender | str | None = None,
         consultand: bool = False,
+        twin_of: str | Sequence[str] | None = None,
+        twin_type: TwinType | str = TwinType.UNKNOWN,
     ) -> PedigreeBuilder:
         """Add an individual to the pedigree.
 
@@ -136,16 +166,24 @@ class PedigreeBuilder:
                 symbol follows it, and ``sex`` is taken as the sex assigned
                 at birth (AMAB/AFAB written below when they differ).
             consultand: Point an arrow without "P" at the symbol.
+            twin_of: Sample ID of this individual's twin, or a list of them
+                for triplets and more. The twins may be added before or
+                after; see also `add_twins`.
+            twin_type: "MZ" (monozygotic), "DZ" (dizygotic) or "TW"
+                (zygosity unknown, the default), or a ``TwinType``.
 
         Returns:
             Self for method chaining.
 
         Raises:
-            PedigreeError: If the individual exists already or a notation
-                value is not recognised.
+            PedigreeError: If the individual exists already, or a notation
+                value or twin type is not recognised.
         """
         if sample_id in self._individuals:
             raise PedigreeError(f"Individual '{sample_id}' already added.")
+        if twin_of is not None:
+            others = [twin_of] if isinstance(twin_of, str) else list(twin_of)
+            self._twins.append(([sample_id, *others], _twin_type(twin_type)))
 
         parsed_sex = sex if isinstance(sex, Sex) else _SEX_MAP.get(str(sex).lower(), Sex.UNKNOWN)
         parsed_pheno = (
@@ -223,6 +261,76 @@ class PedigreeBuilder:
             }
         )
         return self
+
+    def add_twins(
+        self, sample_ids: Sequence[str], twin_type: TwinType | str = TwinType.UNKNOWN
+    ) -> PedigreeBuilder:
+        """Declare a group of twins (or triplets, ...) of one zygosity.
+
+        Same result as a ``twins`` column (``MZ:S8`` on S7's row and
+        ``MZ:S7`` on S8's): every member is recorded as the twin of every
+        other. The individuals may be added before or after.
+
+        Args:
+            sample_ids: The twins' sample IDs, at least two.
+            twin_type: "MZ" (monozygotic), "DZ" (dizygotic) or "TW"
+                (zygosity unknown, the default), or a ``TwinType``.
+
+        Returns:
+            Self for method chaining.
+
+        Raises:
+            PedigreeError: With fewer than two distinct IDs, or an unknown
+                twin type.
+        """
+        ids = list(dict.fromkeys(sample_ids))
+        if len(ids) < 2:
+            raise PedigreeError(f"A twin group needs at least two individuals, got {ids}")
+        self._twins.append((ids, _twin_type(twin_type)))
+        return self
+
+    def _apply_twins(self, families: dict[str, Family]) -> None:
+        """Record every declared twin group as reciprocal `TwinInfo` entries.
+
+        Warns (`PedigreeDataWarning`) about a twin that was never added, or
+        twins that are in different families or do not share their parents;
+        such a pair is skipped or kept as it is, like the ``twins`` column.
+        """
+        family_of = {sid: data["family_id"] for sid, data in self._individuals.items()}
+        for group, twin_type in self._twins:
+            missing = [sid for sid in group if sid not in family_of]
+            if missing:
+                warnings.warn(
+                    f"Twin group {group}: {', '.join(missing)} never added; left out",
+                    PedigreeDataWarning,
+                    stacklevel=3,
+                )
+            present = [sid for sid in group if sid in family_of]
+            for a in present:
+                for b in present:
+                    if a == b:
+                        continue
+                    if family_of[a] != family_of[b]:
+                        if a < b:
+                            warnings.warn(
+                                f"Twins '{a}' and '{b}' are in different families; ignored",
+                                PedigreeDataWarning,
+                                stacklevel=3,
+                            )
+                        continue
+                    ind = families[family_of[a]].individuals[a]
+                    other = families[family_of[b]].individuals[b]
+                    if a < b and (ind.father_id, ind.mother_id) != (
+                        other.father_id,
+                        other.mother_id,
+                    ):
+                        warnings.warn(
+                            f"Twins '{a}' and '{b}' do not share their parents",
+                            PedigreeDataWarning,
+                            stacklevel=3,
+                        )
+                    if not any(t.sibling_id == b for t in ind.twin_info):
+                        ind.twin_info.append(TwinInfo(twin_type=twin_type, sibling_id=b))
 
     def set_style(self, style: PedigreeStyle) -> PedigreeBuilder:
         """Set a custom rendering style.
@@ -319,6 +427,8 @@ class PedigreeBuilder:
             for p in phantoms_to_add:
                 if p.sample_id not in fam.individuals:
                     fam.individuals[p.sample_id] = p
+
+        self._apply_twins(families)
 
         # Infer unions from parent references
         for fam in families.values():

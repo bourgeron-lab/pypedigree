@@ -15,7 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the PNG, the SVG and the circular layout. The layout adds a placeholder
   child (`with_unknown_offspring`, `is_unknown_offspring`); the parsed
   pedigree and an exported `.fam` are unchanged.
-
+- Twins from code: `PedigreeBuilder.add_individual(..., twin_of="S7",
+  twin_type="MZ")` (a list for triplets) and `PedigreeBuilder.add_twins(["S7",
+  "S8"], "MZ")`, recorded both ways as the `twins` column does. Types `MZ`,
+  `DZ`, `TW` (default, zygosity unknown); an unknown type or a group of fewer
+  than two raises `PedigreeError`, and a twin never added, twins in different
+  families or with different parents give a `PedigreeDataWarning`
+  (bourgeron-lab/pypedigree#10).
 - Quadrant layout for phenotypes: `--phenotype-layout quadrants` (style
   `phenotype_layout: "quadrants"`) cuts each symbol in four, one quadrant per
   phenotype column or `cr_` carrier source, in the PNG, the interactive SVG and
