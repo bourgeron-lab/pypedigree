@@ -59,6 +59,7 @@ from pypedigree.phenotypes import (
     NA_FILL,
     NA_TEXT_COLOR,
     PGS_CURVE_SIGMA,
+    QUADRANT_FONT_SCALE,
     SEPARATOR_COLOR,
     UNKNOWN_FILL,
     LegendMetrics,
@@ -67,13 +68,21 @@ from pypedigree.phenotypes import (
     active_pgs,
     all_bands_na,
     band_cell,
+    check_phenotype_layout,
     legend_metrics,
+    legend_row_centers,
     legend_rows,
+    legend_slot_count,
     outline_color,
     pregnancy_loss_fill,
+    quadrant_box,
+    quadrant_cell,
+    quadrant_center,
+    quadrant_key_geometry,
     resolve_phenotype_render,
     text_color_on,
     validate_style_colors,
+    with_quadrants,
 )
 
 
@@ -133,6 +142,10 @@ def render_pedigree(
         (ind for fam in families for ind in fam.individuals.values()),
         carrier_columns(pheno_names or [], display_modes),
         style.carrier_notation,
+    )
+    check_phenotype_layout(style)
+    pheno_render = with_quadrants(
+        pheno_render, pheno_render.band_names(pheno_names or []), carriers, style
     )
 
     if ax is not None:
@@ -1283,9 +1296,6 @@ def _draw_banded_node(
     edgecolor = style.outline_color
     linewidth = style.shape_line_width
     linestyle = style.phantom_line_style if node.is_phantom else "-"
-    carrier_keys = list(carriers.keys)
-    n_bands = len(band_names) + len(carrier_keys)
-
     if not band_names:
         # No phenotype band: affection status and carrier sections only.
         _draw_node(ax, node, style, carriers)
@@ -1302,12 +1312,81 @@ def _draw_banded_node(
     bg.set_zorder(3)
     ax.add_patch(bg)
 
+    if display_modes is None:
+        display_modes = {}
+    if pheno_render.quadrants:
+        all_na = _draw_quadrants(ax, node, style, pheno_render, display_modes, carriers, clip_patch)
+    else:
+        all_na = _draw_bands(
+            ax, node, style, band_names, pheno_render, display_modes, carriers, clip_patch
+        )
+
+    # If all bands are NA, draw a single centered "NA" label
+    if all_na and band_names and style.show_na_labels:
+        ax.text(
+            cx,
+            cy,
+            "NA",
+            fontsize=style.font_size * 0.85,
+            fontfamily=style.font_family,
+            fontweight="bold",
+            ha="center",
+            va="center",
+            color=NA_TEXT_COLOR,
+            zorder=6,
+        )
+
+    # Draw shape outline on top (use outline_color from o_ phenotype if set)
+    oc = outline_color if outline_color else edgecolor
+    olw = linewidth * 2.5 if outline_color else linewidth
+    if node.sex == Sex.MALE:
+        _draw_square(ax, cx, cy, half, "none", oc, olw, linestyle)
+    elif node.sex == Sex.FEMALE:
+        _draw_circle(ax, cx, cy, half, "none", oc, olw, linestyle)
+    else:
+        _draw_diamond(ax, cx, cy, half, "none", oc, olw, linestyle)
+
+    # Legacy carrier notation: half-fill and dot, drawn on top of bands
+    if carriers.legacy:
+        if node.is_carrier:
+            _draw_carrier_half_fill(ax, cx, cy, half, node.sex, style)
+        if node.is_obligate_carrier:
+            _draw_obligate_carrier_dot(ax, cx, cy, style)
+
+    # Deceased marker
+    if node.is_deceased:
+        _draw_deceased_marker(ax, cx, cy, half, style)
+
+    # Proband marker. A rotated node gets its marker after rotation instead,
+    # so the "P" stays upright (see _render_layout).
+    if (node.is_proband or node.notation.is_consultand) and node.rotation == 0.0:
+        _draw_proband_marker(ax, cx - half, cy - half, half, style, letter=node.is_proband)
+
+
+def _draw_bands(
+    ax: Axes,
+    node: NodeLayout,
+    style: PedigreeStyle,
+    band_names: list[str],
+    pheno_render: PhenotypeRender,
+    display_modes: dict[str, PhenotypeDisplayMode],
+    carriers: CarrierScheme,
+    clip_patch: mpatches.Patch,
+) -> bool:
+    """Fill a symbol with one horizontal band per phenotype, then per carrier source.
+
+    Returns:
+        Whether every band has no data, in which case the caller writes a
+        single centred "NA" instead of one per band.
+    """
+    half = style.shape_size / 2
+    cx, cy = node.x, node.y
+    carrier_keys = list(carriers.keys)
+    n_bands = len(band_names) + len(carrier_keys)
+
     # Band geometry: divide the shape height into n_bands equal parts
     band_height = (half * 2) / n_bands
     shape_top = cy + half
-
-    if display_modes is None:
-        display_modes = {}
 
     # Check if ALL bands are NA — if so, show a single centered "NA"
     all_na = not carrier_keys and all_bands_na(node, band_names)
@@ -1398,46 +1477,77 @@ def _draw_banded_node(
                 zorder=6,
             )
 
-    # If all bands are NA, draw a single centered "NA" label
-    if all_na and band_names and style.show_na_labels:
-        ax.text(
-            cx,
-            cy,
-            "NA",
-            fontsize=style.font_size * 0.85,
-            fontfamily=style.font_family,
-            fontweight="bold",
-            ha="center",
-            va="center",
-            color=NA_TEXT_COLOR,
-            zorder=6,
+    return all_na
+
+
+def _draw_quadrants(
+    ax: Axes,
+    node: NodeLayout,
+    style: PedigreeStyle,
+    pheno_render: PhenotypeRender,
+    display_modes: dict[str, PhenotypeDisplayMode],
+    carriers: CarrierScheme,
+    clip_patch: mpatches.Patch,
+) -> bool:
+    """Fill a symbol cut in four, one quadrant per phenotype or carrier source.
+
+    The quadrant of each column comes from `pheno_render.quadrants`, its
+    fill and text from `quadrant_cell` (patterned for a carrier). A quadrant
+    no column takes stays white.
+
+    Returns:
+        Whether every quadrant has no data, in which case the caller writes
+        a single centred "NA" instead of one per quadrant.
+    """
+    half = style.shape_size / 2
+    cx, cy = node.x, node.y
+    columns = [n for n in pheno_render.quadrants if n not in carriers.keys]
+    has_carriers = any(n in carriers.keys for n in pheno_render.quadrants)
+    all_na = not has_carriers and all_bands_na(node, columns)
+    fontsize = style.font_size * QUADRANT_FONT_SCALE
+
+    for name, position in pheno_render.quadrants.items():
+        x, y, w, h = quadrant_box(position, cx, cy, half)
+        hatch = None
+        if name in carriers.keys:
+            state = carrier_state(node, name)
+            if state in (CARRIER, OBLIGATE_CARRIER):
+                hatch = _hatch(carriers.pattern(name), state == OBLIGATE_CARRIER)
+            fill: Any = NA_FILL if state is None else "white"
+            text = "NA" if state is None and style.show_na_labels else None
+            text_color = NA_TEXT_COLOR
+        else:
+            cell = quadrant_cell(node, name, style, pheno_render, display_modes)
+            fill = cell.color
+            text = None if (cell.is_na and all_na) else cell.text
+            text_color = cell.text_color
+        rect = mpatches.Rectangle(
+            (x, y),
+            w,
+            h,
+            facecolor=fill,
+            edgecolor=style.fill_color if hatch else "none",
+            linewidth=0,
+            hatch=hatch,
+            zorder=4,
         )
-
-    # Draw shape outline on top (use outline_color from o_ phenotype if set)
-    oc = outline_color if outline_color else edgecolor
-    olw = linewidth * 2.5 if outline_color else linewidth
-    if node.sex == Sex.MALE:
-        _draw_square(ax, cx, cy, half, "none", oc, olw, linestyle)
-    elif node.sex == Sex.FEMALE:
-        _draw_circle(ax, cx, cy, half, "none", oc, olw, linestyle)
-    else:
-        _draw_diamond(ax, cx, cy, half, "none", oc, olw, linestyle)
-
-    # Legacy carrier notation: half-fill and dot, drawn on top of bands
-    if carriers.legacy:
-        if node.is_carrier:
-            _draw_carrier_half_fill(ax, cx, cy, half, node.sex, style)
-        if node.is_obligate_carrier:
-            _draw_obligate_carrier_dot(ax, cx, cy, style)
-
-    # Deceased marker
-    if node.is_deceased:
-        _draw_deceased_marker(ax, cx, cy, half, style)
-
-    # Proband marker. A rotated node gets its marker after rotation instead,
-    # so the "P" stays upright (see _render_layout).
-    if (node.is_proband or node.notation.is_consultand) and node.rotation == 0.0:
-        _draw_proband_marker(ax, cx - half, cy - half, half, style, letter=node.is_proband)
+        rect.set_clip_path(clip_patch)
+        ax.add_patch(rect)
+        if text is not None:
+            tx, ty = quadrant_center(position, cx, cy, half)
+            ax.text(
+                tx,
+                ty,
+                text,
+                fontsize=fontsize,
+                fontfamily=style.font_family,
+                fontweight="bold",
+                ha="center",
+                va="center",
+                color=text_color,
+                zorder=6,
+            )
+    return all_na
 
 
 def _draw_pgs_ridge(
@@ -1897,6 +2007,64 @@ def _draw_legend_hatch_row(
     _legend_row_label(ax, y_center, text, m.icon_text_x, m, style)
 
 
+def _draw_legend_quadrant_key(
+    ax: Axes,
+    y_center: float,
+    row: LegendRow,
+    m: LegendMetrics,
+    style: PedigreeStyle,
+) -> None:
+    """Draw the quadrant key: a square and a circle cut in four, labelled.
+
+    Geometry from `quadrant_key_geometry`, shared with the SVG legend.
+    """
+    g = quadrant_key_geometry(row, m, y_center)
+    sx, sy, sw, sh = g.square
+    ccx, ccy, rx, ry = g.circle
+    square = mpatches.Rectangle(
+        (sx, sy - sh / 2), sw, sh, facecolor="none", edgecolor="black", linewidth=1, zorder=3
+    )
+    circle = mpatches.Ellipse(
+        (ccx, ccy), 2 * rx, 2 * ry, facecolor="none", edgecolor="black", linewidth=1, zorder=3
+    )
+    for outline, (x0, y0, hw, hh) in (
+        (square, (sx, sy - sh / 2, sw / 2, sh / 2)),
+        (circle, (ccx - rx, ccy - ry, rx, ry)),
+    ):
+        clip: mpatches.Patch = (
+            mpatches.Ellipse((ccx, ccy), 2 * rx, 2 * ry, transform=ax.transData)
+            if outline is circle
+            else mpatches.Rectangle((x0, y0), 2 * hw, 2 * hh, transform=ax.transData)
+        )
+        for cell in row.quadrants:
+            qx = x0 + (hw if cell.position.endswith("right") else 0.0)
+            qy = y0 + (hh if cell.position.startswith("top") else 0.0)
+            hatch = _hatch(cell.pattern, False) if cell.pattern else None
+            patch = mpatches.Rectangle(
+                (qx, qy),
+                hw,
+                hh,
+                facecolor=cell.color,
+                edgecolor=style.fill_color if hatch else "none",
+                linewidth=0,
+                hatch=hatch,
+                zorder=2,
+            )
+            patch.set_clip_path(clip)
+            ax.add_patch(patch)
+        ax.add_patch(outline)
+    for x, y, text, anchor in g.labels:
+        ax.text(
+            x,
+            y,
+            text,
+            fontsize=m.fs,
+            fontfamily=style.font_family,
+            ha="right" if anchor == "end" else "left",
+            va="center",
+        )
+
+
 def _draw_legend(
     fig: Figure,
     phenotype_names: list[str],
@@ -1931,15 +2099,22 @@ def _draw_legend(
         return
 
     binary_headers = any(r.kind == "binary" for r in rows)
-    m = legend_metrics(len(rows), style, binary_headers=binary_headers)
+    m = legend_metrics(legend_slot_count(rows), style, binary_headers=binary_headers)
     ax = _add_legend_axes(fig, m)
     y_top = _draw_legend_header(ax, m, style)
+
+    # The quadrant key first, so the Affected / Unaffected / Unknown captions
+    # sit right above the swatch rows they head.
+    keys = [r for r in rows if r.kind == "quadrants"]
+    for row, y_center in zip(keys, legend_row_centers(keys, m, y_top), strict=True):
+        _draw_legend_quadrant_key(ax, y_center, row, m, style)
+    y_top -= legend_slot_count(keys) * m.row_h
+    rows = [r for r in rows if r.kind != "quadrants"]
 
     if binary_headers:
         y_top = _draw_legend_binary_headers(ax, y_top, m, style)
 
-    for i, row in enumerate(rows):
-        y_center = m.row_center(i, y_top)
+    for row, y_center in zip(rows, legend_row_centers(rows, m, y_top), strict=True):
         if row.kind == "gradient":
             _draw_legend_gradient_bar(ax, y_center, list(row.colors), row.low, row.high, m, style)
         elif row.kind == "categorical":

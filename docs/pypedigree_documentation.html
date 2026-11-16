@@ -466,6 +466,11 @@ FAM1       daughter   father  mother  2    1      0    0      0         0       
   Binary phenotypes (including standard 1/2 encoding) are rendered as: <strong>color</strong>=affected, <strong>white</strong>=unaffected, <strong>grey</strong>=unknown. No text labels are shown by default. To display YES/NO text inside the bands, use the <code>show_phenotype_labels</code> style option or the <code>--show-phenotype-labels</code> CLI flag.
 </div>
 
+<h3>Quadrant Layout</h3>
+<p>Instead of horizontal bands, <code>--phenotype-layout quadrants</code> (style <code>"phenotype_layout": "quadrants"</code>) cuts each symbol in four, one quadrant per phenotype column or <code>cr_</code> carrier source, up to four (more fall back to bands with a warning). A quadrant shows the same codes as a band; a gradient value is written alone. The legend starts with a key, a square and a circle cut in four with the column names around them.</p>
+<p>Autism (<code>Autism</code>, <code>ASD</code>, <code>TSA</code>), ADHD (<code>ADHD</code>, <code>TDAH</code>), intellectual disability (<code>ID</code>, <code>DI</code>) and epilepsy columns are recognised by name, whatever their prefix, case or order, and take the top-left, top-right, bottom-left and bottom-right quadrants; other columns take the free quadrants in column order, and <code>phenotype_quadrants</code> places any column, e.g. <code>{"IQ": "bottom-right"}</code>. In both layouts these four phenotypes are drawn in conventional colors by default: autism blue <code>#386eb2</code>, intellectual disability red <code>#d34436</code>, ADHD yellow <code>#e59635</code>, epilepsy purple <code>#5e287e</code>; <code>phenotype_colors</code> overrides them.</p>
+<pre><code>pypedigree family.ped --phenotype-layout quadrants -o family.png</code></pre>
+
 <h3>Separate Phenotype File</h3>
 <p>Extra phenotypes can also be supplied via a separate TSV file with the <code>--pheno</code> CLI flag:</p>
 <pre><code>sample_id  epilepsy  IQ    SRS
@@ -500,6 +505,7 @@ child      2         105   62</code></pre>
     <tr><td><code>--no-labels</code></td><td>Hide sample ID labels under shapes</td><td>Off</td></tr>
     <tr><td><code>--no-legend</code></td><td>Hide phenotype legend</td><td>Off</td></tr>
     <tr><td><code>--show-phenotype-labels</code></td><td>Show YES/NO text inside binary phenotype bands (hidden by default)</td><td>Off</td></tr>
+    <tr><td><code>--phenotype-layout</code></td><td><code>bands</code> (horizontal bands) or <code>quadrants</code> (the symbol cut in four, one quadrant per phenotype, up to four)</td><td>bands</td></tr>
     <tr><td><code>--no-na-labels</code></td><td>Do not write &ldquo;NA&rdquo; in bands with no data (they stay grey, like unknown)</td><td>Off</td></tr>
     <tr><td><code>--plink</code></td><td>Treat input as PLINK .ped file (ignore genotype columns after column 6)</td><td>Off</td></tr>
     <tr><td><code>--interactive</code></td><td>Generate interactive SVG with tooltips, click highlighting, and zoom/pan (same bands, legend and PGS curves as the PNG; not with <code>--circular</code>)</td><td>Off</td></tr>
@@ -1189,6 +1195,8 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>carrier_notation</code></td><td>str</td><td>"nsgc2022"</td><td><code>"nsgc2022"</code>: patterned sections, one per carrier result (Bennett et al. 2022). <code>"legacy"</code>: half-filled shape and center dot</td></tr>
     <tr><td><code>carrier_dot_radius</code></td><td>float</td><td>0.08</td><td>Radius of the center dot for obligate carriers (legacy notation)</td></tr>
     <tr><td><code>show_phenotype_labels</code></td><td>bool</td><td>False</td><td>Show YES/NO text inside binary phenotype bands</td></tr>
+    <tr><td><code>phenotype_layout</code></td><td>str</td><td>"bands"</td><td><code>"bands"</code> or <code>"quadrants"</code> (one quadrant per phenotype or carrier source, up to four)</td></tr>
+    <tr><td><code>phenotype_quadrants</code></td><td>dict</td><td>{}</td><td>Column name &rarr; <code>"top-left"</code>, <code>"top-right"</code>, <code>"bottom-left"</code> or <code>"bottom-right"</code>; other columns take their conventional or the next free quadrant</td></tr>
     <tr><td><code>show_na_labels</code></td><td>bool</td><td>True</td><td>Write &ldquo;NA&rdquo; in bands with no data; when false they stay grey with no text, like an &ldquo;unknown&rdquo; band</td></tr>
     <tr><td><code>pgs_colors</code></td><td>dict</td><td>{}</td><td>Map of PGS column name to hex color for marker line (e.g. <code>{"PGS_autism": "#3498db"}</code>)</td></tr>
     <tr><td><code>gradient_range</code></td><td>dict</td><td>{}</td><td>Custom min/max for gradient normalization (e.g. <code>{"SRS": [40, 90]}</code>)</td></tr>
@@ -1519,6 +1527,12 @@ export_fam(ped, "output.fam")  # Ready for PLINK/KING</code></pre>
 <figure class="example-img">
   <img src="imgs/examples/annotations.png" alt="Annotations with multi-PGS" style="max-width:700px">
   <figcaption>Annotations (gene names below IDs), diverging gradient (IQ), multi-PGS (colored markers), and zero-padded IDs</figcaption>
+</figure>
+
+<h3>Four Phenotypes in Quadrants</h3>
+<figure class="example-img">
+  <img src="imgs/examples/quadrants.png" alt="Four phenotypes, one quadrant each" style="max-width:100%">
+  <figcaption><code>quadrants.ped</code> (synthetic), <code>--phenotype-layout quadrants</code>: autism top left (blue), ADHD top right (yellow), intellectual disability bottom left (red), epilepsy bottom right (purple), and a red outline for sequenced individuals. 316 has no data at all</figcaption>
 </figure>
 
 <h3>Five Generations with Loops (81 individuals)</h3>

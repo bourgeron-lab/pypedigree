@@ -117,7 +117,14 @@ src/pypedigree/
    column to its effective mode (`binary`/`gradient`/`categorical`/`outline`/
    `carrier`/`pgs`) and, for categorical columns, to its value -> color mapping.
    `band_cell()` gives each band's color and text, `legend_rows()` the legend's
-   rows. The matplotlib renderer and the SVG renderer only translate these into
+   rows. With `phenotype_layout="quadrants"`, `with_quadrants()` stores in
+   `PhenotypeRender.quadrants` which quadrant each column or carrier source
+   takes (`assign_quadrants()`: `phenotype_quadrants`, then the conventional
+   quadrant of autism/ADHD/ID/epilepsy, then free ones in order; more than four
+   columns warn and fall back to bands), `quadrant_box()`/`quadrant_center()`
+   give the geometry (with an `up` sign for the SVG) and `quadrant_cell()` the
+   fill and shorter text. Conventional colors (`KNOWN_PHENOTYPE_COLORS`,
+   `known_phenotype()`) are applied in `config.resolve_style()`. The matplotlib renderer and the SVG renderer only translate these into
    artists or elements, so the PNG, its legend and the interactive SVG can never
    disagree. Put any new display decision there, not in a renderer. Nothing is
    cached in module-level state between renders.
@@ -150,7 +157,10 @@ src/pypedigree/
     never with the figure. Both renderers use it: `_add_legend_axes()` grows the
     matplotlib figure downward by the panel height rather than taking a share of
     the pedigree's, and `_svg_legend()` places the panel below the pedigree.
-    Each row type has its own drawing function. Legend geometry constants
+    Each row type has its own drawing function; the quadrant key row is two
+    rows tall (`LegendRow.slots`, `legend_slot_count()`, `legend_row_centers()`),
+    is drawn before the Affected/Unaffected/Unknown captions, and takes its
+    layout from `quadrant_key_geometry()`. Legend geometry constants
     (`LEG_*`) are not user-tunable style. `TestLegendPhysicalSize` checks it.
 
 ## File Format
@@ -247,6 +257,7 @@ pypedigree INPUT.ped [OPTIONS]
 --no-legend              Hide the phenotype legend
 --show-phenotype-labels  Show YES/NO text inside binary phenotype bands
 --no-na-labels           Do not write "NA" in bands with no data (style `show_na_labels`)
+--phenotype-layout [bands|quadrants]  Horizontal bands (default) or four quadrants, one per phenotype
 --interactive            Generate interactive SVG with tooltips and click highlighting
 --circular               Use circular/radial layout (founders at center, descendants on concentric rings)
 --plink                  Parse as PLINK format (ignore genotype columns after col 6)
@@ -314,6 +325,9 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   rotation, edge composition, arc waypoints, rendering across 15 fixtures
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
+- `tests/test_quadrants.py` — Quadrant layout: assignment (known names, explicit, free
+  order, more than four), validation, geometry, PNG/SVG/circular drawing, carrier
+  quadrant, legend key, CLI and style options
 - `tests/test_nomenclature.py` — Standard notation: parsing and codes, `symbols.py`
   decisions and geometry, layout (shape from gender, dashed adopted-in line,
   childless edges, circular direction), PNG and SVG drawing, builder

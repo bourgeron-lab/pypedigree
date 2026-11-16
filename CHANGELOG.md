@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Quadrant layout for phenotypes: `--phenotype-layout quadrants` (style
+  `phenotype_layout: "quadrants"`) cuts each symbol in four, one quadrant per
+  phenotype column or `cr_` carrier source, in the PNG, the interactive SVG and
+  the circular layout. Autism, ADHD, intellectual disability and epilepsy take
+  the top-left, top-right, bottom-left and bottom-right quadrants whatever the
+  column order; other columns the free ones in order; `phenotype_quadrants`
+  places any column. A quadrant shows the same codes as a band (color, white,
+  grey, grey with "NA"); a gradient value is written alone. The legend starts
+  with a key, a square and a circle cut in four with the column names around
+  them. With more than four columns the figure falls back to bands with a
+  `PedigreeStyleWarning`; an unknown layout or quadrant raises `PedigreeError`.
+  Horizontal bands stay the default. Gallery example:
+  `tests/data/phenotype/quadrants.ped` (synthetic).
+
+### Changed
+
+- Conventional colors for four phenotypes, recognised by column name (case,
+  accents, prefix and aliases such as `ASD`, `TSA`, `ID`, `DI`, `TDAH`
+  ignored): autism blue `#386eb2`, intellectual disability red `#d34436`, ADHD
+  yellow `#e59635`, epilepsy purple `#5e287e`, in both layouts. They apply to
+  any such column without a color in `phenotype_colors`, also when the user
+  colored other columns (those used to fall back to grey). The palette skips
+  its lookalike colors for the other columns, so figures with an autism, ADHD,
+  ID or epilepsy column change colors; figures without one are unchanged.
+
 ## [0.4.3] - 2026-11-16
 
 ### Added

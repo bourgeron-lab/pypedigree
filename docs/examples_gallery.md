@@ -133,7 +133,24 @@ Where `style.json` maps phenotype names to colors:
 {"phenotype_colors": {"epilepsy": "#e74c3c", "IQ": "#3498db", "SRS": "#e67e22"}}
 ```
 
-Colors are auto-assigned from a default palette if no `phenotype_colors` are provided.
+Colors are auto-assigned from a default palette if no `phenotype_colors` are provided. Autism (`ASD`, `TSA`), intellectual disability (`ID`, `DI`), ADHD (`TDAH`) and epilepsy columns get conventional colors instead: blue, red, yellow and purple; the palette then skips its own blue, red, orange/yellow and purple for the other columns.
+
+---
+
+## quadrants.ped (four phenotypes in quadrants)
+
+![Four phenotypes, one quadrant each](imgs/examples/quadrants.png)
+
+**Description**: Synthetic three-generation pedigree, written by `tests/data/generate_fixtures.py` from a fixed seed, with four binary phenotype columns (`b_Autism`, `b_ADHD`, `b_ID`, `b_Epilepsy`) and an `o_WGS` outline for the individuals with sequencing data.
+
+**Features**: `--phenotype-layout quadrants` cuts each symbol in four. Autism is top left in blue, ADHD top right in yellow, intellectual disability bottom left in red, epilepsy bottom right in purple: these four phenotypes are recognised by name (whatever the column order) and get their conventional quadrant and color. Other columns take the free quadrants in column order, and `phenotype_quadrants` in a style file places any column explicitly. A `cr_` carrier source takes a quadrant too, patterned. The legend starts with a key, a square and a circle cut in four with the column names around them. A symbol with no data at all (316) is grey with a single "NA".
+
+```bash
+pypedigree tests/data/phenotype/quadrants.ped --phenotype-layout quadrants -o quadrants.png
+# The figure above also colors the WGS outline red:
+echo '{"phenotype_colors": {"WGS": "#ea3323"}}' > style.json
+pypedigree tests/data/phenotype/quadrants.ped --phenotype-layout quadrants --style style.json -o quadrants.png
+```
 
 ---
 

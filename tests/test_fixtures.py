@@ -27,6 +27,7 @@ GENERATED = [
     "phenotype/test_all.ped",
     "phenotype/annotations.ped",
     "complex/multigenerational.ped",
+    "phenotype/quadrants.ped",
 ]
 
 # A letter followed by digit groups joined by hyphens: the shape of a study

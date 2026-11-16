@@ -64,6 +64,7 @@ from pypedigree.phenotypes import (
     LEG_X0,
     NA_FILL,
     NA_TEXT_COLOR,
+    QUADRANT_FONT_SCALE,
     SEPARATOR_COLOR,
     UNKNOWN_FILL,
     LegendRow,
@@ -71,15 +72,23 @@ from pypedigree.phenotypes import (
     active_pgs,
     all_bands_na,
     band_cell,
+    check_phenotype_layout,
     legend_metrics,
+    legend_row_centers,
     legend_rows,
+    legend_slot_count,
     outline_color,
     pgs_curve,
     pregnancy_loss_fill,
+    quadrant_box,
+    quadrant_cell,
+    quadrant_center,
+    quadrant_key_geometry,
     resolve_phenotype_render,
     text_color_on,
     to_hex,
     validate_style_colors,
+    with_quadrants,
 )
 
 
@@ -123,6 +132,8 @@ def render_interactive_svg(
         style.carrier_notation,
     )
     render = resolve_phenotype_render(pedigree, names, modes, style)
+    check_phenotype_layout(style)
+    render = with_quadrants(render, render.band_names(names), carriers, style)
     banded = bool(names and style.phenotype_colors and render.effective_modes)
     ctx = _SvgContext(
         style=style,
@@ -800,9 +811,15 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
         f'<defs><clipPath id="{clip}">{_svg_shape_outline(node, half)}/></clipPath></defs>',
         f'{_svg_shape_outline(node, half)} fill="white" stroke="none"/>',
     ]
-    all_na = not keys and all_bands_na(node, ctx.band_names)
+    band_names = ctx.band_names
+    if ctx.render.quadrants:
+        quadrants, all_na = _svg_quadrants(node, ctx, clip_attr)
+        out.extend(quadrants)
+        band_names, keys = [], []
+    else:
+        all_na = not keys and all_bands_na(node, band_names)
 
-    for i, name in enumerate(ctx.band_names):
+    for i, name in enumerate(band_names):
         cell = band_cell(node, name, style, ctx.render, ctx.display_modes)
         y = top + i * band_h
         out.append(
@@ -827,7 +844,7 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
             )
 
     for j, key in enumerate(keys):
-        y = top + (len(ctx.band_names) + j) * band_h
+        y = top + (len(band_names) + j) * band_h
         state = carrier_state(node, key)
         geometry = f'x="{left:.3f}" y="{y:.3f}" width="{width:.3f}" height="{band_h:.3f}"'
         fill = NA_FILL if state is None else "white"
@@ -866,6 +883,48 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
         f'stroke="{html.escape(border or style.outline_color)}" stroke-width="{sw:.3f}" {dash}/>'
     )
     return "\n".join(out)
+
+
+def _svg_quadrants(node: NodeLayout, ctx: _SvgContext, clip_attr: str) -> tuple[list[str], bool]:
+    """The symbol cut in four, one quadrant per phenotype or carrier source.
+
+    Mirrors `renderer._draw_quadrants`, from the same `quadrant_cell` and
+    `quadrant_box` decisions (with the y axis pointing down).
+
+    Returns:
+        The elements, and whether every quadrant has no data.
+    """
+    style, carriers = ctx.style, ctx.carriers
+    half = style.shape_size / 2
+    cx, cy = node.x, node.y
+    columns = [n for n in ctx.render.quadrants if n not in carriers.keys]
+    has_carriers = any(n in carriers.keys for n in ctx.render.quadrants)
+    all_na = not has_carriers and all_bands_na(node, columns)
+    fs = style.font_size * QUADRANT_FONT_SCALE * _PT
+    out: list[str] = []
+    for name, position in ctx.render.quadrants.items():
+        x, y, w, h = quadrant_box(position, cx, cy, half, up=-1.0)
+        geometry = f'x="{x:.3f}" y="{y:.3f}" width="{w:.3f}" height="{h:.3f}"'
+        text: str | None = None
+        color = NA_TEXT_COLOR
+        if name in carriers.keys:
+            state = carrier_state(node, name)
+            fill = NA_FILL if state is None else "white"
+            out.append(f'<rect class="band" {geometry} fill="{fill}" {clip_attr}/>')
+            if state in (CARRIER, OBLIGATE_CARRIER):
+                pid = _svg_pattern_id(carriers.pattern(name), state == OBLIGATE_CARRIER)
+                out.append(f'<rect {geometry} fill="url(#{pid})" {clip_attr}/>')
+            if state is None and style.show_na_labels:
+                text = "NA"
+        else:
+            cell = quadrant_cell(node, name, style, ctx.render, ctx.display_modes)
+            out.append(f'<rect class="band" {geometry} fill="{to_hex(cell.color)}" {clip_attr}/>')
+            if cell.text is not None and not (cell.is_na and all_na):
+                text, color = cell.text, cell.text_color
+        if text is not None:
+            tx, ty = quadrant_center(position, cx, cy, half, up=-1.0)
+            out.append(_svg_text(tx, ty, text, fs, style, color=color, weight="bold"))
+    return out, all_na
 
 
 def _svg_legacy_carrier(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
@@ -1071,7 +1130,7 @@ def _svg_legend(
         The SVG group and its bounding box.
     """
     binary_headers = any(r.kind == "binary" for r in rows)
-    m = legend_metrics(len(rows), style, binary_headers=binary_headers)
+    m = legend_metrics(legend_slot_count(rows), style, binary_headers=binary_headers)
     ux = LEG_UNIT_X_EM * style.font_size * _PT
     uy = LEG_UNIT_Y_EM * style.font_size * _PT
     fs = m.fs * _PT
@@ -1141,13 +1200,45 @@ def _svg_legend(
     text(2.5 + 0.25, v, "= Female", fs)
     y_top = v - 0.8
 
+    # The quadrant key first, so the captions sit above the swatch rows.
+    keys = [r for r in rows if r.kind == "quadrants"]
+    for row, vc in zip(keys, legend_row_centers(keys, m, y_top), strict=True):
+        g = quadrant_key_geometry(row, m, vc)
+        sx, sy, sw, sh = g.square
+        ccx, ccy, rx, _ry = g.circle
+        square = (
+            f'<rect x="{X(sx):.3f}" y="{Y(sy + sh / 2):.3f}" width="{sw * ux:.3f}" '
+            f'height="{sh * uy:.3f}"'
+        )
+        circle = f'<circle cx="{X(ccx):.3f}" cy="{Y(ccy):.3f}" r="{rx * ux:.3f}"'
+        for shape_id, outline, (u0, v_top) in (
+            ("legend-key-square", square, (sx, sy + sh / 2)),
+            ("legend-key-circle", circle, (ccx - rx, ccy + sh / 2)),
+        ):
+            body.append(f'<defs><clipPath id="{shape_id}">{outline}/></clipPath></defs>')
+            for cell in row.quadrants:
+                qx = X(u0 + (sw / 2 if cell.position.endswith("right") else 0.0))
+                qy = Y(v_top - (0.0 if cell.position.startswith("top") else sh / 2))
+                geometry = (
+                    f'x="{qx:.3f}" y="{qy:.3f}" width="{sw / 2 * ux:.3f}" '
+                    f'height="{sh / 2 * uy:.3f}" clip-path="url(#{shape_id})"'
+                )
+                body.append(f'<rect {geometry} fill="{html.escape(cell.color)}"/>')
+                if cell.pattern:
+                    pid = _svg_pattern_id(cell.pattern, False)
+                    body.append(f'<rect {geometry} fill="url(#{pid})"/>')
+            body.append(f'{outline} fill="none" stroke="black" stroke-width="{_PT:.3f}"/>')
+        for u, v, label, anchor in g.labels:
+            text(u, v, label, fs, anchor)
+    y_top -= legend_slot_count(keys) * m.row_h
+    rows = [r for r in rows if r.kind != "quadrants"]
+
     if binary_headers:
         for i, s in enumerate(("Affected", "Unaffected", "Unknown")):
             caption(m.swatch_x(i) + m.sw_w / 2, y_top, s, "middle")
         y_top -= LEG_BINARY_HEADER_H
 
-    for i, row in enumerate(rows):
-        vc = m.row_center(i, y_top)
+    for row, vc in zip(rows, legend_row_centers(rows, m, y_top), strict=True):
         if row.kind == "gradient":
             step = LEG_GRAD_W / len(row.colors)
             for k, rgb in enumerate(row.colors):

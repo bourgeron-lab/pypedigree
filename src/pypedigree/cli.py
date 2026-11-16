@@ -88,6 +88,13 @@ from pypedigree.renderer import render_pedigree
     help="Show YES/NO text labels inside binary phenotype bands.",
 )
 @click.option(
+    "--phenotype-layout",
+    type=click.Choice(["bands", "quadrants"]),
+    default=None,
+    help="How phenotypes divide a symbol: horizontal bands (default) or four "
+    "quadrants, one per column (up to four).",
+)
+@click.option(
     "--no-na-labels",
     is_flag=True,
     help='Do not write "NA" in bands with no data (they stay grey, like unknown).',
@@ -125,6 +132,7 @@ def main(
     no_legend: bool,
     show_phenotype_labels: bool,
     no_na_labels: bool,
+    phenotype_layout: str | None,
     interactive: bool,
     plink: bool,
     circular: bool,
@@ -158,6 +166,8 @@ def main(
                 style.show_phenotype_labels = True
             if no_na_labels:
                 style.show_na_labels = False
+            if phenotype_layout:
+                style.phenotype_layout = phenotype_layout
 
             # Parse — auto-detect .fam or use --plink flag
             if input_path.suffix.lower() == ".fam":

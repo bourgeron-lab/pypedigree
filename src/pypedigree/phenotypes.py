@@ -12,15 +12,16 @@ matplotlib), so a style accepts the same color names in both outputs.
 from __future__ import annotations
 
 import math
+import warnings
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
 import matplotlib.colors as mcolors
 
 from pypedigree.carriers import CarrierScheme
-from pypedigree.config import PedigreeStyle, is_pgs_column
-from pypedigree.errors import PedigreeError
+from pypedigree.config import PedigreeStyle, is_pgs_column, known_phenotype
+from pypedigree.errors import PedigreeError, PedigreeStyleWarning
 from pypedigree.models import Individual, NodeLayout, Pedigree, Phenotype, PhenotypeDisplayMode
 
 RGB = tuple[float, ...]
@@ -211,10 +212,15 @@ class PhenotypeRender:
             their values.
         categorical_colors: Column name → {category value → hex color}, for
             categorical columns only.
+        quadrants: With the "quadrants" layout, each phenotype column or
+            carrier source → its quadrant ("top-left", ...), in drawing
+            order. Empty with the "bands" layout, or when the figure has
+            more columns than quadrants.
     """
 
     effective_modes: dict[str, str] = field(default_factory=dict)
     categorical_colors: dict[str, dict[str, str]] = field(default_factory=dict)
+    quadrants: dict[str, str] = field(default_factory=dict)
 
     def effective(self, name: str) -> str:
         """Effective display mode of a column ("binary" if unknown)."""
@@ -465,6 +471,144 @@ def all_bands_na(node: _HasPhenotypes, band_names: Sequence[str]) -> bool:
     return all(is_na_value(node.extra_phenotypes.get(n)) for n in band_names)
 
 
+# --- Quadrants ----------------------------------------------------------------
+
+PHENOTYPE_LAYOUTS = ("bands", "quadrants")
+QUADRANT_POSITIONS = ("top-left", "top-right", "bottom-left", "bottom-right")
+# Conventional quadrant of the known phenotypes (see config.known_phenotype).
+KNOWN_PHENOTYPE_QUADRANTS = {
+    "autism": "top-left",
+    "adhd": "top-right",
+    "intellectual disability": "bottom-left",
+    "epilepsy": "bottom-right",
+}
+# A quadrant box reaches this far from the centre, relative to half the
+# shape size, so it covers the diamond too; it is clipped to the shape.
+QUADRANT_REACH = 1.5
+# Quadrant text, relative to the style's font size (bands use 0.75).
+QUADRANT_FONT_SCALE = 0.65
+
+
+def check_phenotype_layout(style: PedigreeStyle) -> None:
+    """Reject an unknown layout or quadrant name before anything is drawn.
+
+    Raises:
+        PedigreeError: If `phenotype_layout` is not "bands" or "quadrants",
+            or `phenotype_quadrants` names an unknown quadrant or puts two
+            columns in the same one.
+    """
+    if style.phenotype_layout not in PHENOTYPE_LAYOUTS:
+        raise PedigreeError(
+            f"Unknown phenotype_layout {style.phenotype_layout!r}: "
+            f"expected one of {', '.join(PHENOTYPE_LAYOUTS)}"
+        )
+    for name, position in style.phenotype_quadrants.items():
+        if position not in QUADRANT_POSITIONS:
+            raise PedigreeError(
+                f"phenotype_quadrants: {name!r} is given {position!r}; "
+                f"expected one of {', '.join(QUADRANT_POSITIONS)}"
+            )
+    positions = list(style.phenotype_quadrants.values())
+    shared = sorted({p for p in positions if positions.count(p) > 1})
+    if shared:
+        raise PedigreeError(f"phenotype_quadrants puts several columns in {', '.join(shared)}")
+
+
+def assign_quadrants(columns: Sequence[str], style: PedigreeStyle) -> dict[str, str]:
+    """The quadrant of each column, for the "quadrants" layout.
+
+    A column listed in `style.phenotype_quadrants` takes that quadrant; a
+    known phenotype its conventional one (autism top left, ADHD top right,
+    intellectual disability bottom left, epilepsy bottom right) when free;
+    the others the free quadrants in reading order.
+
+    Args:
+        columns: Phenotype band columns, then carrier sources, in order.
+        style: Resolved style.
+
+    Returns:
+        Column → quadrant, in the order of `columns`; empty with the
+        "bands" layout, without columns, or with more than four (a
+        `PedigreeStyleWarning` says so, and the figure uses bands).
+    """
+    if style.phenotype_layout != "quadrants" or not columns:
+        return {}
+    if len(columns) > len(QUADRANT_POSITIONS):
+        warnings.warn(
+            f"phenotype_layout 'quadrants' holds at most {len(QUADRANT_POSITIONS)} "
+            f"columns and this figure has {len(columns)} ({', '.join(columns)}): "
+            "drawn as bands",
+            PedigreeStyleWarning,
+            stacklevel=3,
+        )
+        return {}
+    assigned = {n: style.phenotype_quadrants[n] for n in columns if n in style.phenotype_quadrants}
+    free = [p for p in QUADRANT_POSITIONS if p not in assigned.values()]
+    for name in columns:
+        key = known_phenotype(name)
+        position = KNOWN_PHENOTYPE_QUADRANTS.get(key) if key else None
+        if name not in assigned and position in free:
+            assigned[name] = position
+            free.remove(position)
+    for name in columns:
+        if name not in assigned:
+            assigned[name] = free.pop(0)
+    return {name: assigned[name] for name in columns}
+
+
+def with_quadrants(
+    render: PhenotypeRender,
+    band_names: Sequence[str],
+    carriers: CarrierScheme,
+    style: PedigreeStyle,
+) -> PhenotypeRender:
+    """`render` with its quadrant assignment, once the carrier sources are known."""
+    return replace(render, quadrants=assign_quadrants([*band_names, *carriers.keys], style))
+
+
+def quadrant_box(
+    position: str, cx: float, cy: float, half: float, up: float = 1.0
+) -> tuple[float, float, float, float]:
+    """A quadrant's box, to be clipped to the symbol: (x, y, width, height).
+
+    (x, y) is the corner with the smallest coordinates in the drawing's own
+    axes, so the SVG renderer, whose y axis points down, passes ``up=-1``.
+    """
+    reach = half * QUADRANT_REACH
+    x = cx - reach if position.endswith("left") else cx
+    upper_in_drawing = position.startswith("top") == (up > 0)
+    y = cy if upper_in_drawing else cy - reach
+    return x, y, reach, reach
+
+
+def quadrant_center(
+    position: str, cx: float, cy: float, half: float, up: float = 1.0
+) -> tuple[float, float]:
+    """Where a quadrant's text goes: halfway between the centre and the corner."""
+    dx = -half / 2 if position.endswith("left") else half / 2
+    dy = half / 2 if position.startswith("top") else -half / 2
+    return cx + dx, cy + up * dy
+
+
+def quadrant_cell(
+    node: _HasPhenotypes,
+    name: str,
+    style: PedigreeStyle,
+    render: PhenotypeRender,
+    display_modes: Mapping[str, PhenotypeDisplayMode],
+) -> BandCell:
+    """Color and text of one phenotype quadrant: a band cell, shorter text.
+
+    A quadrant is half as wide as a band, so a gradient value is written
+    alone ("103"), without its column name, which the legend key gives.
+    """
+    cell = band_cell(node, name, style, render, display_modes)
+    if cell.is_na or render.effective(name) != "gradient":
+        return cell
+    raw = node.extra_phenotypes_raw.get(name)
+    return BandCell(cell.color, None if raw is None else f"{raw:g}", False)
+
+
 def outline_color(
     node: _HasPhenotypes, outline_names: Sequence[str], style: PedigreeStyle
 ) -> str | None:
@@ -504,6 +648,10 @@ LEG_REFERENCE_FONT = 8.0  # font size the marker sizes below are tuned for
 LEG_SWATCH_EDGE = "#cccccc"
 LEG_CAPTION_COLOR = "#999999"
 LEG_CATEGORY_COLOR = "#666666"
+LEG_KEY_SLOTS = 2  # rows taken by the quadrant key
+LEG_KEY_SIDE = 1.5  # height of the key's square and circle, in vertical units
+LEG_KEY_GAP = 0.12  # between the key's symbols and their labels
+LEG_CHAR_WIDTH_EM = 0.55  # average glyph width, to make room for labels
 
 
 @dataclass(frozen=True)
@@ -623,6 +771,7 @@ class LegendRow:
         pgs: PGS column → marker color ("pgs").
         pattern: Carrier pattern name ("carrier").
         obligate: Obligate-carrier row ("carrier", "legacy_carrier").
+        quadrants: Cells of the quadrant key ("quadrants"), one per column.
     """
 
     kind: str
@@ -635,6 +784,86 @@ class LegendRow:
     pgs: Mapping[str, str] = field(default_factory=dict)
     pattern: str = ""
     obligate: bool = False
+    quadrants: tuple[QuadrantKeyCell, ...] = ()
+
+    @property
+    def slots(self) -> int:
+        """Number of legend rows this row takes (the quadrant key takes two)."""
+        return LEG_KEY_SLOTS if self.kind == "quadrants" else 1
+
+
+@dataclass(frozen=True)
+class QuadrantKeyCell:
+    """One quadrant of the legend key: which column it shows, and how.
+
+    Attributes:
+        position: "top-left", "top-right", "bottom-left" or "bottom-right".
+        label: Column name, or the carrier source's label.
+        color: Fill (the column's color; white for a carrier source).
+        pattern: Carrier pattern name, for a carrier source.
+    """
+
+    position: str
+    label: str
+    color: str
+    pattern: str = ""
+
+
+@dataclass(frozen=True)
+class QuadrantKeyGeometry:
+    """Where the quadrant key's parts go, in legend units (y up).
+
+    The key is a square and a circle, each cut in four; left-quadrant labels
+    sit left of the square, right-quadrant labels right of the circle.
+
+    Attributes:
+        square: (x, y_center, width, height) of the square.
+        circle: (x_center, y_center, x_radius, y_radius) of the circle; the
+            radii differ in legend units so it is round on the page.
+        labels: (x, y, text, anchor) per label; anchor is "end" or "start".
+    """
+
+    square: tuple[float, float, float, float]
+    circle: tuple[float, float, float, float]
+    labels: tuple[tuple[float, float, str, str], ...]
+
+
+def legend_row_centers(rows: Sequence[LegendRow], m: LegendMetrics, y_top: float) -> list[float]:
+    """Vertical centre of each row, counting down from `y_top`."""
+    centers = []
+    slot = 0
+    for row in rows:
+        centers.append(y_top - (slot + row.slots / 2) * m.row_h)
+        slot += row.slots
+    return centers
+
+
+def legend_slot_count(rows: Sequence[LegendRow]) -> int:
+    """Rows of the panel the legend rows take (pass to `legend_metrics`)."""
+    return sum(r.slots for r in rows)
+
+
+def quadrant_key_geometry(row: LegendRow, m: LegendMetrics, y_center: float) -> QuadrantKeyGeometry:
+    """Lay out the quadrant key row centred on `y_center`."""
+    side_y = LEG_KEY_SIDE
+    side_x = side_y * m.unit_y / m.unit_x  # square on the page
+    char_w = LEG_CHAR_WIDTH_EM * (m.fs / 72) / m.unit_x
+    left = [c for c in row.quadrants if c.position.endswith("left")]
+    left_w = max((len(c.label) for c in left), default=0) * char_w
+    square_x = LEG_X0 + (left_w + LEG_KEY_GAP if left else 0.0)
+    circle_cx = square_x + side_x * 1.6 + side_x / 2
+    labels = []
+    for cell in row.quadrants:
+        v = y_center + (side_y / 4 if cell.position.startswith("top") else -side_y / 4)
+        if cell.position.endswith("left"):
+            labels.append((square_x - LEG_KEY_GAP, v, cell.label, "end"))
+        else:
+            labels.append((circle_cx + side_x / 2 + LEG_KEY_GAP, v, cell.label, "start"))
+    return QuadrantKeyGeometry(
+        square=(square_x, y_center, side_x, side_y),
+        circle=(circle_cx, y_center, side_x / 2, side_y / 2),
+        labels=tuple(labels),
+    )
 
 
 def pgs_legend_description(pgs_names: Sequence[str]) -> str:
@@ -654,10 +883,11 @@ def legend_rows(
 ) -> list[LegendRow]:
     """The rows of the legend, in drawing order.
 
-    One row per band column, then one per outline column, one shared row
-    for all PGS columns, and the carrier rows: the half-fill and dot rows
-    with the legacy notation, then one per carrier source and per
-    obligate-carrier source.
+    With the quadrant layout, a key showing which quadrant holds which
+    column comes first. Then one row per band column, one per outline
+    column, one shared row for all PGS columns, and the carrier rows: the
+    half-fill and dot rows with the legacy notation, then one per carrier
+    source and per obligate-carrier source.
     """
     rows: list[LegendRow] = []
     names = list(phenotype_names)
@@ -739,4 +969,24 @@ def legend_rows(
                     obligate=obligate,
                 )
             )
+
+    if render.quadrants:
+        # The key comes first: which quadrant holds which column.
+        cells = []
+        for name, position in render.quadrants.items():
+            if name in carriers.keys:
+                cells.append(
+                    QuadrantKeyCell(
+                        position, carriers.label(name, False), "white", carriers.pattern(name)
+                    )
+                )
+            elif render.effective(name) == "categorical":
+                cells.append(QuadrantKeyCell(position, name, LEG_CATEGORY_COLOR))
+            else:
+                cells.append(
+                    QuadrantKeyCell(
+                        position, name, style.phenotype_colors.get(name, FALLBACK_COLOR)
+                    )
+                )
+        rows.insert(0, LegendRow("quadrants", "", quadrants=tuple(cells)))
     return rows

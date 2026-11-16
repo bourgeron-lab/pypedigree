@@ -198,6 +198,19 @@ class TestVisualExtended:
         fig = render_pedigree(ped, style=style)
         _assert_visual_match(fig, "multigenerational", regen_golden)
 
+    def test_quadrants(self, regen_golden: bool) -> None:
+        """Four phenotypes in quadrants: autism, ADHD, ID, epilepsy, and an outline."""
+        ped = parse_pedigree(DATA_DIR / "phenotype/quadrants.ped")
+        fig = render_pedigree(ped, style=PedigreeStyle(phenotype_layout="quadrants"))
+        _assert_visual_match(fig, "quadrants", regen_golden)
+
+    def test_quadrants_with_gradient_and_carrier(self, regen_golden: bool) -> None:
+        """Quadrants holding a gradient value and a carrier source, on the large pedigree."""
+        ped = parse_pedigree(DATA_DIR / "complex/multigenerational.ped")
+        style = PedigreeStyle(phenotype_layout="quadrants")
+        fig = render_pedigree(ped, style=style)
+        _assert_visual_match(fig, "multigenerational_quadrants", regen_golden)
+
     def test_nomenclature(self, style: PedigreeStyle, regen_golden: bool) -> None:
         """Pregnancies, losses, adoption, childlessness, donor, gender, consultand."""
         ped = parse_pedigree(DATA_DIR / "nomenclature/nomenclature.ped")
