@@ -7,7 +7,7 @@ enough that most layout bugs only show up on real data.
 ## Getting set up
 
 ```bash
-git clone https://github.com/darkxander/Pypedigree.git
+git clone https://github.com/bourgeron-lab/pypedigree.git
 cd Pypedigree
 uv sync --extra dev --extra pandas
 ```

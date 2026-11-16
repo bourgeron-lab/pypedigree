@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://github.com/darkxander/Pypedigree/actions/workflows/ci.yml/badge.svg)](https://github.com/darkxander/Pypedigree/actions/workflows/ci.yml)
+[![Tests](https://github.com/bourgeron-lab/pypedigree/actions/workflows/ci.yml/badge.svg)](https://github.com/bourgeron-lab/pypedigree/actions/workflows/ci.yml)
 [![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
 
 Generate publication-quality pedigree (family tree) diagrams from standard pedigree files used in genetics research.
@@ -356,7 +356,7 @@ warnings.simplefilter("error", PedigreeDataWarning)  # fail on questionable data
 ## Development
 
 ```bash
-git clone https://github.com/darkxander/Pypedigree.git
+git clone https://github.com/bourgeron-lab/pypedigree.git
 cd pypedigree
 uv sync --extra dev
 

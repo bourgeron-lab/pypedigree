@@ -17,13 +17,16 @@ scripted from the repository.
    | Field | Value |
    |-------|-------|
    | PyPI project name | `pypedigree` |
-   | Owner | `darkxander` |
-   | Repository name | `Pypedigree` |
+   | Owner | `bourgeron-lab` |
+   | Repository name | `pypedigree` |
    | Workflow name | `release.yml` |
    | Environment name | `pypi` |
 
    The environment name must match the `environment: name: pypi` in the
-   workflow, or PyPI will reject the token.
+   workflow, or PyPI will reject the token. PyPI compares the owner,
+   repository and workflow names character for character, case included:
+   any difference fails the upload with `invalid-publisher` ("Publisher with
+   matching claims was not found").
 
 3. In the GitHub repository, go to **Settings → Environments → New
    environment** and create one named `pypi`. Adding a required reviewer

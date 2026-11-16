@@ -18,8 +18,8 @@ authors:
 version: 0.4.2
 date-released: "2026-11-16"
 license: MIT
-repository-code: "https://github.com/darkxander/Pypedigree"
-url: "https://github.com/darkxander/Pypedigree"
+repository-code: "https://github.com/bourgeron-lab/pypedigree"
+url: "https://github.com/bourgeron-lab/pypedigree"
 keywords:
   - pedigree
   - family tree

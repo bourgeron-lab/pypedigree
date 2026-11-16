@@ -35,9 +35,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/darkxander/Pypedigree"
-Repository = "https://github.com/darkxander/Pypedigree"
-Issues = "https://github.com/darkxander/Pypedigree/issues"
+Homepage = "https://github.com/bourgeron-lab/pypedigree"
+Repository = "https://github.com/bourgeron-lab/pypedigree"
+Issues = "https://github.com/bourgeron-lab/pypedigree/issues"
 
 [project.optional-dependencies]
 dev = [

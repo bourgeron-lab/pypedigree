@@ -53,6 +53,9 @@ see [0.4.0] for the breaking changes.
   generator labels annotations with `CHD8`, `ARID1B`, `ADNP` and `SYNGAP1`,
   and `phenotype/annotations.ped` and `phenotype/test_all.ped` were
   regenerated with them.
+- The project lives at <https://github.com/bourgeron-lab/pypedigree>;
+  project URLs, the README badge, `CITATION.cff` and the documentation point
+  there.
 - `complex/synesthesia.ped` is generated with a random shape: founders 1
   and 2, thirteen children of whom one or two stay single, and 1 to 4
   children for each couple (55 individuals, 12 couples). It no longer keeps
@@ -324,7 +327,7 @@ control.
   CI on every release.
 - `Development Status` classifier raised from `3 - Alpha` to `4 - Beta`.
 - Project URLs, README badge and documentation now point at
-  `github.com/darkxander/Pypedigree`.
+  `github.com/bourgeron-lab/pypedigree`.
 
 - **`requires-python` lowered from `>=3.12` to `>=3.10`.** The 3.12 floor was
   arbitrary: the full suite passes on 3.10 and 3.11, and the only 3.10-specific
