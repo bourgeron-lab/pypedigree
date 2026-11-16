@@ -104,16 +104,17 @@ Run the workflow manually from the **Actions** tab with `dry_run` left at
 
 ## Making the release citable
 
-Once the GitHub release exists, connect the repository to
-[Zenodo](https://zenodo.org/account/settings/github/) to mint a DOI for each
-release. Add that DOI to `CITATION.cff` as:
+The repository is connected to
+[Zenodo](https://zenodo.org/account/settings/github/): each published GitHub
+release is archived there and gets its own version DOI, with no action needed.
+`CITATION.cff` and the README cite the concept DOI,
+[10.5281/zenodo.24289471](https://doi.org/10.5281/zenodo.24289471), which covers every version and
+resolves to the latest, so they need no change per release. 0.4.4 was the
+first release archived (10.5281/zenodo.24289472).
 
-```yaml
-identifiers:
-  - type: doi
-    value: 10.5281/zenodo.XXXXXXX
-    description: Archived snapshot of this release
-```
+If a release does not appear on Zenodo, check the webhook deliveries in
+**Settings → Webhooks**: Zenodo acts on the `release` event with action
+`published` (a 500 on the `released` action is harmless).
 
 GitHub reads `CITATION.cff` and shows a **Cite this repository** button on the
 repository page.
