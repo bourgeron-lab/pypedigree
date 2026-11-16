@@ -194,6 +194,9 @@ class Individual:
         duplicate_of: Sample ID of the original if this is a duplicate.
         notation: Pregnancy, adoption, childlessness, assisted reproduction,
             gender identity and consultand status (see ``Notation``).
+        is_unknown_offspring: A placeholder child the layout adds under a
+            couple that is alone in its family with no child in the file,
+            drawn as a "?" (see ``layout.with_unknown_offspring``).
     """
 
     sample_id: str
@@ -216,6 +219,7 @@ class Individual:
     extra_phenotypes_categorical: dict[str, str | None] = field(default_factory=dict)
     annotations: dict[str, str] = field(default_factory=dict)
     notation: Notation = field(default_factory=Notation)
+    is_unknown_offspring: bool = False
 
     @property
     def is_founder(self) -> bool:
@@ -345,6 +349,8 @@ class NodeLayout:
         notes: Notation text written below the label, such as "SB" or "AMAB".
         marker_depth: Room taken below the symbol by a childlessness marker;
             the label is moved down by it.
+        is_unknown_offspring: Drawn as a "?" at the end of the descent line,
+            with no symbol and no label.
     """
 
     individual_id: str
@@ -371,6 +377,7 @@ class NodeLayout:
     notation: Notation = field(default_factory=Notation)
     notes: list[str] = field(default_factory=list)
     marker_depth: float = 0.0
+    is_unknown_offspring: bool = False
 
 
 @dataclass

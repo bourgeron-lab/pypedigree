@@ -198,6 +198,12 @@ class TestVisualExtended:
         fig = render_pedigree(ped, style=style)
         _assert_visual_match(fig, "multigenerational", regen_golden)
 
+    def test_couple_only(self, regen_golden: bool) -> None:
+        """A family of two parents and no child: their couple and a "?" below."""
+        ped = parse_pedigree(DATA_DIR / "basic/couple_only.ped")
+        fig = render_pedigree(ped, style=PedigreeStyle(phenotype_layout="quadrants"))
+        _assert_visual_match(fig, "couple_only", regen_golden)
+
     def test_quadrants(self, regen_golden: bool) -> None:
         """Four phenotypes in quadrants: autism, ADHD, ID, epilepsy, and an outline."""
         ped = parse_pedigree(DATA_DIR / "phenotype/quadrants.ped")

@@ -229,6 +229,7 @@ layout = compute_layout(family, style=PedigreeStyle())
 
 #### Layout pipeline
 
+0. **Couple alone in its family** — A family holding only two parents, a man and a woman, both founders, with no child in the file (a trio whose child is missing, say) is drawn as their couple, father on the left, with a descent line to a "?" instead of two unrelated symbols. The pedigree itself is not changed. `with_unknown_offspring(family)` (in `pypedigree.layout`) returns a copy with a placeholder child (`is_unknown_offspring=True`) and the couple's union, or the family itself.
 1. **Assign generations** — BFS from founders using a parent→child index, then partners are aligned and children propagated until every child sits below both parents. A duplicate node stands on the generation of the individual it repeats.
 2. **Compute horizontal positions** — Each union's descendants form a block. Sibling blocks are packed left to right against each other's contours, generation by generation, and every couple is centred over its children. Nodes on a row stay at least `sibling_gap` apart (`couple_gap` between partners), and the children of one union occupy a stretch of their row that no other sibship enters.
 3. **Break tangled loops** — A loop partner (both partners descend from people in the pedigree) is drawn next to their partner, with their parents' sibship line stretched to reach them. Step 2 orders siblings so the two branches of a loop meet: each ancestor on one side is placed last among their siblings, each on the other side first. Where the stretched line would still overlap another sibship, the partner is drawn twice instead: among their siblings, and as a duplicate next to their partner, joined by a dotted arc. One loop is broken per group of overlapping lines, then steps 1-2 are repeated, so no loop is broken that another break made unnecessary. The input family is never modified; the duplicates appear as extra nodes with `is_duplicate=True`.
@@ -445,6 +446,7 @@ Represents one person in the pedigree.
 | `is_deceased` | `bool` | Whether the individual is deceased |
 | `is_proband` | `bool` | Whether this is the proband |
 | `is_phantom` | `bool` | Whether this is a generated phantom parent |
+| `is_unknown_offspring` | `bool` | The placeholder child the layout adds under a couple alone in its family (drawn as "?") |
 | `is_duplicate` | `bool` | Whether this is a duplicate node |
 | `is_carrier` | `bool` | Whether this is a carrier (`carrier` column = 1) |
 | `is_obligate_carrier` | `bool` | Whether this is an obligate carrier (`carrier` column = 2) |
@@ -505,7 +507,7 @@ Top-level container for multiple families.
 
 | Type | Key Fields | Description |
 |------|------------|-------------|
-| `NodeLayout` | `individual_id, x, y, sex, phenotype, is_deceased, is_proband, is_phantom, is_duplicate, is_carrier, is_obligate_carrier, label, extra_phenotypes, extra_phenotypes_raw, annotations, pgs_side, notation, notes, marker_depth` | Position and attributes of one node. `sex` is the shape drawn (from the gender identity when given); `is_deceased` includes stillbirths. `annotations: list[str]` contains annotation lines to display below the ID label, after `notes` ("SB", "ECT", "AMAB", "AFAB"). `marker_depth` is the room a childlessness marker takes below the symbol; the label moves down by it. `pgs_side: str` indicates PGS curve placement ("left" or "right"). |
+| `NodeLayout` | `individual_id, x, y, sex, phenotype, is_deceased, is_proband, is_phantom, is_duplicate, is_carrier, is_obligate_carrier, label, extra_phenotypes, extra_phenotypes_raw, annotations, pgs_side, notation, notes, marker_depth, is_unknown_offspring` | Position and attributes of one node. `is_unknown_offspring` marks the placeholder child of a couple alone in its family: drawn as a "?", with no symbol, label or tooltip. `sex` is the shape drawn (from the gender identity when given); `is_deceased` includes stillbirths. `annotations: list[str]` contains annotation lines to display below the ID label, after `notes` ("SB", "ECT", "AMAB", "AFAB"). `marker_depth` is the room a childlessness marker takes below the symbol; the label moves down by it. `pgs_side: str` indicates PGS curve placement ("left" or "right"). |
 | `EdgeLayout` | `start, end, edge_type, line_style, waypoints` | A connection line segment (waypoints for polyline/curved edges) |
 | `TwinConnector` | `convergence_point, child_positions, twin_type` | V-lines for twin groups |
 | `DuplicateArc` | `from_pos, to_pos` | Dotted arc between duplicate nodes |

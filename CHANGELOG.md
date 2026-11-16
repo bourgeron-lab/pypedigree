@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A family holding only two parents, a man and a woman, with no child in the
+  file (a trio whose child is missing) is drawn as their couple, father on the
+  left, with a descent line to a "?", instead of two unrelated symbols, in
+  the PNG, the SVG and the circular layout. The layout adds a placeholder
+  child (`with_unknown_offspring`, `is_unknown_offspring`); the parsed
+  pedigree and an exported `.fam` are unchanged.
+
 - Quadrant layout for phenotypes: `--phenotype-layout quadrants` (style
   `phenotype_layout: "quadrants"`) cuts each symbol in four, one quadrant per
   phenotype column or `cr_` carrier source, in the PNG, the interactive SVG and

@@ -137,6 +137,16 @@ Colors are auto-assigned from a default palette if no `phenotype_colors` are pro
 
 ---
 
+## couple_only.ped (parents without children)
+
+**Description**: A family with only the two parents in the file, as when a trio's child is missing. Instead of two unrelated symbols, pypedigree draws their couple, father on the left even though the mother comes first in the file, with a descent line to a "?". The rule applies to a family of exactly two founders, a man and a woman; the pedigree data are not changed (an exported `.fam` holds the two parents only).
+
+```bash
+pypedigree tests/data/basic/couple_only.ped --phenotype-layout quadrants -o couple_only.png
+```
+
+---
+
 ## quadrants.ped (four phenotypes in quadrants)
 
 ![Four phenotypes, one quadrant each](imgs/examples/quadrants.png)

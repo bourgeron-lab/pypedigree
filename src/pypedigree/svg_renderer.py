@@ -377,6 +377,22 @@ def _render_family_svg(
 
     empty: dict[str, list[str]] = {"parents": [], "children": [], "siblings": []}
     for i, node in enumerate(layout.nodes):
+        if node.is_unknown_offspring:
+            # A placeholder child: a "?", with no tooltip or highlighting.
+            qx, qy = symbols.unknown_offspring_anchor(node.x, node.y, style.shape_size / 2, up=-1.0)
+            parts.append(
+                _svg_text(
+                    qx,
+                    qy,
+                    symbols.UNKNOWN_OFFSPRING_TEXT,
+                    style.font_size * symbols.UNKNOWN_OFFSPRING_FONT_SCALE * _PT,
+                    style,
+                    color=style.outline_color,
+                    baseline="hanging",
+                    cls="unknown-offspring",
+                )
+            )
+            continue
         ind = family.individuals.get(node.individual_id)
         adj = adjacency.get(node.individual_id, empty)
         parts.append(_svg_node(node, ind, adj, ctx, f"{prefix}n{i}"))
