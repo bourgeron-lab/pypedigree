@@ -67,8 +67,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PedigreeStyleWarning`; an unknown layout or quadrant raises `PedigreeError`.
   Horizontal bands stay the default. Gallery example:
   `tests/data/phenotype/quadrants.ped` (synthetic).
+- SVG for web pages and printed reports: `render_svg()` (and
+  `PedigreeBuilder.render_svg()`, CLI `--interactive --no-script`) writes the
+  same drawing as `render_interactive_svg()` without script or tooltip group;
+  each individual keeps its `<title>` and `data-*` attributes. Both take
+  `id_prefix=` (CLI `--id-prefix`), prepended to every id and every
+  `url(#...)` / `href="#..."` reference, so several figures can share a page,
+  and `responsive=True` (CLI `--responsive`), which writes `width="100%"`
+  and no height, keeping the `viewBox`. An invalid prefix raises `ValueError`
+  (bourgeron-lab/pypedigree#4).
 
 ### Changed
+
+- Interactive SVG, inlined in a page: the root `<svg>` has the class
+  `pypedigree`, and its CSS applies only under it (no more page-wide `.node`,
+  `.edge` or `text` rules). The script acts only on its own root
+  (`document.currentScript.closest('svg')`), not the page's first SVG, and
+  listens on that root only (pointer capture for panning, no listener on the
+  window). Opened on its own the wheel still zooms; inlined in a page only
+  Ctrl/Cmd + wheel (or a trackpad pinch) zooms, so the page keeps scrolling
+  (bourgeron-lab/pypedigree#4).
 
 - Conventional colors for four phenotypes, recognised by column name (case,
   accents, prefix and aliases such as `ASD`, `TSA`, `ID`, `DI`, `TDAH`

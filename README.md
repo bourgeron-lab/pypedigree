@@ -82,6 +82,9 @@ pypedigree family.ped --show
 # Interactive SVG with tooltips and click highlighting
 pypedigree family.ped --interactive -o family.svg
 
+# The same SVG for a web page or a printed report: no script, unique ids, fluid width
+pypedigree family.ped --interactive --no-script --id-prefix fam1- --responsive -o family.svg
+
 # Four quadrants instead of horizontal bands (up to four phenotypes)
 pypedigree family.ped --phenotype-layout quadrants -o family.png
 
@@ -96,6 +99,14 @@ pypedigree family.ped --circular -o family_radial.png
 > listing every phenotype value. Several families are drawn side by side.
 > Only the circular layout (`--circular`) is not available in interactive
 > mode.
+>
+> The SVG can be inlined in a page next to other SVGs: its root has the class
+> `pypedigree`, its CSS only applies under it and its script only acts on its
+> own figure. `--id-prefix` (`id_prefix=`) makes its ids unique on the page,
+> `--responsive` (`responsive=True`) makes it fill its container's width, and
+> `--no-script` (`render_svg()`) drops the script and tooltip for print or for
+> a page that adds its own behaviour. Inlined in a page, Ctrl + wheel zooms and
+> the plain wheel scrolls the page.
 
 ### Python API
 
@@ -141,6 +152,9 @@ fig = builder.render(output="family.png")
 
 # Interactive SVG output
 svg = builder.render_interactive_svg(output="family.svg")
+
+# Static SVG for a page or a report: no script, prefixed ids, fluid width
+svg = builder.render_svg(id_prefix="fam1-", responsive=True)
 ```
 
 ### PLINK Integration
@@ -345,6 +359,9 @@ Options:
   --phenotype-layout [bands|quadrants]
                                  Horizontal bands (default) or four quadrants, one per phenotype
   --interactive                  Generate interactive SVG with tooltips and click highlighting
+  --no-script                    With --interactive: same SVG without script or tooltip (print, host pages)
+  --id-prefix PREFIX             With --interactive: prepend PREFIX to every id in the SVG
+  --responsive                   With --interactive: width="100%" and no height (fills its container)
   --circular                     Use circular/radial layout (founders at center)
   --plink                        Parse as PLINK format (ignore genotype columns)
   --version                      Show version
