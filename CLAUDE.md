@@ -93,6 +93,14 @@ src/pypedigree/
    under the twin connector; loop partners keep their forced right side.
    `TestTwinSpouses` checks it.
 
+   A family of exactly two founders, a man and a woman, with no union
+   (parents whose child is missing) gets a placeholder child from
+   `with_unknown_offspring()` before placement (`Individual.is_unknown_offspring`),
+   so the couple, father left, and its descent line are laid out as usual; both
+   renderers draw that node as a "?" (`symbols.unknown_offspring_anchor`) with no
+   symbol, label or tooltip. The parsed `Family` is not modified.
+   `tests/test_unknown_offspring.py` checks it.
+
 4. **renderer.py never computes positions.** It only draws from
    pre-computed FamilyLayout objects. It supports waypoint-based
    polyline edges for curved/non-orthogonal connections (circular layout).
@@ -329,6 +337,8 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   rotation, edge composition, arc waypoints, rendering across 15 fixtures
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
+- `tests/test_unknown_offspring.py` — A couple alone in its family: when the
+  placeholder child is added, father left, "?" in PNG and SVG, no node or tooltip
 - `tests/test_quadrants.py` — Quadrant layout: assignment (known names, explicit, free
   order, more than four), validation, geometry, PNG/SVG/circular drawing, carrier
   quadrant, legend key, CLI and style options

@@ -10,6 +10,7 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 ## Features
 
 - **Standard pedigree symbols**: squares (male), circles (female), diamonds (unknown sex), with affected/unaffected fill
+- **Parents without children**: a family holding only the two parents (no child in the file) is drawn as their couple, father on the left, with a descent line to a "?".
 - **Multi-phenotype rendering**: horizontal color bands for multiple phenotypes per individual (binary: 0=unknown/grey, -9=no data/grey with "NA"; continuous: gradient), or the symbol cut in four quadrants, one per phenotype (`--phenotype-layout quadrants`). Autism, intellectual disability, ADHD and epilepsy columns get conventional colors (blue, red, yellow, purple) and quadrants (top left, bottom left, top right, bottom right). The legend always matches the bands it describes; it is sized from the font, so it reads the same under a 4-person pedigree as under a 45-person one.
 - **PGS (Polygenic Score) curves**: gaussian distribution with individual score marker, drawn alongside each node. Supports multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) with colored markers on a single curve.
 - **Annotations**: columns with `a_` prefix in .ped header display italic grey text below individual ID labels. Also loadable from external file via `--annotations`.

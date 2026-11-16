@@ -338,3 +338,7 @@ Not covered: several individuals in one symbol ("n"), documented evaluation
 ("*"), the asymptomatic-carrier vertical line, and childlessness of a couple
 (drawn from the relationship line in the NSGC figures; here the marker hangs
 from one individual).
+
+## Families with only the parents
+
+A family holding only two parents, a man and a woman, both founders, with no child in the file (a trio whose child is missing, say) is drawn as their couple, father on the left, with a descent line to a "?" instead of two unrelated symbols. The pedigree itself is not changed. The rule applies only to a family of exactly two individuals, of opposite sex, neither with parents in the file.

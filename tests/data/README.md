@@ -24,7 +24,7 @@ reproduction case to a fabricated file that still shows the bug.
 
 | Directory | What it covers |
 |-----------|----------------|
-| `basic/` | Trios, sibships, three generations, multiple families |
+| `basic/` | Trios, sibships, three generations, multiple families, parents without children (`couple_only.ped`) |
 | `extended/` | Deceased, proband, date-of-birth ordering, partial column sets |
 | `twins/` | Monozygotic, dizygotic, unknown zygosity, triplets, one-sided |
 | `consanguinity/` | First cousins, uncle–niece, sibling union |

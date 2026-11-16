@@ -381,6 +381,20 @@ def _render_layout(
 
     # Draw nodes on top
     for node in layout.nodes:
+        if node.is_unknown_offspring:
+            # A placeholder child (couple alone in its family): a "?" where
+            # the symbol would be, nothing else.
+            ax.text(
+                *symbols.unknown_offspring_anchor(node.x, node.y, style.shape_size / 2),
+                symbols.UNKNOWN_OFFSPRING_TEXT,
+                fontsize=style.font_size * symbols.UNKNOWN_OFFSPRING_FONT_SCALE,
+                fontfamily=style.font_family,
+                ha="center",
+                va="top",
+                color=style.outline_color,
+                zorder=5,
+            )
+            continue
         # Count elements before drawing to apply rotation afterwards
         n_patches_before = len(ax.patches)
         n_lines_before = len(ax.lines)
