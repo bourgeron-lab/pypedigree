@@ -313,6 +313,7 @@ Options:
   --no-labels                    Hide sample ID labels
   --no-legend                    Hide the phenotype legend
   --show-phenotype-labels        Show YES/NO text labels inside binary phenotype bands
+  --no-na-labels                 Do not write "NA" in bands with no data (they stay grey)
   --interactive                  Generate interactive SVG with tooltips and click highlighting
   --circular                     Use circular/radial layout (founders at center)
   --plink                        Parse as PLINK format (ignore genotype columns)

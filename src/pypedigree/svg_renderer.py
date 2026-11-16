@@ -838,14 +838,14 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
         out.append(
             f'<line x1="{left:.3f}" y1="{y:.3f}" x2="{left + width:.3f}" y2="{y:.3f}" {sep}/>'
         )
-        if state is None:
+        if state is None and style.show_na_labels:
             out.append(
                 _svg_text(
                     cx, y + band_h / 2, "NA", band_fs, style, color=NA_TEXT_COLOR, weight="bold"
                 )
             )
 
-    if all_na:
+    if all_na and style.show_na_labels:
         out.append(
             _svg_text(
                 cx,

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `PedigreeStyle.show_na_labels` (default `True`) and the `--no-na-labels`
+  CLI flag: with the option off, bands with no data (`-9`, `NA`, empty),
+  `cr_` bands with no data and the centred "NA" of a symbol with no data at
+  all are drawn grey without the "NA" text, in the PNG and the interactive
+  SVG. They then look like an "unknown" (`0`) band.
+
 ## [0.4.2] - 2026-11-16
 
 First release of the 0.4 series on PyPI. 0.4.0 and 0.4.1 were tagged on

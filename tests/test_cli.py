@@ -269,3 +269,18 @@ class TestPhenoFileWarning:
         )
         assert result.exit_code == 0, result.output
         assert "Warning" not in result.output
+
+
+class TestNoNaLabels:
+    def test_flag_hides_na_text(self, runner, tmp_path):
+        ped = tmp_path / "na.ped"
+        ped.write_text("FID\tID\tFather\tMother\tSex\tb_X\nF\ta\t0\t0\t1\t-9\nF\tb\t0\t0\t2\t2\n")
+        shown = tmp_path / "shown.svg"
+        hidden = tmp_path / "hidden.svg"
+        assert runner.invoke(main, [str(ped), "--interactive", "-o", str(shown)]).exit_code == 0
+        result = runner.invoke(
+            main, [str(ped), "--interactive", "--no-na-labels", "-o", str(hidden)]
+        )
+        assert result.exit_code == 0, result.output
+        assert ">NA<" in shown.read_text()
+        assert ">NA<" not in hidden.read_text()

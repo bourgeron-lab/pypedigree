@@ -197,7 +197,7 @@ Smart header-based column mapping:
 Multi-phenotype support:
 - Inline phenotypes parsed from columns 11+ when header is present
 - Separate .pheno TSV file via `--pheno` CLI option
-- Binary phenotypes: 1=unaffected (white), 2=affected (color), 0=unknown (grey), -9=no data (grey with "NA" text: `NA_FILL`, the grey of 0, and `NA_TEXT_COLOR`; a `cr_` band with no data too)
+- Binary phenotypes: 1=unaffected (white), 2=affected (color), 0=unknown (grey), -9=no data (grey with "NA" text: `NA_FILL`, the grey of 0, and `NA_TEXT_COLOR`; a `cr_` band with no data too; `show_na_labels=False` / `--no-na-labels` drops the text, leaving plain grey)
 - When all bands are NA for an individual, a single centered "NA" is shown instead of repeating per band
 - Continuous phenotypes → color gradient bands
 - PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve. Multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) show colored markers on a single curve. Marker colors via `pgs_colors` style option. `couple_gap` and `sibling_gap` auto-increase when PGS present.
@@ -246,6 +246,7 @@ pypedigree INPUT.ped [OPTIONS]
 --no-labels              Hide sample ID labels
 --no-legend              Hide the phenotype legend
 --show-phenotype-labels  Show YES/NO text inside binary phenotype bands
+--no-na-labels           Do not write "NA" in bands with no data (style `show_na_labels`)
 --interactive            Generate interactive SVG with tooltips and click highlighting
 --circular               Use circular/radial layout (founders at center, descendants on concentric rings)
 --plink                  Parse as PLINK format (ignore genotype columns after col 6)

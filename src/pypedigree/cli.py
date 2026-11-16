@@ -88,6 +88,11 @@ from pypedigree.renderer import render_pedigree
     help="Show YES/NO text labels inside binary phenotype bands.",
 )
 @click.option(
+    "--no-na-labels",
+    is_flag=True,
+    help='Do not write "NA" in bands with no data (they stay grey, like unknown).',
+)
+@click.option(
     "--interactive",
     is_flag=True,
     help="Generate interactive SVG with tooltips and click highlighting.",
@@ -119,6 +124,7 @@ def main(
     no_labels: bool,
     no_legend: bool,
     show_phenotype_labels: bool,
+    no_na_labels: bool,
     interactive: bool,
     plink: bool,
     circular: bool,
@@ -150,6 +156,8 @@ def main(
                 style.carrier_notation = carrier_notation
             if show_phenotype_labels:
                 style.show_phenotype_labels = True
+            if no_na_labels:
+                style.show_na_labels = False
 
             # Parse — auto-detect .fam or use --plink flag
             if input_path.suffix.lower() == ".fam":
