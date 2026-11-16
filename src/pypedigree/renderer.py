@@ -1384,7 +1384,7 @@ def _draw_banded_node(
             clip_path=clip_patch,
             clip_on=True,
         )
-        if state is None:
+        if state is None and style.show_na_labels:
             ax.text(
                 cx,
                 band_top - band_height / 2,
@@ -1399,7 +1399,7 @@ def _draw_banded_node(
             )
 
     # If all bands are NA, draw a single centered "NA" label
-    if all_na and band_names:
+    if all_na and band_names and style.show_na_labels:
         ax.text(
             cx,
             cy,

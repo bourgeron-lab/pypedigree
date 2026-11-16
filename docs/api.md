@@ -549,6 +549,7 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `base_radius` | `3.0` | Radius of the innermost ring in circular layout |
 | `phenotype_colors` | `{}` | Map of phenotype name to hex color (e.g. `{"IQ": "#3498db"}`) |
 | `show_phenotype_labels` | `False` | Show YES/NO text labels inside binary phenotype bands |
+| `show_na_labels` | `True` | Write "NA" in bands with no data (`-9`, `NA`, empty). When `False` they stay grey with no text, so they look like an "unknown" (`0`) band |
 | `pgs_colors` | `{}` | Map of PGS column name to hex color for the marker line (default marker color: `#e74c3c`) |
 | `gradient_range` | `{}` | Custom min/max for gradient normalization, e.g. `{"SRS": [40, 90]}` |
 | `gradient_diverging` | `{}` | Tricolor diverging gradient config, e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}` |

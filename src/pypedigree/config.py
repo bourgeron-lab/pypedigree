@@ -69,6 +69,10 @@ class PedigreeStyle:
     # Show YES/NO text labels inside binary phenotype bands (default: color only)
     show_phenotype_labels: bool = False
 
+    # Write "NA" in bands with no data (-9 / NA / empty). Without it, a band
+    # with no data is the same plain grey as an "unknown" (0) one.
+    show_na_labels: bool = True
+
     # PGS curve colors (PGS column name -> hex color, e.g. {"PGS_autism": "#3498db"})
     pgs_colors: dict[str, str] = field(default_factory=dict)
 

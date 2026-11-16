@@ -372,6 +372,43 @@ class TestNoDataIsGrey:
         assert NA_FILL == UNKNOWN_FILL
         assert (unknown.color, unknown.text, unknown.is_na) == (UNKNOWN_FILL, None, False)
 
+    def test_na_labels_can_be_hidden(self):
+        """show_na_labels=False keeps the grey band but writes nothing."""
+        pedigree = parse_pedigree_from_string(self.TEXT)
+        style, ctx = _render_context(pedigree, PedigreeStyle(show_na_labels=False))
+        mum = pedigree.families["F"].individuals["mum"]
+        cell = band_cell(mum, "X", style, ctx, pedigree.phenotype_display_modes)
+        assert (cell.color, cell.text, cell.is_na) == (NA_FILL, None, True)
+
+    def test_hidden_na_labels_leave_no_na_in_png_or_svg(self):
+        from pypedigree.svg_renderer import render_interactive_svg
+
+        text = (
+            "FID\tID\tFather\tMother\tSex\tb_X\tg_Y\tcr_Z\n"
+            "F\tdad\t0\t0\t1\t-9\t-9\t1\n"  # every phenotype band NA
+            "F\tmum\t0\t0\t2\t2\t5\t-9\n"  # carrier band NA
+        )
+        for show, expected in ((True, True), (False, False)):
+            pedigree = parse_pedigree_from_string(text)
+            style = PedigreeStyle(show_na_labels=show)
+            fig = render_pedigree(pedigree, style=style)
+            try:
+                drawn = {t.get_text() for t in fig.axes[0].texts}
+            finally:
+                plt.close(fig)
+            assert ("NA" in drawn) is expected
+            svg = render_interactive_svg(parse_pedigree_from_string(text), style=style)
+            assert (">NA<" in svg) is expected
+
+    def test_style_json_accepts_the_option(self):
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            style = PedigreeStyle.from_dict({"show_na_labels": False})
+        assert style.show_na_labels is False
+        assert PedigreeStyle().show_na_labels is True
+
     def test_na_text_reads_on_the_grey(self):
         """WCAG contrast of the "NA" text on its band is at least 4.5:1."""
 

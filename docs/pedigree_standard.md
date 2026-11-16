@@ -39,7 +39,7 @@ When a **header row is present**, the parser uses **smart column mapping** to de
 
 Phenotype types:
 
-- **Binary phenotypes**: values use standard pedigree encoding — `2`=affected (color band), `1`=unaffected (white band), `0`=unknown (grey band), `-9`=no data (grey band with "NA" text, the grey of `0` told apart by the text). When all bands for an individual are NA (`-9`), a single centered "NA" is shown instead of repeating per band.
+- **Binary phenotypes**: values use standard pedigree encoding — `2`=affected (color band), `1`=unaffected (white band), `0`=unknown (grey band), `-9`=no data (grey band with "NA" text, the grey of `0` told apart by the text; `--no-na-labels` or the `show_na_labels` style option removes the text). When all bands for an individual are NA (`-9`), a single centered "NA" is shown instead of repeating per band.
 - **Continuous phenotypes**: numeric values > 2 — rendered as color gradients (min→white, max→full color).
 - **Missing values**: empty, `.`, `NA`, `NaN` — treated as `-9` (no data).
 - **PGS columns**: any column whose name starts with `PGS` (case-insensitive) is treated as a PGS column -- e.g. `PGS`, `PGS_autism`, `PGS_IQ`. Multiple PGS values are displayed on a single gaussian curve with distinct colored markers. Marker colors are controlled by the `pgs_colors` style option. When PGS columns are present, `couple_gap` and `sibling_gap` auto-increase to accommodate the curve.

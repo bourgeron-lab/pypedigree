@@ -369,7 +369,8 @@ class BandCell:
         is_na: Whether the value is "no data" (-9 / NA); the band is grey
             (``NA_FILL``, as for "unknown") and reads "NA" unless every band
             of the symbol is NA, in which case a single centred "NA"
-            replaces them.
+            replaces them. With ``style.show_na_labels`` off there is no
+            "NA" at all and ``text`` is None.
     """
 
     color: Color
@@ -403,7 +404,7 @@ def band_cell(
     effective = render.effective(name)
 
     if isinstance(norm_val, float) and math.isnan(norm_val):
-        return BandCell(NA_FILL, "NA", True)
+        return BandCell(NA_FILL, "NA" if style.show_na_labels else None, True)
 
     color: Color
     text: str | None = None
