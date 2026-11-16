@@ -303,8 +303,26 @@ Add an individual to the pedigree.
 | `art` | `str \| ReproductiveRole \| None` | `None` | `"D"` gamete donor or `"S"` surrogate, written inside the symbol |
 | `gender` | `str \| Gender \| None` | `None` | Gender identity `"man"`, `"woman"`, `"nonbinary"`: the symbol follows it and `sex` is the sex assigned at birth (AMAB/AFAB below when they differ) |
 | `consultand` | `bool` | `False` | Arrow without "P" |
+| `twin_of` | `str \| list[str] \| None` | `None` | Sample ID of this individual's twin (a list for triplets and more); the twin may be added before or after |
+| `twin_type` | `str \| TwinType` | `"TW"` | `"MZ"` (monozygotic), `"DZ"` (dizygotic) or `"TW"` (zygosity unknown); also `"monozygotic"`, `"dizygotic"`, `"unknown"` |
 
-An unknown notation code raises `PedigreeError`.
+An unknown notation code or twin type raises `PedigreeError`.
+
+### `add_twins(sample_ids, twin_type="TW")`
+
+Declare a group of twins (or triplets, ...) of one zygosity: every member is
+recorded as the twin of every other, as the `twins` column does
+(`MZ:S8` on S7's row, `MZ:S7` on S8's). The individuals may be added before
+or after. Fewer than two distinct IDs, or an unknown type, raise
+`PedigreeError`. At `build()`, a twin that was never added, twins in
+different families, or twins that do not share their parents give a
+`PedigreeDataWarning`.
+
+```python
+builder.add_twins(["S7", "S8"], "MZ")
+# or, on one of them:
+builder.add_individual("S8", father="F", mother="M", twin_of="S7", twin_type="MZ")
+```
 
 ### `add_union(partner1, partner2, ...)`
 

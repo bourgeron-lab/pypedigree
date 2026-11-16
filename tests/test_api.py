@@ -308,3 +308,104 @@ class TestPedigreeBuilderRender:
         )
         assert fig is not None
         plt.close(fig)
+
+
+class TestPedigreeBuilderTwins:
+    """Twins declared from code (issue #10), same as the ``twins`` column."""
+
+    @staticmethod
+    def _twins(pedigree, fid="FAM1"):
+        fam = pedigree.families[fid]
+        return {
+            sid: sorted((t.sibling_id, t.twin_type.value) for t in ind.twin_info)
+            for sid, ind in fam.individuals.items()
+            if ind.twin_info
+        }
+
+    @staticmethod
+    def _parents(builder):
+        builder.add_individual("father", sex="male")
+        builder.add_individual("mother", sex="female")
+        return builder
+
+    def test_twin_of_matches_the_twins_column(self):
+        from conftest import TEST_DATA_DIR
+
+        from pypedigree.parser import parse_pedigree
+
+        b = self._parents(PedigreeBuilder("FAM1"))
+        b.add_individual("twin1", sex="male", father="father", mother="mother")
+        b.add_individual(
+            "twin2",
+            sex="male",
+            phenotype="affected",
+            father="father",
+            mother="mother",
+            twin_of="twin1",
+            twin_type="MZ",
+        )
+        parsed = parse_pedigree(TEST_DATA_DIR / "twins" / "twins_mz.ped")
+        assert (
+            self._twins(b.build())
+            == self._twins(parsed)
+            == {
+                "twin1": [("twin2", "MZ")],
+                "twin2": [("twin1", "MZ")],
+            }
+        )
+
+    def test_add_twins_triplets_match_the_twins_column(self):
+        from conftest import TEST_DATA_DIR
+
+        from pypedigree.parser import parse_pedigree
+
+        b = self._parents(PedigreeBuilder("FAM1"))
+        b.add_twins(["trip1", "trip2", "trip3"], "dizygotic")  # declared before they exist
+        for sid, sex in (("trip1", "male"), ("trip2", "male"), ("trip3", "female")):
+            b.add_individual(sid, sex=sex, father="father", mother="mother")
+        parsed = parse_pedigree(TEST_DATA_DIR / "twins" / "twins_triplets.ped")
+        assert self._twins(b.build()) == self._twins(parsed)
+
+    def test_layout_draws_the_twin_connector(self):
+        from pypedigree.layout import compute_layout
+        from pypedigree.models import TwinType
+
+        b = self._parents(PedigreeBuilder("FAM1"))
+        b.add_individual("a", sex="female", father="father", mother="mother")
+        b.add_individual("b", sex="female", father="father", mother="mother", twin_of="a")
+        layout = compute_layout(b.build().families["FAM1"])
+        assert [tc.twin_type for tc in layout.twin_connectors] == [TwinType.UNKNOWN]
+
+    def test_default_type_is_unknown_zygosity(self):
+        b = self._parents(PedigreeBuilder("FAM1"))
+        b.add_individual("a", father="father", mother="mother")
+        b.add_individual("b", father="father", mother="mother")
+        b.add_twins(["a", "b"])
+        assert self._twins(b.build())["a"] == [("b", "TW")]
+
+    @pytest.mark.parametrize(
+        ("call", "message"),
+        [
+            (lambda b: b.add_twins(["a"]), "at least two"),
+            (lambda b: b.add_twins(["a", "a"]), "at least two"),
+            (lambda b: b.add_twins(["a", "b"], "triplet"), "Unknown twin type"),
+            (lambda b: b.add_individual("c", twin_of="a", twin_type="X"), "Unknown twin type"),
+        ],
+    )
+    def test_invalid_declarations_raise(self, call, message):
+        with pytest.raises(PedigreeError, match=message):
+            call(PedigreeBuilder("FAM1"))
+
+    def test_problems_warn(self):
+        from pypedigree.errors import PedigreeDataWarning
+
+        b = self._parents(PedigreeBuilder("FAM1"))
+        b.add_individual("a", father="father", mother="mother", twin_of="ghost")
+        b.add_individual("x")  # no parents
+        b.add_twins(["a", "x"], "DZ")
+        with pytest.warns(PedigreeDataWarning) as caught:
+            pedigree = b.build()
+        messages = [str(w.message) for w in caught]
+        assert any("ghost never added" in m for m in messages)
+        assert any("'a' and 'x' do not share their parents" in m for m in messages)
+        assert self._twins(pedigree)["a"] == [("x", "DZ")]

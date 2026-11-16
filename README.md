@@ -132,6 +132,9 @@ builder.add_individual("child", sex="male", father="father", mother="mother",
                        phenotype="affected", phenotypes={"IQ": 85, "epilepsy": 1})
 builder.add_individual("sibling", father="father", mother="mother",
                        pregnancy="SAB", annotations=["8 wk"])
+builder.add_individual("twin_a", father="father", mother="mother")
+builder.add_individual("twin_b", father="father", mother="mother",
+                       twin_of="twin_a", twin_type="MZ")  # or builder.add_twins([...], "MZ")
 fig = builder.render(output="family.png")
 
 # Interactive SVG output
