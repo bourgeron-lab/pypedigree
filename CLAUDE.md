@@ -199,6 +199,10 @@ Extended format adds:
   individual's SVG node (`Individual.css_classes`, `.data_attributes`; validated by
   `parse_css_classes()` / `data_attribute_name()`; `node`, `dimmed` and pypedigree's own
   `data-*` names are reserved). Empty/./NA left out, 0 and -9 kept. Not drawn in the PNG.
+- `not_sampled` column (aliases `inferred`, `unsampled`, `dummy`; 1/yes/true), by header name:
+  `Individual.is_inferred`, a row never sampled (a "dummy"). Drawn dashed like a phantom
+  (`NodeLayout.is_inferred`) but keeps label, phenotypes and `.fam` export; unlike
+  `is_phantom`, it does not suppress bands. `tests/test_inferred.py`
 - Columns with `a_` prefix: annotation columns (text displayed below individual's ID label, not phenotypes). Missing values (0, -9, NA, empty) produce no annotation line. Generation gap auto-increases when present.
 - Standard notation columns, by header name (`_NOTATION_ROLES` in parser.py; codes
   case-insensitive, unknown code -> `PedigreeParseError` with the line):

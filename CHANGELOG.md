@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Individuals with a row but never sampled: a `not_sampled` column (aliases
+  `inferred`, `unsampled`, `dummy`; `1`, `yes` or `true`) or the builder's
+  `inferred=True` draws "dummy" individuals, who only link real members, with
+  a dashed outline like a phantom parent, while keeping their label, parents,
+  phenotypes and their place in a `.fam` export; the SVG tooltip says "Not
+  sampled (inferred)" (bourgeron-lab/pypedigree#6).
 - Interactive SVG: each node carries `data-x`, `data-y` (the centre of its
   symbol) and `data-size`, in the coordinates of `#main-group`, so a page
   embedding the SVG can draw overlays (observed relatedness, links the

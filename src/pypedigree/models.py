@@ -190,6 +190,10 @@ class Individual:
         is_deceased: Whether the individual is deceased.
         is_proband: Whether this is the proband.
         is_phantom: Whether this is an inferred (missing) parent.
+        is_inferred: An individual with a row but never sampled or
+            sequenced (a "dummy" linking real members): drawn with a dashed
+            outline like a phantom, but keeping label, parents, phenotypes
+            and its place in a ``.fam`` export.
         is_duplicate: Whether this is a duplicate node for layout purposes.
         duplicate_of: Sample ID of the original if this is a duplicate.
         notation: Pregnancy, adoption, childlessness, assisted reproduction,
@@ -214,6 +218,7 @@ class Individual:
     is_deceased: bool = False
     is_proband: bool = False
     is_phantom: bool = False
+    is_inferred: bool = False
     is_duplicate: bool = False
     is_carrier: bool = False
     is_obligate_carrier: bool = False
@@ -349,6 +354,8 @@ class NodeLayout:
         is_deceased: Whether to draw deceased marker.
         is_proband: Whether to draw proband marker.
         is_phantom: Whether to draw with dashed border.
+        is_inferred: Dashed border too (an individual with a row who was
+            never sampled), but drawn with label and phenotypes.
         is_duplicate: Whether this is a duplicate node.
         label: Text to display under the shape.
         notation: Notation drawn on or around the symbol (see ``Notation``).
@@ -369,6 +376,7 @@ class NodeLayout:
     is_deceased: bool = False
     is_proband: bool = False
     is_phantom: bool = False
+    is_inferred: bool = False
     is_duplicate: bool = False
     is_carrier: bool = False
     is_obligate_carrier: bool = False

@@ -593,6 +593,8 @@ def _tooltip(node: NodeLayout, ind: Individual | None, carriers: CarrierScheme) 
         lines.append(_ROLE_LABELS[notation.reproductive_role.value])
     if notation.is_consultand:
         lines.append("Consultand")
+    if node.is_inferred:
+        lines.append("Not sampled (inferred)")
 
     if ind is not None and ind.date_of_birth:
         lines.append(f"DOB: {ind.date_of_birth}")
@@ -801,7 +803,7 @@ def _svg_plain_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
 
     stroke = style.outline_color
     sw = style.shape_line_width * _PT
-    dash = 'stroke-dasharray="0.1 0.05"' if node.is_phantom else ""
+    dash = 'stroke-dasharray="0.1 0.05"' if node.is_phantom or node.is_inferred else ""
     out = [
         f'{_svg_shape_outline(node, half, cls="shape")} fill="{html.escape(fill)}" '
         f'stroke="{html.escape(stroke)}" stroke-width="{sw:.3f}" {dash}/>'
@@ -903,7 +905,7 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
 
     border = outline_color(node, ctx.outline_names, style)
     sw = style.shape_line_width * _PT * (2.5 if border else 1.0)
-    dash = 'stroke-dasharray="0.1 0.05"' if node.is_phantom else ""
+    dash = 'stroke-dasharray="0.1 0.05"' if node.is_phantom or node.is_inferred else ""
     out.append(
         f'{_svg_shape_outline(node, half, cls="shape")} fill="none" '
         f'stroke="{html.escape(border or style.outline_color)}" stroke-width="{sw:.3f}" {dash}/>'

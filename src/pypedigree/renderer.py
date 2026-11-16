@@ -567,7 +567,7 @@ def _draw_node(
 
     edgecolor = style.outline_color
     linewidth = style.shape_line_width
-    linestyle = style.phantom_line_style if node.is_phantom else "-"
+    linestyle = style.phantom_line_style if node.is_phantom or node.is_inferred else "-"
     half = style.shape_size / 2
 
     marks = carriers.marks(node)
@@ -1309,7 +1309,7 @@ def _draw_banded_node(
     cx, cy = node.x, node.y
     edgecolor = style.outline_color
     linewidth = style.shape_line_width
-    linestyle = style.phantom_line_style if node.is_phantom else "-"
+    linestyle = style.phantom_line_style if node.is_phantom or node.is_inferred else "-"
     if not band_names:
         # No phenotype band: affection status and carrier sections only.
         _draw_node(ax, node, style, carriers)
