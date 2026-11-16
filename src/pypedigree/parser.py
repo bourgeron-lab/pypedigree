@@ -1015,15 +1015,45 @@ def _check_cycles(family: Family) -> None:
             dfs(sample_id)
 
 
-def _create_phantom_parents(family: Family) -> None:
-    """Create phantom (dashed) parents for individuals with only one known parent.
+def _create_phantom_parents(family: Family) -> list[str]:
+    """Create phantom (dashed) parents where a child's parent has no row.
 
-    If a child has a father but no mother (or vice versa), a phantom parent
-    is created with a generated ID and dashed border.
+    Two cases, as in `PedigreeBuilder`:
+
+    - A parent named in the father or mother column but with no row of
+      their own becomes a phantom with that ID (and the sex of the role),
+      so the child still hangs from both parents. Without it the child was
+      drawn alone, joined to neither.
+    - A child with only one parent given gets a phantom for the other, with
+      a generated ID and no label.
 
     Args:
         family: The family to modify in place.
+
+    Returns:
+        One message per named parent that had no row, for the caller to
+        report as a `PedigreeDataWarning`.
     """
+    messages: list[str] = []
+    named: dict[str, Individual] = {}
+    for ind in list(family.individuals.values()):
+        for parent_id, sex, role in (
+            (ind.father_id, Sex.MALE, "father"),
+            (ind.mother_id, Sex.FEMALE, "mother"),
+        ):
+            if parent_id and parent_id not in family.individuals and parent_id not in named:
+                named[parent_id] = Individual(
+                    sample_id=parent_id,
+                    family_id=family.family_id,
+                    sex=sex,
+                    is_phantom=True,
+                )
+                messages.append(
+                    f"Individual '{ind.sample_id}': {role} '{parent_id}' has no row in "
+                    f"family '{family.family_id}'; drawn as a phantom (dashed) parent"
+                )
+    family.individuals.update(named)
+
     phantoms_to_add: list[Individual] = []
     updates: list[tuple[str, str, str]] = []  # (child_id, field, phantom_id)
 
@@ -1060,6 +1090,7 @@ def _create_phantom_parents(family: Family) -> None:
 
     for child_id, attr, phantom_id in updates:
         setattr(family.individuals[child_id], attr, phantom_id)
+    return messages
 
 
 def _create_duplicate_nodes(family: Family) -> None:
@@ -1326,14 +1357,14 @@ def _parse_text(text: str, *, max_columns: int | None = None) -> Pedigree:
 
     # Post-processing for each family
     for family in families.values():
-        # Create phantom parents for single-parent children
-        _create_phantom_parents(family)
+        # Phantom parents: a named parent with no row, or a missing second parent
+        phantom_messages = _create_phantom_parents(family)
 
         # Resolve twin relationships (make bidirectional)
         _resolve_twin_relationships(family)
 
         # Validate
-        warnings_list = _validate_family(family)
+        warnings_list = phantom_messages + _validate_family(family)
         for msg in warnings_list:
             warnings.warn(msg, PedigreeDataWarning, stacklevel=2)
 

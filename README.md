@@ -190,6 +190,8 @@ Tab, comma, or space-separated with 6+ columns:
 | 8 | twins | TYPE:sample_id entries (optional) |
 | 9 | deceased | 1=deceased, 0=alive (optional) |
 | 10 | proband | 1=proband, 0=not (optional) |
+
+A parent named in the father or mother column but with no row of their own is drawn as a phantom: dashed outline, labelled with that ID, sex from the role, and a `PedigreeDataWarning` says so. A child with only one parent given gets an unlabelled phantom for the other. Either way the child hangs from both parents, as with `PedigreeBuilder`; a `.fam` export leaves phantoms out.
 | 11+ | phenotypes | Extra phenotype columns (requires header) |
 | 11+ | carrier | Special column: 0=not, 1=carrier, 2=obligate carrier (detected by header name) |
 | 11+ | cr_GENE | One carrier column per gene or condition, same 0/1/2 coding (e.g. `cr_CFTR`) |

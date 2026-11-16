@@ -919,3 +919,90 @@ class TestPhenotypeFile:
         pedigree = parse_pedigree_from_string(self.TRIO)
         with pytest.warns(PedigreeDataWarning, match="match no individual"):
             apply_phenotypes_to_pedigree(pedigree, {"ghost": {"X": 1}}, ["X"])
+
+
+class TestParentWithoutRow:
+    """A parent named in the father/mother column but with no row (issue #5).
+
+    The parser now does what `PedigreeBuilder` does: the parent becomes a
+    phantom with that ID, so the child hangs from both parents instead of
+    being drawn alone.
+    """
+
+    TEXT = (
+        "FID\tIID\tFather\tMother\tSex\tPhenotype\n"
+        "FAM1\tS9\tDUMMY_S9_F\tDUMMY_S9_M\t2\t2\n"
+        "FAM1\tDUMMY_S9_M\tDUMMY_S9_MF\tDUMMY_S9_MM\t2\t0\n"
+        "FAM1\tDUMMY_S9_MF\t0\t0\t1\t0\n"
+        "FAM1\tDUMMY_S9_MM\t0\t0\t2\t0\n"
+        "FAM1\tS10\tDUMMY_S9_MF\tDUMMY_S9_MM\t2\t1\n"
+    )
+
+    def _parse(self, text):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            pedigree = parse_pedigree_from_string(text)
+        return pedigree.families["FAM1"], [str(w.message) for w in caught]
+
+    def test_named_father_becomes_a_phantom(self):
+        family, messages = self._parse(self.TEXT)
+        father = family.individuals["DUMMY_S9_F"]
+        assert father.is_phantom and father.sex == Sex.MALE
+        assert father.is_founder
+        assert (("DUMMY_S9_F", "DUMMY_S9_M"), ["S9"]) in [
+            (u.partner_ids, u.children_ids) for u in family.unions
+        ]
+        assert messages == [
+            "Individual 'S9': father 'DUMMY_S9_F' has no row in family 'FAM1'; "
+            "drawn as a phantom (dashed) parent"
+        ]
+
+    def test_named_mother_and_both_parents(self):
+        text = (
+            "FAM1\tkid\tdad\tmum\t1\t1\n"  # both parents without a row
+            "FAM1\tkid2\tdad\tmum\t2\t1\n"  # same parents: one phantom each
+        )
+        family, messages = self._parse(text)
+        assert family.individuals["dad"].sex == Sex.MALE
+        assert family.individuals["mum"].sex == Sex.FEMALE
+        assert family.individuals["mum"].is_phantom
+        assert [(u.partner_ids, sorted(u.children_ids)) for u in family.unions] == [
+            (("dad", "mum"), ["kid", "kid2"])
+        ]
+        assert len(messages) == 2, "one message per missing parent, not per child"
+
+    def test_same_as_the_builder(self):
+        from pypedigree.api import PedigreeBuilder
+
+        builder = PedigreeBuilder("FAM1")
+        builder.add_individual("S9", sex="female", father="DUMMY_S9_F", mother="DUMMY_S9_M")
+        builder.add_individual(
+            "DUMMY_S9_M", sex="female", father="DUMMY_S9_MF", mother="DUMMY_S9_MM"
+        )
+        builder.add_individual("DUMMY_S9_MF", sex="male")
+        builder.add_individual("DUMMY_S9_MM", sex="female")
+        builder.add_individual("S10", sex="female", father="DUMMY_S9_MF", mother="DUMMY_S9_MM")
+        built = builder.build().families["FAM1"]
+        parsed, _ = self._parse(self.TEXT)
+        flags = {i.sample_id: i.is_phantom for i in built.individuals.values()}
+        assert {i.sample_id: i.is_phantom for i in parsed.individuals.values()} == flags
+
+    def test_child_is_drawn_under_its_parents(self):
+        from pypedigree.layout import compute_layout
+
+        family, _ = self._parse(self.TEXT)
+        nodes = {n.individual_id: n for n in compute_layout(family).nodes}
+        father, mother, child = nodes["DUMMY_S9_F"], nodes["DUMMY_S9_M"], nodes["S9"]
+        assert father.is_phantom and father.label == "DUMMY_S9_F"
+        assert min(father.x, mother.x) <= child.x <= max(father.x, mother.x)
+        assert child.y < father.y
+
+    def test_fam_export_leaves_the_phantom_out(self, tmp_path):
+        from pypedigree.parser import export_fam
+
+        with pytest.warns(PedigreeDataWarning, match="has no row"):
+            pedigree = parse_pedigree_from_string(self.TEXT)
+        out = export_fam(pedigree, tmp_path / "out.fam")
+        ids = [line.split()[1] for line in out.read_text().splitlines()]
+        assert "DUMMY_S9_F" not in ids
+        assert "S9" in ids

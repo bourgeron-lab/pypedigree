@@ -401,6 +401,7 @@ fig = builder.render(output=<span class="string">"trio.png"</span>)</code></pre>
     <tr><td>6</td><td>phenotype</td><td>Affected status</td><td><code>1</code>=unaffected, <code>2</code>=affected, <code>0</code>=unknown</td></tr>
   </tbody>
 </table>
+<p>A parent named in the father or mother column but with no row of their own is drawn as a phantom: dashed outline, labelled with that ID, sex from the role, and a <code>PedigreeDataWarning</code> says so. A child with only one parent given gets an unlabelled phantom for the other. Either way the child hangs from both parents, as with <code>PedigreeBuilder</code>; a <code>.fam</code> export leaves phantoms out.</p>
 
 <h4>Example: simple_trio.ped</h4>
 <pre><code>FAM1  father  0       0       1  1

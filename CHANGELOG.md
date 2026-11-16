@@ -34,6 +34,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   its lookalike colors for the other columns, so figures with an autism, ADHD,
   ID or epilepsy column change colors; figures without one are unchanged.
 
+### Fixed
+
+- A parent named in the father or mother column but with no row of their
+  own left the child unconnected: the child was drawn alone, joined to
+  neither parent. The parser now does what `PedigreeBuilder` does and makes
+  that parent a phantom with the given ID (dashed outline, labelled, sex from
+  the role), so the child hangs from both parents. The `PedigreeDataWarning`
+  stays, once per missing parent, and says so: "father 'X' has no row in
+  family 'F'; drawn as a phantom (dashed) parent". A `.fam` export still
+  leaves the phantom out (bourgeron-lab/pypedigree#5).
+
 ## [0.4.3] - 2026-11-16
 
 ### Added

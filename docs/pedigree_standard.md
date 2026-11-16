@@ -15,6 +15,8 @@ They are made of 6 columns:
 
 For robustness we will treat `0` or `nan` in the paternal_id and/or maternal_id column as no information available.
 
+A parent named in the father or mother column but with no row of their own is drawn as a phantom: dashed outline, labelled with that ID, sex from the role, and a `PedigreeDataWarning` says so. A child with only one parent given gets an unlabelled phantom for the other. Either way the child hangs from both parents, as with `PedigreeBuilder`; a `.fam` export leaves phantoms out.
+
 ### Extended format
 
 Additional columns can be appended to the standard 6-column format. All extended columns are optional — the parser auto-detects how many columns are present.
