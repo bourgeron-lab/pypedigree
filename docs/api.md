@@ -340,12 +340,13 @@ Explicitly add a union. Only needed for childless couples or consanguineous/brok
 | `consanguineous` | `bool` | `False` | Double-line (shared ancestors) |
 | `broken` | `bool` | `False` | Broken-line (dissolved) |
 
-### `set_style(style)` / `build()` / `render(output=None, ...)` / `render_interactive_svg(output=None, ...)`
+### `set_style(style)` / `build()` / `render(output=None, ...)` / `render_interactive_svg(output=None, ...)` / `render_svg(output=None, ...)`
 
 - `set_style(style)` — Set custom `PedigreeStyle`.
 - `build()` — Build a `Pedigree` object. Auto-infers unions and phantom parents.
 - `render(output, *, style, show_labels, show_legend, circular=False)` — Build and render as matplotlib Figure. Auto-assigns phenotype colors. Pass `circular=True` for radial layout.
-- `render_interactive_svg(output, *, style, show_labels, show_legend)` — Build and render as interactive SVG string with tooltips and click highlighting.
+- `render_interactive_svg(output, *, style, show_labels, show_legend, id_prefix, responsive)` — Build and render as interactive SVG string with tooltips and click highlighting.
+- `render_svg(output, *, style, show_labels, show_legend, id_prefix, responsive)` — Build and render as a static SVG string (no script, no tooltip), for print or host pages.
 
 ### Jupyter integration
 
@@ -401,7 +402,7 @@ fig, layout = render_family(fam)
 
 ---
 
-### `render_interactive_svg(pedigree, style=None, output=None, show_labels=True, show_legend=True)`
+### `render_interactive_svg(pedigree, style=None, output=None, show_labels=True, show_legend=True, *, id_prefix="", responsive=False)`
 
 Render all families as an interactive SVG with embedded JavaScript for tooltips, click highlighting, zoom, and pan. The SVG is written directly (matplotlib is only used to read color names), and draws the same figure as `render_pedigree()`: both renderers take their decisions from `pypedigree.phenotypes` and `pypedigree.carriers`.
 
@@ -418,6 +419,8 @@ svg_str = render_interactive_svg(ped, output="family.svg")
 - `output` — File path to save (optional).
 - `show_labels` — Whether to draw sample ID labels (default: True).
 - `show_legend` — Whether to draw the phenotype and carrier legend (default: True).
+- `id_prefix` — Prepended to every `id` in the SVG and to every `url(#...)` / `href="#..."` reference to one, so several figures can share a page (default: `""`, ids `main-group`, `tooltip`, ...). Letters, digits, `_`, `-`, `.`, starting with a letter or `_`; anything else raises `ValueError`.
+- `responsive` — Write `width="100%"` and no height instead of a size in pixels, so the figure fills the width of its container with the proportions of its `viewBox` (default: False).
 
 **Returns**: SVG content as a string.
 
@@ -425,7 +428,7 @@ svg_str = render_interactive_svg(ped, output="family.svg")
 - Hover tooltips (sample_id, sex, phenotype, DOB, extra phenotypes, carrier status)
 - Host hooks: each node is a `<g class="node …">` with `data-id`, `data-parents`, `data-children`, `data-siblings`, plus the individual's own classes and `data-*` attributes (`css_class` / `data_` columns, `css_class=` / `data=` builder keywords), so a page can style them (`.node.flagged`) or select them (`[data-qc="high"]`) without re-rendering. The click highlighting adds and removes only the `dimmed` class, so a host's classes stay
 - Click node to highlight parents, children, siblings (click again to reset)
-- Mouse wheel zoom, Ctrl+drag to pan
+- Mouse wheel zoom when the SVG is opened on its own; inlined in a page, Ctrl/Cmd + wheel (or a trackpad pinch) zooms and the plain wheel scrolls the page. Ctrl+drag or the middle button pans
 - Carrier notation: patterned sections defined once as SVG `<pattern>`s (NSGC 2022), or half-fill and center dot with `carrier_notation="legacy"`
 - Phenotype bands (binary, gradient, diverging, categorical), `o_` outline colors, PGS distribution curves and `a_` annotations, from the same `style.phenotype_colors`, `gradient_range`, `gradient_diverging` and `pgs_colors` as the PNG
 - The legend below the pedigree, with the same rows and proportions as the PNG legend
@@ -450,6 +453,45 @@ svg.getElementById('main-group').appendChild(ring);
 The circular layout is not available in the interactive SVG. Text is placed
 with explicit offsets rather than `dominant-baseline`, so the file renders the
 same in browsers, Inkscape and librsvg.
+
+**Inlining in a page.** The SVG can be put in an HTML page, next to other
+SVGs, as `innerHTML` or in a template. Its root has the class `pypedigree`,
+its CSS only applies under that class, and its script only acts on its own
+root (`document.currentScript.closest('svg')`) with no listener on the
+window. Give each figure its own `id_prefix` so their ids do not collide:
+
+```python
+from pypedigree import render_interactive_svg
+
+parts = [
+    render_interactive_svg(ped_a, id_prefix="fam-a-", responsive=True),
+    render_interactive_svg(ped_b, id_prefix="fam-b-", responsive=True),
+]
+```
+
+A host then finds a figure's group with `svg.querySelector('[id="fam-a-main-group"]')`.
+Scripts inserted through `innerHTML` do not run: such a page gets the drawing,
+the `<title>` tooltips and the `data-*` attributes, and adds its own behaviour,
+or uses `render_svg()`.
+
+---
+
+### `render_svg(pedigree, style=None, output=None, show_labels=True, show_legend=True, *, id_prefix="", responsive=False)`
+
+The same drawing as `render_interactive_svg()`, without script and without the
+tooltip group: for a printed report, or for a page that adds its own
+behaviour. Each individual keeps its `<title>` (shown by browsers as a native
+tooltip), its classes and its `data-*` attributes, and the `dimmed` class still
+fades a node or an edge. Same arguments as `render_interactive_svg()`. CLI:
+`--interactive --no-script`.
+
+```python
+from pypedigree import parse_pedigree, render_svg
+
+ped = parse_pedigree("family.ped")
+svg_str = render_svg(ped, id_prefix="fam1-", responsive=True)
+```
+
 ---
 
 ## Data Model

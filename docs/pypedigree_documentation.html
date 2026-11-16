@@ -512,6 +512,9 @@ child      2         105   62</code></pre>
     <tr><td><code>--no-na-labels</code></td><td>Do not write &ldquo;NA&rdquo; in bands with no data (they stay grey, like unknown)</td><td>Off</td></tr>
     <tr><td><code>--plink</code></td><td>Treat input as PLINK .ped file (ignore genotype columns after column 6)</td><td>Off</td></tr>
     <tr><td><code>--interactive</code></td><td>Generate interactive SVG with tooltips, click highlighting, and zoom/pan (same bands, legend and PGS curves as the PNG; not with <code>--circular</code>)</td><td>Off</td></tr>
+    <tr><td><code>--no-script</code></td><td>With <code>--interactive</code>: the same SVG without script or tooltip, for print or for a page that adds its own behaviour (<code>render_svg()</code>)</td><td>Off</td></tr>
+    <tr><td><code>--id-prefix PREFIX</code></td><td>With <code>--interactive</code>: prepend PREFIX to every id in the SVG, so several figures can share one page</td><td>&mdash;</td></tr>
+    <tr><td><code>--responsive</code></td><td>With <code>--interactive</code>: <code>width="100%"</code> and no height, so the figure fills its container's width</td><td>Off</td></tr>
     <tr><td><code>--circular</code></td><td>Use circular/radial layout with founders at centre, descendants on concentric rings</td><td>Off</td></tr>
     <tr><td><code>--version</code></td><td>Show version and exit</td><td>&mdash;</td></tr>
   </tbody>
@@ -628,12 +631,17 @@ fig.savefig(<span class="string">"family.png"</span>, dpi=<span class="num">150<
   <dt>output: str | Path | None = None</dt><dd>Save SVG to file. None for in-memory only.</dd>
   <dt>show_labels: bool = True</dt><dd>Draw sample ID labels under shapes.</dd>
   <dt>show_legend: bool = True</dt><dd>Draw the phenotype and carrier legend.</dd>
+  <dt>id_prefix: str = ""</dt><dd>Prepended to every id in the SVG (and to the <code>url(#&hellip;)</code> and <code>href="#&hellip;"</code> references), so several figures can share a page. Letters, digits, <code>_</code>, <code>-</code>, <code>.</code>, starting with a letter or <code>_</code>; otherwise <code>ValueError</code>.</dd>
+  <dt>responsive: bool = False</dt><dd>Write <code>width="100%"</code> and no height, keeping the <code>viewBox</code>: the figure fills its container's width.</dd>
 </dl>
 
 <pre><code><span class="keyword">from</span> pypedigree <span class="keyword">import</span> parse_pedigree, render_interactive_svg
 
 ped = parse_pedigree(<span class="string">"family.ped"</span>)
 svg_str = render_interactive_svg(ped, output=<span class="string">"interactive.svg"</span>)</code></pre>
+
+<h4><code>render_svg(pedigree, ...)</code></h4>
+<p>The same drawing without script and without the tooltip group, for a printed report or for a page that adds its own behaviour. Each individual keeps its <code>&lt;title&gt;</code> and its <code>data-*</code> attributes. Same arguments as <code>render_interactive_svg()</code>.</p>
 
 <h3>Layout (advanced)</h3>
 
@@ -734,6 +742,10 @@ so this is only needed for <strong>childless couples</strong> or to set consangu
 <p>Build and render as an interactive SVG. Returns the SVG markup as a string.
 If <code>output</code> is provided, the SVG is also written to that file path.
 See the <a href="#interactive-svg">Interactive SVG</a> section for details.</p>
+
+<h3><code>render_svg(output=None) &rarr; str</code></h3>
+<p>Build and render as a static SVG (no script, no tooltip). Both take
+<code>id_prefix=</code> and <code>responsive=</code>.</p>
 
 <h3>Complete Example</h3>
 <pre><code><span class="keyword">from</span> pypedigree <span class="keyword">import</span> PedigreeBuilder
@@ -1128,7 +1140,8 @@ builder.add_individual(<span class="string">"c2"</span>, sex=<span class="string
   <li><strong>Tooltips on hover</strong> &mdash; Hovering over an individual displays their sample ID, sex, phenotype, and other metadata.</li>
   <li><strong>Click to highlight relatives</strong> &mdash; Clicking an individual highlights their parents, children, and partners.</li>
   <li><strong>Hooks for host pages</strong> &mdash; A <code>css_class</code> column and <code>data_</code> columns (or the builder's <code>css_class=</code> and <code>data=</code>) add classes and <code>data-*</code> attributes to each individual's node, so a page can dim deselected members or outline QC-flagged ones with its own stylesheet (<code>.node.flagged</code>, <code>[data-qc="high"]</code>) without re-rendering. Names are validated; <code>node</code>, <code>dimmed</code> and pypedigree's own <code>data-*</code> names are reserved.</li>
-  <li><strong>Zoom and pan</strong> &mdash; Mouse wheel to zoom, Ctrl+drag (or middle-button drag) to pan around large pedigrees.</li>
+  <li><strong>Zoom and pan</strong> &mdash; Mouse wheel to zoom when the SVG is opened on its own (Ctrl/Cmd + wheel once inlined in a page, so the page still scrolls), Ctrl+drag (or middle-button drag) to pan around large pedigrees.</li>
+  <li><strong>Embeddable</strong> &mdash; The SVG can be inlined in a web page or a printed report next to other SVGs: see <a href="#svg-embedding">Inlining in a page</a>.</li>
   <li><strong>No extra dependencies</strong> &mdash; All interactivity is embedded as inline JavaScript within the SVG file.</li>
 </ul>
 
@@ -1146,9 +1159,24 @@ families are drawn side by side, each with its title.</p>
 The circular layout (<code>--circular</code>) is not available in interactive
 mode.</p>
 
+<h3 id="svg-embedding">Inlining in a page</h3>
+<p>The SVG can be put in an HTML page (as <code>innerHTML</code> or in a template) or in an HTML report that is printed, next to other SVGs. Its root has the class <code>pypedigree</code>, its CSS only applies under that class, and its script only acts on its own figure (<code>document.currentScript.closest('svg')</code>), with no listener on the window.</p>
+<ul>
+  <li><code>id_prefix</code> (<code>--id-prefix</code>) &mdash; prepended to every id and every reference to one, so two figures on a page share no id. The default, empty, keeps <code>main-group</code>, <code>tooltip</code>&hellip;</li>
+  <li><code>responsive=True</code> (<code>--responsive</code>) &mdash; <code>width="100%"</code> and no height: the figure fills its container's width, with the proportions of its <code>viewBox</code>.</li>
+  <li><code>render_svg()</code> (<code>--interactive --no-script</code>) &mdash; no script, no tooltip group, for print or for a page that adds its own behaviour. Scripts inserted through <code>innerHTML</code> do not run anyway.</li>
+</ul>
+<pre><code><span class="keyword">from</span> pypedigree <span class="keyword">import</span> render_interactive_svg, render_svg
+
+on_page = render_interactive_svg(ped, id_prefix=<span class="string">"fam-a-"</span>, responsive=<span class="keyword">True</span>)
+in_report = render_svg(ped, id_prefix=<span class="string">"report-fam-a-"</span>, responsive=<span class="keyword">True</span>)</code></pre>
+
 <h3>CLI Usage</h3>
 <p>Use the <code>--interactive</code> flag to generate an interactive SVG instead of a static image:</p>
-<pre><code>pypedigree family.ped --interactive -o pedigree.svg</code></pre>
+<pre><code>pypedigree family.ped --interactive -o pedigree.svg
+
+<span class="comment"># For a web page or a printed report: no script, unique ids, fluid width</span>
+pypedigree family.ped --interactive --no-script --id-prefix fam1- --responsive -o pedigree.svg</code></pre>
 
 <div class="callout callout-info">
   <strong>Output format</strong>
@@ -1164,7 +1192,7 @@ mode.</p>
 ped = parse_pedigree(<span class="string">"family.ped"</span>)
 svg_str = render_interactive_svg(ped, output=<span class="string">"interactive.svg"</span>)</code></pre>
 
-<h4><code>PedigreeBuilder.render_interactive_svg(output=None, *, style=None, show_labels=True, show_legend=True)</code></h4>
+<h4><code>PedigreeBuilder.render_interactive_svg(output=None, *, style=None, show_labels=True, show_legend=True, id_prefix="", responsive=False)</code></h4>
 <p>Build and render as an interactive SVG from the builder API:</p>
 <pre><code><span class="keyword">from</span> pypedigree <span class="keyword">import</span> PedigreeBuilder
 

@@ -285,6 +285,9 @@ pypedigree INPUT.ped [OPTIONS]
 --pgs-scale [minmax|zscore|percentile]  PGS position: min-max over the pedigree (default), z-score or percentile
 --phenotype-layout [bands|quadrants]  Horizontal bands (default) or four quadrants, one per phenotype
 --interactive            Generate interactive SVG with tooltips and click highlighting
+--no-script              With --interactive: same SVG, no script or tooltip (`render_svg`)
+--id-prefix PREFIX       With --interactive: prefix every id in the SVG
+--responsive             With --interactive: width="100%", no height
 --circular               Use circular/radial layout (founders at center, descendants on concentric rings)
 --plink                  Parse as PLINK format (ignore genotype columns after col 6)
 ```
@@ -310,6 +313,17 @@ transform) for host overlays; `TestSvgNodePositions` checks them. Text is placed
 with explicit baseline offsets (`_BASELINE_SHIFT`), not `dominant-baseline`,
 which librsvg and older Inkscape ignore. Font sizes and line widths in points are
 scaled by `_PT` layout units per point. No circular layout in the SVG.
+Embedding (#4): `_wrap_svg` gives the root `class="pypedigree"` (`ROOT_CLASS`)
+and scopes every CSS rule under it; `render_svg()` is the same drawing with
+`_SvgWrap(interactive=False)` (no script, no tooltip group). `id_prefix` is
+applied once, by `_prefix_ids` on the wrapped markup before the script is
+appended: it rewrites ` id="`, `="url(#` and ` href="#` only, which text and
+titles never contain because `html.escape` turns `"` into `&quot;`. So new ids
+need no prefix at their call site, as long as they and their references use
+those attribute forms. The script finds its own root (`document.currentScript
+.closest('svg')`, else the last `svg.pypedigree`), looks elements up with
+`[id="<prefix>..."]` inside it, never on `document`/`window`, and zooms on a
+plain wheel only when the SVG is the document. `tests/test_svg_embedding.py`.
 
 Validation warnings are printed to stderr as `Warning: <message>`.
 
@@ -347,6 +361,8 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_svg_renderer.py` — Interactive SVG renderer (XML validity, nodes, tooltips, interactivity, CLI;
   `TestSvgPhenotypes` checks each band's color against `band_cell`, legend, PGS, outline, annotations;
   `TestSvgFixtures` renders every fixture and checks ids are unique; multi-family placement)
+- `tests/test_svg_embedding.py` — SVG inlined in a page (#4): root class, scoped CSS, `id_prefix`
+  (every id and reference), script scoped to its root, `render_svg()`, `responsive`, CLI options
 - `tests/test_phenotype_resolution.py` — Style resolution (purity, idempotence),
   per-column AUTO mode detection, categorical color assignment, API/CLI parity,
   color validation
