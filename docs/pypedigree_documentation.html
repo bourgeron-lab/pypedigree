@@ -401,6 +401,7 @@ fig = builder.render(output=<span class="string">"trio.png"</span>)</code></pre>
     <tr><td>6</td><td>phenotype</td><td>Affected status</td><td><code>1</code>=unaffected, <code>2</code>=affected, <code>0</code>=unknown</td></tr>
   </tbody>
 </table>
+<p>A <code>not_sampled</code> column (aliases <code>inferred</code>, <code>unsampled</code>, <code>dummy</code>; <code>1</code>, <code>yes</code> or <code>true</code>) marks individuals who have a row but were never sampled, such as the &ldquo;dummy&rdquo; parents that link real members: they are drawn with a dashed outline like a phantom, but keep their label, parents, phenotypes and their place in a <code>.fam</code> export.</p>
 <p>A parent named in the father or mother column but with no row of their own is drawn as a phantom: dashed outline, labelled with that ID, sex from the role, and a <code>PedigreeDataWarning</code> says so. A child with only one parent given gets an unlabelled phantom for the other. Either way the child hangs from both parents, as with <code>PedigreeBuilder</code>; a <code>.fam</code> export leaves phantoms out.</p>
 
 <h4>Example: simple_trio.ped</h4>
@@ -685,6 +686,7 @@ without writing .ped files. All methods return <code>self</code> for method chai
   <dt>family_id: str | None = None</dt><dd>Override the builder's default family ID.</dd>
   <dt>deceased: bool = False</dt><dd>Whether this individual is deceased (diagonal line through shape).</dd>
   <dt>proband: bool = False</dt><dd>Whether this is the proband/index case (arrow marker).</dd>
+  <dt>inferred: bool = False</dt><dd>Never sampled or sequenced, only links real members (&ldquo;dummy&rdquo;): dashed outline like a phantom, with label, parents and phenotypes kept.</dd>
   <dt>date_of_birth: str | None = None</dt><dd>Date of birth string.</dd>
   <dt>phenotypes: dict[str, float | int] | None = None</dt><dd>Extra phenotype values as {name: value}.</dd>
   <dt>carrier: bool = False</dt><dd>Whether this individual is a carrier (heterozygous). Rendered as a patterned section (NSGC 2022), or a half-filled shape with the legacy notation.</dd>

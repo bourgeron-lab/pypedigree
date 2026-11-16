@@ -648,6 +648,7 @@ def _with_duplicate_partners(family: Family, items: list[tuple[Union, str]]) -> 
             notation=replace(original.notation, is_consultand=False),
             css_classes=list(original.css_classes),
             data_attributes=dict(original.data_attributes),
+            is_inferred=original.is_inferred,
         )
         p1, p2 = union.partner_ids
         unions[index] = replace(
@@ -779,6 +780,7 @@ def _build_nodes(
                 is_deceased=symbols.is_struck_through(ind),
                 is_proband=ind.is_proband,
                 is_phantom=ind.is_phantom,
+                is_inferred=ind.is_inferred,
                 is_duplicate=ind.is_duplicate,
                 is_carrier=ind.is_carrier,
                 is_obligate_carrier=ind.is_obligate_carrier,
@@ -1502,6 +1504,7 @@ def _build_circular_nodes(
                 is_deceased=symbols.is_struck_through(ind),
                 is_proband=ind.is_proband,
                 is_phantom=ind.is_phantom,
+                is_inferred=ind.is_inferred,
                 is_duplicate=ind.is_duplicate,
                 is_carrier=ind.is_carrier,
                 is_obligate_carrier=ind.is_obligate_carrier,

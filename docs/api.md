@@ -292,6 +292,7 @@ Add an individual to the pedigree.
 | `family_id` | `str \| None` | `None` | Override default family ID |
 | `deceased` | `bool` | `False` | Deceased marker |
 | `proband` | `bool` | `False` | Proband marker |
+| `inferred` | `bool` | `False` | Never sampled or sequenced, only links real members ("dummy"): dashed outline like a phantom, but label, parents, phenotypes and `.fam` export kept |
 | `carrier` | `bool` | `False` | Carrier: patterned section (NSGC 2022 notation) or half-filled shape (legacy) |
 | `obligate_carrier` | `bool` | `False` | Obligate carrier: sparser pattern (NSGC 2022) or center dot (legacy) |
 | `date_of_birth` | `str \| None` | `None` | Date of birth |
@@ -483,6 +484,7 @@ Represents one person in the pedigree.
 | `is_deceased` | `bool` | Whether the individual is deceased |
 | `is_proband` | `bool` | Whether this is the proband |
 | `is_phantom` | `bool` | Whether this is a generated phantom parent |
+| `is_inferred` | `bool` | A row never sampled (`not_sampled` column, `inferred=` keyword): dashed outline, label and phenotypes kept |
 | `is_unknown_offspring` | `bool` | The placeholder child the layout adds under a couple alone in its family (drawn as "?") |
 | `css_classes` | `list[str]` | Extra classes on the individual's SVG node (`css_class` column or keyword) |
 | `data_attributes` | `dict[str, str]` | Extra `data-*` attributes on the SVG node, name without `data-` (`data_` columns, `data` keyword) |

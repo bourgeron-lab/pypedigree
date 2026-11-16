@@ -99,6 +99,10 @@ _COLUMN_ROLES: dict[str, str] = {
     "deceased": "deceased",
     "dead": "deceased",
     "proband": "proband",
+    "inferred": "inferred",
+    "not_sampled": "inferred",
+    "unsampled": "inferred",
+    "dummy": "inferred",
     "carrier": "carrier",
     # Standard notation (see models.Notation). "gender" means the sex
     # column, unless the header also has one (see _parse_header_columns).
@@ -151,6 +155,8 @@ class ColumnMapping:
     twins: int | None = None
     deceased: int | None = None
     proband: int | None = None
+    inferred: int | None = None
+    """Index of the inferred / not_sampled column (individuals never sampled)."""
     carrier: int | None = None
     extra_phenotype_cols: list[tuple[int, str]] = field(default_factory=list)
     """List of (column_index, phenotype_name) for extra phenotype columns."""
@@ -310,6 +316,7 @@ def _parse_header_columns(header_fields: list[str]) -> ColumnMapping:
         mapping.deceased = role_assigned["deceased"]
     if "proband" in role_assigned:
         mapping.proband = role_assigned["proband"]
+    mapping.inferred = role_assigned.get("inferred")
     if "carrier" in role_assigned:
         mapping.carrier = role_assigned["carrier"]
     mapping.notation_cols = {r: role_assigned[r] for r in _NOTATION_ROLES if r in role_assigned}
@@ -321,6 +328,9 @@ def _parse_header_columns(header_fields: list[str]) -> ColumnMapping:
 
 
 _MISSING_VALUES = frozenset({"0", "-9", "nan", "na", ".", ""})
+
+# A yes in a flag column such as inferred / not_sampled.
+_TRUE_VALUES = frozenset({"1", "yes", "y", "true"})
 
 # For extra phenotype columns (11+), "0" is a valid value (binary = unaffected)
 _PHENO_MISSING_VALUES = frozenset({"-9", "nan", "na", ".", ""})
@@ -561,6 +571,9 @@ def _parse_individual_mapped(
     if proband_raw and not _is_missing(proband_raw):
         is_proband = proband_raw == "1"
 
+    inferred_raw = _get(col_map.inferred).strip().lower() if col_map.inferred is not None else ""
+    is_inferred = inferred_raw in _TRUE_VALUES
+
     is_carrier = False
     is_obligate_carrier = False
     carrier_raw = _get(col_map.carrier)
@@ -633,6 +646,7 @@ def _parse_individual_mapped(
         twin_info=twin_info,
         is_deceased=is_deceased,
         is_proband=is_proband,
+        is_inferred=is_inferred,
         is_carrier=is_carrier,
         is_obligate_carrier=is_obligate_carrier,
         extra_phenotypes_raw=extra_phenotypes_raw,
@@ -1267,6 +1281,7 @@ def _create_duplicate_nodes(family: Family) -> None:
                 notation=replace(original.notation, is_consultand=False),
                 css_classes=list(original.css_classes),
                 data_attributes=dict(original.data_attributes),
+                is_inferred=original.is_inferred,
             )
             family.individuals[dup_id] = dup
 
@@ -1420,6 +1435,7 @@ def _parse_text(text: str, *, max_columns: int | None = None) -> Pedigree:
             or col_map.notation_cols
             or col_map.css_class_col is not None
             or col_map.data_cols
+            or col_map.inferred is not None
             or not col_map.is_positional
         ):
             # Header has extra phenotype/annotation columns, or structural

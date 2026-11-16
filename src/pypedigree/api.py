@@ -141,6 +141,7 @@ class PedigreeBuilder:
         twin_type: TwinType | str = TwinType.UNKNOWN,
         css_class: str | Sequence[str] | None = None,
         data: Mapping[str, object] | None = None,
+        inferred: bool = False,
     ) -> PedigreeBuilder:
         """Add an individual to the pedigree.
 
@@ -183,6 +184,9 @@ class PedigreeBuilder:
                 or given as a list), for the host page's stylesheet.
             data: Extra ``data-*`` attributes on that node: ``{"qc": "high"}``
                 writes ``data-qc="high"``; ``_`` in a name becomes ``-``.
+            inferred: Never sampled or sequenced, present only to link
+                real members ("dummy"): drawn with a dashed outline, like
+                a phantom parent, but with its label and phenotypes.
 
         Returns:
             Self for method chaining.
@@ -216,6 +220,7 @@ class PedigreeBuilder:
             "mother": mother,
             "deceased": deceased,
             "proband": proband,
+            "inferred": inferred,
             "carrier": carrier,
             "obligate_carrier": obligate_carrier,
             "date_of_birth": date_of_birth,
@@ -412,6 +417,7 @@ class PedigreeBuilder:
                 date_of_birth=data["date_of_birth"],
                 is_deceased=data["deceased"],
                 is_proband=data["proband"],
+                is_inferred=data["inferred"],
                 is_carrier=data["carrier"],
                 is_obligate_carrier=data["obligate_carrier"],
                 extra_phenotypes=extra_pheno,
