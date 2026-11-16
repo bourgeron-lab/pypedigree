@@ -1,7 +1,9 @@
 """pypedigree - Generate pedigree (family tree) diagrams from pedigree files."""
 
+import importlib
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _metadata_version
+from typing import TYPE_CHECKING, Any
 
 from pypedigree.api import PedigreeBuilder
 from pypedigree.config import (
@@ -57,8 +59,32 @@ from pypedigree.parser import (
     parse_phenotype_file,
     parse_plink_ped,
 )
-from pypedigree.renderer import render_family, render_pedigree
 from pypedigree.svg_renderer import render_interactive_svg, render_svg
+
+if TYPE_CHECKING:
+    from pypedigree.renderer import render_family, render_pedigree
+
+# The matplotlib renderer is imported on first use (PEP 562), so that
+# `import pypedigree` for parsing, layout or SVG output does not import
+# matplotlib.pyplot: slow, and global state in a threaded server (#8).
+_LAZY_ATTRIBUTES = {
+    "render_pedigree": "pypedigree.renderer",
+    "render_family": "pypedigree.renderer",
+}
+
+
+def __getattr__(name: str) -> Any:
+    module = _LAZY_ATTRIBUTES.get(name)
+    if module is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(importlib.import_module(module), name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted({*globals(), *_LAZY_ATTRIBUTES})
+
 
 try:
     __version__ = _metadata_version("pypedigree")

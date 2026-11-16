@@ -318,6 +318,7 @@ uv sync --extra dev</code></pre>
   <li>click &ge; 8.0 (for CLI)</li>
   <li>pandas (optional, for DataFrame input)</li>
 </ul>
+<p><code>import pypedigree</code> does not import matplotlib: it is loaded on the first PNG/PDF render. Parsing, layout and SVG output (<code>render_interactive_svg</code>, <code>render_svg</code>, <code>--interactive</code>) never load it, so a web server using them avoids its import time and <code>pyplot</code>'s global state.</p>
 </section>
 
 <!-- ================================================================ -->

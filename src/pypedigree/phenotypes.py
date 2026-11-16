@@ -5,8 +5,9 @@ display mode, the color and text of every band, and the rows of the legend.
 The renderers only turn these decisions into matplotlib artists or SVG
 elements, so a PNG and an interactive SVG of the same pedigree always agree.
 
-Colors are parsed with ``matplotlib.colors`` (and nothing else from
-matplotlib), so a style accepts the same color names in both outputs.
+Colors are parsed by `pypedigree.colors`, which reads them as
+``matplotlib.colors`` does without importing matplotlib, so a style accepts
+the same color names in both outputs and this module needs no matplotlib.
 """
 
 from __future__ import annotations
@@ -18,9 +19,8 @@ from dataclasses import dataclass, field, replace
 from statistics import NormalDist
 from typing import Any, Protocol
 
-import matplotlib.colors as mcolors
-
 from pypedigree.carriers import CarrierScheme
+from pypedigree.colors import parse_rgb, rgb_to_hex
 from pypedigree.config import PedigreeStyle, is_pgs_column, known_phenotype
 from pypedigree.errors import PedigreeError, PedigreeStyleWarning
 from pypedigree.models import Individual, NodeLayout, Pedigree, Phenotype, PhenotypeDisplayMode
@@ -68,14 +68,15 @@ _PERCENTILE_LIMITS = (0.01, 99.99)  # a percentile of 0 or 100 has no z
 def to_rgb(color: str) -> tuple[float, float, float]:
     """Convert a color string to (r, g, b) floats in [0, 1].
 
-    Accepts anything matplotlib accepts: hex (``#e74c3c``), a named color
-    (``grey``), or a shorthand (``C0``).
+    Accepts the colors matplotlib accepts (`pypedigree.colors`): hex
+    (``#e74c3c``), a named color (``grey``), a grey level (``"0.5"``); and,
+    when matplotlib is installed, its ``xkcd:`` names and ``C0`` shorthands.
 
     Raises:
         PedigreeError: If the color is not recognised.
     """
     try:
-        return mcolors.to_rgb(color)
+        return parse_rgb(color)
     except (ValueError, TypeError) as exc:
         raise PedigreeError(
             f"Invalid color {color!r}: expected a hex value like '#e74c3c' "
@@ -86,9 +87,8 @@ def to_rgb(color: str) -> tuple[float, float, float]:
 def to_hex(color: Color) -> str:
     """Hex form (``#rrggbb``) of a color string or an RGB tuple."""
     if isinstance(color, str):
-        return str(mcolors.to_hex(color))
-    r, g, b = color[:3]
-    return str(mcolors.to_hex((r, g, b)))
+        return rgb_to_hex(parse_rgb(color))
+    return rgb_to_hex(color)
 
 
 def validate_style_colors(style: PedigreeStyle) -> None:
@@ -118,9 +118,8 @@ def validate_style_colors(style: PedigreeStyle) -> None:
     bad: list[str] = []
     for option, value in candidates:
         try:
-            # Deliberately unvalidated: to_rgb raising is how we detect a bad
-            # value, so the loose type here is the point, not an oversight.
-            mcolors.to_rgb(value)  # type: ignore[arg-type]
+            # Any value: parse_rgb raising is how a bad one is detected.
+            parse_rgb(value)
         except (ValueError, TypeError):
             bad.append(f"{option} = {value!r}")
 

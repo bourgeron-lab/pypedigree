@@ -384,6 +384,8 @@ fig = render_pedigree(ped, output="family.png")
 
 **Note**: For large pedigrees, figure dimensions are auto-scaled based on layout bounds.
 
+`render_pedigree` and `render_family` are imported on first use: `import pypedigree` does not import matplotlib, and parsing, layout and SVG output never do.
+
 ---
 
 ### `render_family(family, style=None, ax=None, show_labels=True)`
@@ -404,7 +406,7 @@ fig, layout = render_family(fam)
 
 ### `render_interactive_svg(pedigree, style=None, output=None, show_labels=True, show_legend=True, *, id_prefix="", responsive=False)`
 
-Render all families as an interactive SVG with embedded JavaScript for tooltips, click highlighting, zoom, and pan. The SVG is written directly (matplotlib is only used to read color names), and draws the same figure as `render_pedigree()`: both renderers take their decisions from `pypedigree.phenotypes` and `pypedigree.carriers`.
+Render all families as an interactive SVG with embedded JavaScript for tooltips, click highlighting, zoom, and pan. The SVG is written directly, without matplotlib (colors are read by `pypedigree.colors`), and draws the same figure as `render_pedigree()`: both renderers take their decisions from `pypedigree.phenotypes` and `pypedigree.carriers`.
 
 ```python
 from pypedigree import parse_pedigree, render_interactive_svg

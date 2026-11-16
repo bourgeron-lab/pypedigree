@@ -48,25 +48,36 @@ src/pypedigree/
   errors.py    -> Custom exceptions + warning categories (no dependencies)
   models.py    -> Data structures (depends on: errors)
   config.py    -> PedigreeStyle dataclass + style resolution (depends on: errors)
+  colors.py    -> Color parsing as matplotlib.colors.to_rgb does, without matplotlib (no dependencies;
+                  hands xkcd:/C0 colors to matplotlib only if installed)
   parser.py    -> File I/O + validation + pandas (depends on: models, errors; optional: pandas)
   layout.py    -> Coordinate math, incl. circular layout (depends on: models, config, symbols, errors)
   carriers.py  -> Carrier notation decisions shared by both renderers, no matplotlib (depends on: models, errors)
   symbols.py   -> Standard notation (pregnancies, adoption, childlessness, donors, gender, consultand):
                   decisions and geometry shared by layout and both renderers, no matplotlib (depends on: models)
   phenotypes.py -> Phenotype display decisions shared by both renderers: column modes, band colors/text,
-                   legend rows and geometry; uses only matplotlib.colors (depends on: models, config, carriers, errors)
+                   legend rows and geometry; no matplotlib (depends on: models, config, colors, carriers, errors)
   renderer.py      -> Matplotlib drawing (depends on: models, config, layout, carriers, phenotypes, symbols)
   svg_renderer.py  -> Interactive SVG rendering (depends on: models, config, layout, carriers, phenotypes, symbols)
   api.py           -> PedigreeBuilder fluent API (depends on: models, config, renderer, svg_renderer)
-  cli.py       -> Click CLI (depends on: parser, renderer, config)
-  __init__.py  -> Public re-exports (includes compute_layout_circular)
+  cli.py       -> Click CLI (depends on: parser, config; renderer and matplotlib only for PNG/PDF)
+  __init__.py  -> Public re-exports (includes compute_layout_circular); render_pedigree and
+                  render_family are imported lazily through a module __getattr__ (PEP 562)
   __main__.py  -> python -m entry point
 ```
 
 ## Key Design Rules
 
 1. **layout.py never imports matplotlib.** It produces pure numeric
-   coordinates in FamilyLayout dataclasses.
+   coordinates in FamilyLayout dataclasses. More generally, only `renderer.py`
+   imports matplotlib (and numpy) at module level: `import pypedigree`, the
+   parser, the layout, `phenotypes.py` and the SVG writer must not load it
+   (#8). The CLI, `PedigreeBuilder.render()` and `_repr_png_()` import it
+   inside the function. Colors go through `pypedigree.colors`, whose tables
+   must stay equal to matplotlib's (`TestColorsMatchMatplotlib`);
+   `tests/test_light_import.py` checks in a fresh interpreter that
+   matplotlib, numpy and pandas stay out of `sys.modules`, and that SVG output
+   works with matplotlib blocked.
 
 2. **Hierarchical edges are orthogonal.** Every edge `compute_layout` emits is
    horizontal or vertical, as pedigree nomenclature requires; an offset single
@@ -358,6 +369,8 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   - Regenerate: `uv run pytest tests/visual/ --regen-golden`
 - `tests/test_api.py` — PedigreeBuilder programmatic API tests
 - `tests/test_carrier.py` — Carrier notation: NSGC 2022 sections and `cr_` columns, legacy half-fill / dot (model, parsing, rendering, API, CLI)
+- `tests/test_light_import.py` — No matplotlib on import, parsing, layout, SVG or `--interactive` (fresh
+  interpreter, matplotlib blocked); lazy `render_pedigree`; `pypedigree.colors` equal to `matplotlib.colors`
 - `tests/test_svg_renderer.py` — Interactive SVG renderer (XML validity, nodes, tooltips, interactivity, CLI;
   `TestSvgPhenotypes` checks each band's color against `band_cell`, legend, PGS, outline, annotations;
   `TestSvgFixtures` renders every fixture and checks ids are unique; multi-family placement)

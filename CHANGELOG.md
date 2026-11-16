@@ -79,6 +79,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `import pypedigree` no longer imports matplotlib (nor numpy):
+  `render_pedigree` and `render_family` are imported on first use (PEP 562),
+  and the CLI imports matplotlib only for PNG/PDF output. Parsing, layout and
+  the interactive SVG never load it, so a web server avoids its import time
+  and `pyplot`'s global state. Colors are read by a new `pypedigree.colors`
+  module, with the same values as `matplotlib.colors.to_rgb` for hex, CSS4
+  names, `tab:` colors, single letters, grey levels and RGB tuples; `xkcd:`
+  names and `C0` shorthands are still accepted through matplotlib. The PNG
+  and SVG outputs are unchanged (bourgeron-lab/pypedigree#8).
 - Interactive SVG, inlined in a page: the root `<svg>` has the class
   `pypedigree`, and its CSS applies only under it (no more page-wide `.node`,
   `.edge` or `text` rules). The script acts only on its own root
