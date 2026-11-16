@@ -156,6 +156,10 @@ class Notation:
             assigned at birth (``Individual.sex``) is written below as AMAB
             or AFAB when the two differ.
         is_consultand: An arrow without "P" points at the symbol.
+        is_evaluated: Documented evaluation, records reviewed: an asterisk
+            at the lower right of the symbol (Bennett et al. 2022, Fig. 2).
+        evaluation: The evaluation's result, written below the symbol
+            without the "E" the 2022 revision dropped (e.g. "WGS: negative").
     """
 
     pregnancy: Pregnancy | None = None
@@ -164,6 +168,8 @@ class Notation:
     reproductive_role: ReproductiveRole | None = None
     gender: Gender | None = None
     is_consultand: bool = False
+    is_evaluated: bool = False
+    evaluation: str | None = None
 
 
 @dataclass

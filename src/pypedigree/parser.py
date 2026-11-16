@@ -119,10 +119,21 @@ _COLUMN_ROLES: dict[str, str] = {
     "gender_identity": "gender_identity",
     "identity": "gender_identity",
     "consultand": "consultand",
+    "evaluated": "evaluated",
+    "documented_evaluation": "evaluated",
+    "evaluation": "evaluated",
 }
 
 # Columns read into models.Notation.
-_NOTATION_ROLES = ("pregnancy", "adopted", "childless", "art", "gender_identity", "consultand")
+_NOTATION_ROLES = (
+    "pregnancy",
+    "adopted",
+    "childless",
+    "art",
+    "gender_identity",
+    "consultand",
+    "evaluated",
+)
 
 # Standard structural columns (order matters for the fixed-position fallback)
 _STRUCTURAL_ROLES = {
@@ -827,6 +838,29 @@ def _coerce_notation(value: _E | str | None, role: str, codes: dict[str, _E]) ->
     return found
 
 
+# A yes in the evaluated column; any other text is the evaluation's result.
+_EVALUATED_YES = frozenset({"1", "yes", "y", "true"})
+
+
+def _evaluation(value: bool | str | None) -> tuple[bool, str | None]:
+    """(is_evaluated, result text) from a ``evaluated`` column value or keyword.
+
+    True, ``1``, ``yes`` or ``true`` mark a documented evaluation; ``0``,
+    ``-9``, ``NA``, ``.``, empty, False or None mark nothing; any other text
+    marks it and is the result written below the symbol.
+    """
+    if value is None or value is False:
+        return False, None
+    if value is True:
+        return True, None
+    text = str(value).strip()
+    if text.lower() in _EVALUATED_YES:
+        return True, None
+    if _is_missing(text):
+        return False, None
+    return True, text
+
+
 def build_notation(
     *,
     pregnancy: Pregnancy | str | None = None,
@@ -835,15 +869,19 @@ def build_notation(
     art: ReproductiveRole | str | None = None,
     gender: Gender | str | None = None,
     consultand: bool = False,
+    evaluated: bool | str = False,
 ) -> Notation:
     """Build a Notation from enum values or the codes of the ``.ped`` columns.
 
     Accepts the same codes as the ``pregnancy``, ``adopted``, ``childless``,
-    ``art`` and ``gender_identity`` columns (case-insensitive).
+    ``art`` and ``gender_identity`` columns (case-insensitive). ``evaluated``
+    is True for a documented evaluation (an asterisk), or the evaluation's
+    result as text, written below the symbol.
 
     Raises:
         PedigreeParseError: If a value is not one of the accepted codes.
     """
+    is_evaluated, evaluation = _evaluation(evaluated)
     return Notation(
         pregnancy=_coerce_notation(pregnancy, "pregnancy", _PREGNANCY_CODES),
         adoption=_coerce_notation(adopted, "adopted", _ADOPTION_CODES),
@@ -851,6 +889,8 @@ def build_notation(
         reproductive_role=_coerce_notation(art, "art", _ART_CODES),
         gender=_coerce_notation(gender, "gender_identity", _GENDER_CODES),
         is_consultand=consultand,
+        is_evaluated=is_evaluated,
+        evaluation=evaluation,
     )
 
 
@@ -863,6 +903,7 @@ def _parse_notation(raw: dict[str, str], line_num: int) -> Notation:
     Raises:
         PedigreeParseError: If a value is not one of the codes of its column.
     """
+    is_evaluated, evaluation = _evaluation(raw.get("evaluated"))
     return Notation(
         pregnancy=_notation_value(raw, "pregnancy", _PREGNANCY_CODES, line_num),
         adoption=_notation_value(raw, "adopted", _ADOPTION_CODES, line_num),
@@ -870,6 +911,8 @@ def _parse_notation(raw: dict[str, str], line_num: int) -> Notation:
         reproductive_role=_notation_value(raw, "art", _ART_CODES, line_num),
         gender=_notation_value(raw, "gender_identity", _GENDER_CODES, line_num),
         is_consultand=raw.get("consultand", "").strip() == "1",
+        is_evaluated=is_evaluated,
+        evaluation=evaluation,
     )
 
 

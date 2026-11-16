@@ -207,7 +207,8 @@ Extended format adds:
 - Standard notation columns, by header name (`_NOTATION_ROLES` in parser.py; codes
   case-insensitive, unknown code -> `PedigreeParseError` with the line):
   `pregnancy` (P/SAB/TOP/ECT/SB), `adopted` (in/out), `childless` (choice/infertility),
-  `art` (D/S), `gender_identity` (man/woman/nonbinary; `gender` means this only when
+  `art` (D/S), `evaluated` (1/yes/true, or a result text written below; asterisk at the
+  lower right, `symbols.evaluation_mark_position`), `gender_identity` (man/woman/nonbinary; `gender` means this only when
   a `sex` column is also present, otherwise it is the sex column), `consultand` (1).
   `build_notation()` accepts the same codes (used by `PedigreeBuilder`).
 - Columns 11+: extra phenotypes (requires header row with column names)

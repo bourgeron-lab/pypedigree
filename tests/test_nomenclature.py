@@ -462,3 +462,98 @@ class TestSvgRenderer:
     def test_fixture_renders(self) -> None:
         root = _svg_root(parse_pedigree(FIXTURE))
         assert root.findall(".//g[@class='node']")
+
+
+class TestDocumentedEvaluation:
+    """Documented evaluation, records reviewed (issue #11).
+
+    Bennett et al. 2022, Figure 2: an asterisk at the lower right of the
+    symbol. The 2022 revision dropped the "E" notation; an evaluation's
+    result is written below the symbol as given.
+    """
+
+    TEXT = (
+        "FID\tIID\tFather\tMother\tSex\tPhenotype\tEvaluated\tPregnancy\n"
+        "F\tdad\t0\t0\t1\t1\t1\t\n"
+        "F\tmum\t0\t0\t2\t2\tyes\t\n"
+        "F\tkid\tdad\tmum\t0\t1\tWGS: negative\t\n"
+        "F\tsib\tdad\tmum\t1\t2\t0\t\n"
+        "F\tloss\tdad\tmum\t0\t1\t1\tSAB\n"
+    )
+    EVALUATED = {"dad", "mum", "kid", "loss"}
+
+    def _people(self):
+        return parse_pedigree_from_string(self.TEXT).families["F"].individuals
+
+    def test_column_values(self):
+        people = self._people()
+        assert {sid for sid, i in people.items() if i.notation.is_evaluated} == self.EVALUATED
+        assert people["kid"].notation.evaluation == "WGS: negative"
+        assert people["dad"].notation.evaluation is None
+
+    @pytest.mark.parametrize("header", ["evaluated", "documented_evaluation", "Evaluation"])
+    def test_column_names(self, header):
+        text = f"FID\tIID\tFather\tMother\tSex\tPhenotype\t{header}\nF\ta\t0\t0\t1\t1\t1\n"
+        notation = parse_pedigree_from_string(text).families["F"].individuals["a"].notation
+        assert notation.is_evaluated
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            (True, (True, None)),
+            ("1", (True, None)),
+            ("true", (True, None)),
+            ("E+ (BRCA1)", (True, "E+ (BRCA1)")),
+            (False, (False, None)),
+            ("0", (False, None)),
+            ("NA", (False, None)),
+        ],
+    )
+    def test_build_notation_and_builder(self, value, expected):
+        notation = build_notation(evaluated=value)
+        assert (notation.is_evaluated, notation.evaluation) == expected
+        b = PedigreeBuilder("F")
+        b.add_individual("a", sex="male", evaluated=value)
+        built = b.build().families["F"].individuals["a"].notation
+        assert (built.is_evaluated, built.evaluation) == expected
+
+    def test_result_is_a_note_below_the_label(self):
+        people = self._people()
+        assert symbols.notes(people["kid"]) == ["WGS: negative"]
+        assert symbols.notes(people["dad"]) == []
+
+    @pytest.mark.parametrize("sex", [Sex.MALE, Sex.FEMALE, Sex.UNKNOWN])
+    def test_mark_sits_outside_at_the_lower_right(self, sex):
+        half = 0.4
+        x, y = symbols.evaluation_mark_position(0.0, 0.0, half, sex)
+        assert x > 0 and y < 0, "lower right"
+        assert math.hypot(x, y) > symbols.shape_reach(sex, half, math.atan2(y, x)), "outside"
+        xs, ys = symbols.evaluation_mark_position(0.0, 0.0, half, sex, up=-1.0)
+        assert (xs, ys) == pytest.approx((x, -y)), "SVG: same place, y pointing down"
+
+    def test_triangle_mark_beside_the_base(self):
+        x, y = symbols.evaluation_mark_position(0.0, 0.0, 0.4, Sex.UNKNOWN, triangle=True)
+        assert x > 0.4 * symbols.TRIANGLE_HALF_WIDTH
+        assert y == pytest.approx(-0.4 * symbols.TRIANGLE_BASE)
+
+    def test_png_draws_one_asterisk_per_evaluated_individual(self):
+        fig = render_pedigree(parse_pedigree_from_string(self.TEXT))
+        try:
+            texts = [t.get_text() for t in fig.axes[0].texts]
+        finally:
+            plt.close(fig)
+        assert texts.count(symbols.EVALUATION_MARK) == len(self.EVALUATED)
+        assert "WGS: negative" in texts
+
+    def test_svg_draws_them_too(self):
+        svg = render_interactive_svg(parse_pedigree_from_string(self.TEXT))
+        assert svg.count('class="documented-evaluation"') == len(self.EVALUATED)
+        assert ">WGS: negative<" in svg
+
+    def test_room_below_for_the_result(self):
+        plain = self.TEXT.replace("WGS: negative", "1")
+        gap = compute_layout(parse_pedigree_from_string(self.TEXT).families["F"])
+        base = compute_layout(parse_pedigree_from_string(plain).families["F"])
+        y = {n.individual_id: n.y for n in gap.nodes}
+        y0 = {n.individual_id: n.y for n in base.nodes}
+        assert y["dad"] - y["kid"] >= y0["dad"] - y0["kid"]

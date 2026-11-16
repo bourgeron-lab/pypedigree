@@ -137,6 +137,7 @@ class PedigreeBuilder:
         art: ReproductiveRole | str | None = None,
         gender: Gender | str | None = None,
         consultand: bool = False,
+        evaluated: bool | str = False,
         twin_of: str | Sequence[str] | None = None,
         twin_type: TwinType | str = TwinType.UNKNOWN,
         css_class: str | Sequence[str] | None = None,
@@ -174,6 +175,9 @@ class PedigreeBuilder:
                 symbol follows it, and ``sex`` is taken as the sex assigned
                 at birth (AMAB/AFAB written below when they differ).
             consultand: Point an arrow without "P" at the symbol.
+            evaluated: Documented evaluation, records reviewed: True draws
+                an asterisk at the lower right of the symbol; text (e.g.
+                "WGS: negative") draws it and writes the result below.
             twin_of: Sample ID of this individual's twin, or a list of them
                 for triplets and more. The twins may be added before or
                 after; see also `add_twins`.
@@ -233,6 +237,7 @@ class PedigreeBuilder:
                 art=art,
                 gender=gender,
                 consultand=consultand,
+                evaluated=evaluated,
             ),
             "css_classes": css_classes,
             "data_attributes": data_attributes,

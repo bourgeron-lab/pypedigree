@@ -194,11 +194,12 @@ apply_annotations_to_pedigree(ped, anno_data, anno_names)
 - `anno_data` -- Map of `sample_id -> {anno_name: value}`.
 - `anno_names` -- Ordered list of annotation column names.
 
-### `build_notation(*, pregnancy=None, adopted=None, childless=None, art=None, gender=None, consultand=False)`
+### `build_notation(*, pregnancy=None, adopted=None, childless=None, art=None, gender=None, consultand=False, evaluated=False)`
 
 Build a `Notation` from enum values or the codes of the `.ped` notation columns
 (case-insensitive): `pregnancy` `P`/`SAB`/`TOP`/`ECT`/`SB`, `adopted` `in`/`out`,
-`childless` `choice`/`infertility`, `art` `D`/`S`, `gender` `man`/`woman`/`nonbinary`.
+`childless` `choice`/`infertility`, `art` `D`/`S`, `gender` `man`/`woman`/`nonbinary`,
+`evaluated` `True`/`1`/`yes` (documented evaluation) or a result text written below the symbol.
 Raises `PedigreeParseError` on an unknown code. `PedigreeBuilder.add_individual()`
 uses it.
 
@@ -304,6 +305,7 @@ Add an individual to the pedigree.
 | `art` | `str \| ReproductiveRole \| None` | `None` | `"D"` gamete donor or `"S"` surrogate, written inside the symbol |
 | `gender` | `str \| Gender \| None` | `None` | Gender identity `"man"`, `"woman"`, `"nonbinary"`: the symbol follows it and `sex` is the sex assigned at birth (AMAB/AFAB below when they differ) |
 | `consultand` | `bool` | `False` | Arrow without "P" |
+| `evaluated` | `bool \| str` | `False` | Documented evaluation: `True` draws an asterisk at the lower right; text (e.g. `"WGS: negative"`) is the result, written below |
 | `twin_of` | `str \| list[str] \| None` | `None` | Sample ID of this individual's twin (a list for triplets and more); the twin may be added before or after |
 | `css_class` | `str \| list[str] \| None` | `None` | Extra classes on the individual's node in the interactive SVG (`"flagged"`, several separated by spaces, or a list) |
 | `data` | `Mapping[str, object] \| None` | `None` | Extra `data-*` attributes on that node: `{"qc": "high"}` writes `data-qc="high"`; `_` in a name becomes `-`, `None` values are left out |
@@ -511,6 +513,8 @@ to note". How each is drawn is decided in `pypedigree.symbols`.
 | `reproductive_role` | `ReproductiveRole \| None` | "D" or "S" inside the symbol |
 | `gender` | `Gender \| None` | Symbol shape; AMAB/AFAB below when it differs from `Individual.sex` |
 | `is_consultand` | `bool` | Arrow without "P" |
+| `is_evaluated` | `bool` | Documented evaluation, records reviewed: an asterisk at the lower right of the symbol |
+| `evaluation` | `str \| None` | The evaluation's result, written below the symbol (no "E" prefix, as in the 2022 revision) |
 
 ### `Union`
 

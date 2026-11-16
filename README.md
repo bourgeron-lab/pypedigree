@@ -238,6 +238,7 @@ its 2022 revision).
 | `art` (`assisted_reproduction`) | `D` gamete donor, `S` surrogate (also `GC`) | "D" or "S" inside the symbol |
 | `gender_identity` (`identity`) | `man`/`M`/`1`, `woman`/`F`/`W`/`2`, `nonbinary`/`NB`/`X`/`3` | The symbol follows the gender identity (square, circle, diamond) and the `sex` column is taken as the sex assigned at birth, written below as AMAB or AFAB when the two differ |
 | `consultand` | `1` | An arrow without "P" (the proband's arrow has one) |
+| `evaluated` | `1`, or a result such as `WGS: negative` | Documented evaluation: an asterisk at the lower right; a result is written below the symbol |
 
 A column named `gender` is the sex column, as before, unless the header also
 has a `sex` column: then it is the gender identity.

@@ -60,6 +60,12 @@ BRACKET_OVERHANG = 0.08
 # Vertical step between lines of text below the label (notes, annotations).
 TEXT_LINE_STEP = 0.25
 
+# Documented evaluation: an asterisk this far outside the symbol's lower
+# right, at this size relative to the style's font size.
+EVALUATION_MARK = "*"
+EVALUATION_MARK_GAP = 0.08
+EVALUATION_MARK_FONT_SCALE = 1.3
+
 # The "?" standing for an unknown child, relative to the style's font size.
 UNKNOWN_OFFSPRING_TEXT = "?"
 UNKNOWN_OFFSPRING_FONT_SCALE = 2.0
@@ -100,7 +106,9 @@ def notes(ind: Individual) -> list[str]:
     """Notation text written below the label, top to bottom.
 
     "SB" for a stillbirth and "ECT" for an ectopic pregnancy, then the sex
-    assigned at birth when the symbol does not show it.
+    assigned at birth when the symbol does not show it, then the result of
+    a documented evaluation (written as given, without the "E" the 2022
+    revision dropped).
     """
     out = []
     if ind.notation.pregnancy in (Pregnancy.STILLBIRTH, Pregnancy.ECTOPIC):
@@ -108,6 +116,8 @@ def notes(ind: Individual) -> list[str]:
     note = sex_at_birth_note(ind.sex, ind.notation)
     if note:
         out.append(note)
+    if ind.notation.evaluation:
+        out.append(ind.notation.evaluation)
     return out
 
 
@@ -258,6 +268,29 @@ def unknown_offspring_anchor(
     from there, anchored by its top edge.
     """
     return x, y + up * (half - UNKNOWN_OFFSPRING_GAP)
+
+
+def evaluation_mark_position(
+    x: float, y: float, half: float, sex: Sex, triangle: bool = False, up: float = 1.0
+) -> tuple[float, float]:
+    """Centre of the documented-evaluation asterisk: beside the lower right.
+
+    Bennett et al. 2022, Figure 2 ("Documented evaluation, records
+    reviewed"): just outside the symbol's lower-right corner, or the
+    lower-right edge of a diamond; for a pregnancy loss, beside the right
+    end of the triangle's base.
+    """
+    if triangle:
+        return (
+            x + half * TRIANGLE_HALF_WIDTH + EVALUATION_MARK_GAP,
+            y - up * half * TRIANGLE_BASE,
+        )
+    if sex == Sex.MALE:
+        # Beside the right side, near the bottom, as in the figure.
+        return x + half + EVALUATION_MARK_GAP, y - up * half * 0.8
+    reach = shape_reach(sex, half, -math.pi / 4) + EVALUATION_MARK_GAP
+    d = reach / math.sqrt(2)
+    return x + d, y - up * d
 
 
 def text_lines_below(ind: Individual) -> int:

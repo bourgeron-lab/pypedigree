@@ -731,7 +731,7 @@ def _svg_pregnancy_loss(node: NodeLayout, style: PedigreeStyle, fill: str) -> st
 
 
 def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
-    """Adoption brackets and the letter inside a symbol (P, D or S).
+    """Adoption brackets, the documented-evaluation asterisk, and the letter (P, D or S).
 
     Mirrors `renderer._draw_notation`.
     """
@@ -747,6 +747,23 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
                 f'stroke="{html.escape(style.line_color)}" '
                 f'stroke-width="{style.line_width * _PT:.3f}"/>'
             )
+    if node.notation.is_evaluated:
+        ex, ey = symbols.evaluation_mark_position(node.x, node.y, half, node.sex, triangle, up=-1.0)
+        size = style.font_size * symbols.EVALUATION_MARK_FONT_SCALE * _PT
+        out.append(
+            _svg_text(
+                ex,
+                # "*" sits high in its line: put its middle, not the line's, on ey.
+                ey + _ASTERISK_MIDDLE_EM * size,
+                symbols.EVALUATION_MARK,
+                size,
+                style,
+                baseline="auto",
+                color=style.line_color,
+                weight="bold",
+                cls="documented-evaluation",
+            )
+        )
     letter = symbols.inner_letter(node.notation)
     if letter is not None and not triangle:
         divided = bool(carriers.marks(node)) or (
@@ -1140,6 +1157,9 @@ def _svg_sections(
 # Average advance width of a character, in font sizes. Python cannot measure
 # text, so the legend border is sized from this estimate.
 _CHAR_WIDTH_EM = 0.55
+# Height of the middle of an asterisk above the baseline, in ems (DejaVu Sans,
+# the default font: the glyph spans about 0.42 to 0.76 em).
+_ASTERISK_MIDDLE_EM = 0.59
 
 
 def _svg_legend(

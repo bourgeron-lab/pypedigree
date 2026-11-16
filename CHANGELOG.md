@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a dashed outline like a phantom parent, while keeping their label, parents,
   phenotypes and their place in a `.fam` export; the SVG tooltip says "Not
   sampled (inferred)" (bourgeron-lab/pypedigree#6).
+- Documented evaluation, records reviewed: an `evaluated` column (aliases
+  `documented_evaluation`, `evaluation`) or the builder's `evaluated=` draws
+  an asterisk beside the lower right of the symbol, as in Bennett et al.
+  2022, Figure 2. Any text other than `1`/`yes`/`true` is the evaluation's
+  result, written below the symbol without the "E" prefix the 2022 revision
+  dropped (bourgeron-lab/pypedigree#11).
 - Interactive SVG: each node carries `data-x`, `data-y` (the centre of its
   symbol) and `data-size`, in the coordinates of `#main-group`, so a page
   embedding the SVG can draw overlays (observed relatedness, links the
