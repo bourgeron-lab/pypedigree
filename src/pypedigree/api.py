@@ -552,6 +552,8 @@ class PedigreeBuilder:
         style: PedigreeStyle | None = None,
         show_labels: bool = True,
         show_legend: bool = True,
+        id_prefix: str = "",
+        responsive: bool = False,
     ) -> str:
         """Build the pedigree and render as interactive SVG.
 
@@ -560,6 +562,10 @@ class PedigreeBuilder:
             style: Override the builder's style.
             show_labels: Whether to show individual ID labels.
             show_legend: Whether to show the phenotype and carrier legend.
+            id_prefix: Prepended to every id in the SVG, so that several
+                figures can share one page.
+            responsive: Write ``width="100%"`` and no height, so the figure
+                fills the width of its container.
 
         Returns:
             The SVG content as a string.
@@ -575,6 +581,40 @@ class PedigreeBuilder:
             output=output,
             show_labels=show_labels,
             show_legend=show_legend,
+            id_prefix=id_prefix,
+            responsive=responsive,
+        )
+
+    def render_svg(
+        self,
+        output: str | None = None,
+        *,
+        style: PedigreeStyle | None = None,
+        show_labels: bool = True,
+        show_legend: bool = True,
+        id_prefix: str = "",
+        responsive: bool = False,
+    ) -> str:
+        """Build the pedigree and render as a static SVG (no script, no tooltip).
+
+        Same arguments as `render_interactive_svg`.
+
+        Returns:
+            The SVG content as a string.
+        """
+        from pypedigree.svg_renderer import render_svg
+
+        pedigree = self.build()
+        render_style = resolve_style(style or self._style, pedigree.phenotype_names)
+
+        return render_svg(
+            pedigree,
+            style=render_style,
+            output=output,
+            show_labels=show_labels,
+            show_legend=show_legend,
+            id_prefix=id_prefix,
+            responsive=responsive,
         )
 
     def _repr_png_(self) -> bytes:

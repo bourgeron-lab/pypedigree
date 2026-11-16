@@ -59,7 +59,7 @@ from pypedigree.parser import (
     parse_phenotype_file,
     parse_plink_ped,
 )
-from pypedigree.svg_renderer import render_interactive_svg
+from pypedigree.svg_renderer import render_interactive_svg, render_svg
 
 if TYPE_CHECKING:
     from pypedigree.renderer import render_family, render_pedigree
@@ -133,6 +133,7 @@ __all__ = [
     "render_pedigree",
     "render_family",
     "render_interactive_svg",
+    "render_svg",
     # Config
     "PedigreeStyle",
     "DEFAULT_PHENOTYPE_PALETTE",

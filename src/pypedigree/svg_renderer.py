@@ -15,7 +15,9 @@ are read by `pypedigree.colors`.
 from __future__ import annotations
 
 import html
+import json
 import math
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -101,6 +103,9 @@ def render_interactive_svg(
     output: str | Path | None = None,
     show_labels: bool = True,
     show_legend: bool = True,
+    *,
+    id_prefix: str = "",
+    responsive: bool = False,
 ) -> str:
     """Render pedigree as interactive SVG with tooltips and click highlighting.
 
@@ -109,16 +114,79 @@ def render_interactive_svg(
     the same per-figure decisions (`pypedigree.phenotypes`,
     `pypedigree.carriers`). Several families are drawn side by side.
 
+    The SVG can be opened on its own or inlined in an HTML page next to
+    other SVGs: its root has the class ``pypedigree``, its CSS only applies
+    under that class, and its script only acts on its own root. Opened on
+    its own, the mouse wheel zooms; inlined in a page, only Ctrl + wheel
+    (or a trackpad pinch) zooms, so the page still scrolls.
+
     Args:
         pedigree: The parsed pedigree data.
         style: Visual style parameters. Uses defaults if None.
         output: If provided, write the SVG to this path.
         show_labels: Whether to draw sample_id labels under shapes.
         show_legend: Whether to draw the phenotype and carrier legend.
+        id_prefix: Prepended to every ``id`` in the SVG (and to the
+            ``url(#...)`` and ``href="#..."`` references to them), so that
+            several figures can share one page. Letters, digits, ``_``,
+            ``-`` and ``.``, not starting with a digit, ``-`` or ``.``.
+            Empty by default: ids are then ``main-group``, ``tooltip``...
+        responsive: Write ``width="100%"`` and no height instead of a size
+            in pixels: the figure then fills the width of its container,
+            with the proportions of its ``viewBox``.
 
     Returns:
         The SVG content as a string.
     """
+    return _render(pedigree, style, output, show_labels, show_legend, id_prefix, responsive, True)
+
+
+def render_svg(
+    pedigree: Pedigree,
+    style: PedigreeStyle | None = None,
+    output: str | Path | None = None,
+    show_labels: bool = True,
+    show_legend: bool = True,
+    *,
+    id_prefix: str = "",
+    responsive: bool = False,
+) -> str:
+    """Render pedigree as a static SVG: no script, no tooltip.
+
+    The same drawing as `render_interactive_svg`, for print and for hosts
+    that add their own behaviour. Each individual keeps its ``<title>``
+    (shown as a native tooltip by browsers) and its ``data-*`` attributes;
+    the ``dimmed`` class still fades a node or an edge.
+
+    Args:
+        pedigree: The parsed pedigree data.
+        style: Visual style parameters. Uses defaults if None.
+        output: If provided, write the SVG to this path.
+        show_labels: Whether to draw sample_id labels under shapes.
+        show_legend: Whether to draw the phenotype and carrier legend.
+        id_prefix: Prepended to every ``id`` in the SVG, as in
+            `render_interactive_svg`.
+        responsive: Write ``width="100%"`` and no height, as in
+            `render_interactive_svg`.
+
+    Returns:
+        The SVG content as a string.
+    """
+    return _render(pedigree, style, output, show_labels, show_legend, id_prefix, responsive, False)
+
+
+def _render(
+    pedigree: Pedigree,
+    style: PedigreeStyle | None,
+    output: str | Path | None,
+    show_labels: bool,
+    show_legend: bool,
+    id_prefix: str,
+    responsive: bool,
+    interactive: bool,
+) -> str:
+    check_id_prefix(id_prefix)
+    wrap = _SvgWrap(id_prefix=id_prefix, responsive=responsive, interactive=interactive)
     if style is None:
         style = PedigreeStyle()
     validate_style_colors(style)
@@ -155,7 +223,7 @@ def render_interactive_svg(
     )
 
     if not families:
-        return _write(_wrap_svg("", (0.0, 0.0, 100.0, 100.0), style), output)
+        return _write(_wrap_svg("", (0.0, 0.0, 100.0, 100.0), style, wrap), output)
 
     parts: list[str] = []
     if carriers.keys:
@@ -209,7 +277,7 @@ def render_interactive_svg(
             parts.append(legend)
             bounds = _union([bounds, legend_extent])
 
-    return _write(_wrap_svg("\n".join(parts), bounds, style), output)
+    return _write(_wrap_svg("\n".join(parts), bounds, style, wrap), output)
 
 
 # Layout units per typographic point: font sizes and line widths, given in
@@ -461,14 +529,78 @@ def _svg_carrier_patterns(carriers: CarrierScheme, style: PedigreeStyle) -> str:
     return "".join(out)
 
 
+# Root class of every SVG: the CSS below only applies under it, and hosts
+# can select pypedigree figures with it.
+ROOT_CLASS = "pypedigree"
+
+_ID_PREFIX_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]*")
+
+
+def check_id_prefix(id_prefix: str) -> None:
+    """Raise ValueError unless ``id_prefix`` can start an XML id.
+
+    Empty, or a letter or ``_`` followed by letters, digits, ``_``, ``-``
+    or ``.``: such ids need no escaping in CSS attribute selectors or in
+    ``url(#...)`` references.
+    """
+    if id_prefix and not _ID_PREFIX_RE.fullmatch(id_prefix):
+        raise ValueError(
+            f"id_prefix {id_prefix!r} is not a valid id start: use letters, digits, "
+            "'_', '-' or '.', starting with a letter or '_'."
+        )
+
+
+# Every id the renderer writes, and every reference to one, is in an
+# attribute. Text and titles are escaped (html.escape turns '"' into
+# '&quot;'), so these patterns never match inside them.
+_ID_ATTR_RE = re.compile(r'(\sid=")')
+_URL_REF_RE = re.compile(r'(="url\(#)')
+_HREF_REF_RE = re.compile(r'(\shref="#)')
+
+
+def _prefix_ids(markup: str, id_prefix: str) -> str:
+    """Prepend ``id_prefix`` to every id in ``markup`` and every reference to one."""
+    if not id_prefix:
+        return markup
+    for pattern in (_ID_ATTR_RE, _URL_REF_RE, _HREF_REF_RE):
+        markup = pattern.sub(lambda m: m.group(1) + id_prefix, markup)
+    return markup
+
+
+@dataclass(frozen=True)
+class _SvgWrap:
+    """How the drawing is wrapped: ids, size, and whether it is interactive."""
+
+    id_prefix: str = ""
+    responsive: bool = False
+    interactive: bool = True
+
+
 _PX_PER_UNIT = 60.0
 _MAX_PX_W = 1600
 _MAX_PX_H = 1200
 _MIN_PX_W = 600
 
+# Scoped under the root class, so an inlined figure styles nothing else on
+# the page.
+_STATIC_CSS = f"""
+.{ROOT_CLASS} .node, .{ROOT_CLASS} .edge {{ transition: opacity 0.3s; }}
+.{ROOT_CLASS} .node.dimmed {{ opacity: 0.15; }}
+.{ROOT_CLASS} .edge.dimmed {{ opacity: 0.1; }}"""
 
-def _wrap_svg(content: str, bounds: _Extent, style: PedigreeStyle) -> str:
-    """Wrap SVG content in a complete SVG document with interactivity."""
+_INTERACTIVE_CSS = f"""
+.{ROOT_CLASS} .node {{ cursor: pointer; }}
+.{ROOT_CLASS} .node:hover .shape {{ filter: brightness(0.9); }}
+.{ROOT_CLASS} .tooltip-box {{ pointer-events: none; }}
+.{ROOT_CLASS} text {{ user-select: none; }}"""
+
+
+def _wrap_svg(
+    content: str, bounds: _Extent, style: PedigreeStyle, wrap: _SvgWrap | None = None
+) -> str:
+    """Wrap SVG content in a complete SVG document, interactive or not."""
+    if wrap is None:
+        wrap = _SvgWrap()
     min_x, min_y, max_x, max_y = bounds
     pad = style.margin
     vb_x = min_x - pad
@@ -481,39 +613,44 @@ def _wrap_svg(content: str, bounds: _Extent, style: PedigreeStyle) -> str:
     # taller than 1200). One scale for both axes, so the size has the
     # drawing's proportions; clamping each axis on its own letterboxed wide
     # pedigrees with bands of white above and below.
-    fit = min(_MAX_PX_W / vb_w, _MAX_PX_H / vb_h)
-    scale = min(max(_PX_PER_UNIT, _MIN_PX_W / vb_w), fit)
-    px_w = round(vb_w * scale)
-    px_h = round(vb_h * scale)
+    if wrap.responsive:
+        size = 'width="100%"'
+    else:
+        fit = min(_MAX_PX_W / vb_w, _MAX_PX_H / vb_h)
+        scale = min(max(_PX_PER_UNIT, _MIN_PX_W / vb_w), fit)
+        size = f'width="{round(vb_w * scale)}" height="{round(vb_h * scale)}"'
 
-    return f"""<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg"
-     viewBox="{vb_x:.2f} {vb_y:.2f} {vb_w:.2f} {vb_h:.2f}"
-     width="{px_w}" height="{px_h}"
-     style="background: white; font-family: {style.font_family};">
-<defs>
-<marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5"
-        markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-<path d="M0,0 L10,5 L0,10 z" fill="{style.line_color}"/></marker>
-<style>
-.node {{ cursor: pointer; transition: opacity 0.3s; }}
-.node.dimmed {{ opacity: 0.15; }}
-.node:hover .shape {{ filter: brightness(0.9); }}
-.edge {{ transition: opacity 0.3s; }}
-.edge.dimmed {{ opacity: 0.1; }}
-.tooltip-box {{ pointer-events: none; }}
-text {{ user-select: none; }}
-</style>
-</defs>
-<g id="main-group">
-{content}
-</g>
+    css = _STATIC_CSS + (_INTERACTIVE_CSS if wrap.interactive else "")
+    tooltip = (
+        """
 <!-- Tooltip -->
 <g id="tooltip" class="tooltip-box" visibility="hidden">
   <rect id="tooltip-bg" rx="0.06" ry="0.06" fill="rgba(0,0,0,0.85)" />
   <text id="tooltip-text" fill="white" font-size="0.28" />
-</g>
-{_INTERACTIVE_JS}
+</g>"""
+        if wrap.interactive
+        else ""
+    )
+    body = f"""<defs>
+<marker id="arrowhead" viewBox="0 0 10 10" refX="9" refY="5"
+        markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+<path d="M0,0 L10,5 L0,10 z" fill="{style.line_color}"/></marker>
+<style>{css}
+</style>
+</defs>
+<g id="main-group">
+{content}
+</g>{tooltip}"""
+    body = _prefix_ids(body, wrap.id_prefix)
+    script = _interactive_js(wrap.id_prefix) if wrap.interactive else ""
+
+    return f"""<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" class="{ROOT_CLASS}"
+     viewBox="{vb_x:.2f} {vb_y:.2f} {vb_w:.2f} {vb_h:.2f}"
+     {size}
+     style="background: white; font-family: {style.font_family};">
+{body}
+{script}
 </svg>"""
 
 
@@ -1497,13 +1634,23 @@ def _svg_duplicate_arc(arc: DuplicateArc, style: PedigreeStyle) -> str:
 _INTERACTIVE_JS = """<script>
 <![CDATA[
 (function() {
-  const svg = document.querySelector('svg');
-  const mainGroup = document.getElementById('main-group');
-  const tooltip = document.getElementById('tooltip');
-  const tooltipBg = document.getElementById('tooltip-bg');
-  const tooltipText = document.getElementById('tooltip-text');
-  const nodes = document.querySelectorAll('.node');
-  const edges = document.querySelectorAll('.edge');
+  const P = __ID_PREFIX__;
+  // Act on our own root only: the <svg> holding this script. Fallback: the
+  // last pypedigree SVG parsed so far, which is ours while the page loads.
+  const me = document.currentScript;
+  let svg = me && me.closest ? me.closest('svg') : null;
+  if (!svg) {
+    const all = document.querySelectorAll('svg.pypedigree');
+    svg = all[all.length - 1];
+  }
+  if (!svg) return;
+  const byId = function(id) { return svg.querySelector('[id="' + P + id + '"]'); };
+  const mainGroup = byId('main-group');
+  const tooltip = byId('tooltip');
+  const tooltipBg = byId('tooltip-bg');
+  const tooltipText = byId('tooltip-text');
+  const nodes = svg.querySelectorAll('.node');
+  const edges = svg.querySelectorAll('.edge');
   let activeNode = null;
 
   // Click on node: highlight relatives
@@ -1588,11 +1735,14 @@ _INTERACTIVE_JS = """<script>
     activeNode = null;
   });
 
-  // Zoom with mouse wheel
+  // Zoom with the mouse wheel. Opened on its own (the SVG is the document),
+  // the wheel zooms. Inlined in a page, only Ctrl/Cmd + wheel zooms (a
+  // trackpad pinch arrives as Ctrl + wheel), so the page keeps scrolling.
   let scale = 1;
   let panX = 0, panY = 0;
   let isPanning = false;
   let startX, startY;
+  const standalone = svg === document.documentElement;
 
   function updateTransform() {
     mainGroup.setAttribute('transform',
@@ -1600,6 +1750,7 @@ _INTERACTIVE_JS = """<script>
   }
 
   svg.addEventListener('wheel', function(e) {
+    if (!standalone && !e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     const factor = e.deltaY > 0 ? 0.9 : 1.1;
     scale *= factor;
@@ -1607,17 +1758,19 @@ _INTERACTIVE_JS = """<script>
     updateTransform();
   }, {passive: false});
 
-  // Pan with middle mouse button or ctrl+drag
-  svg.addEventListener('mousedown', function(e) {
+  // Pan with the middle button or Ctrl + drag. Pointer capture keeps the
+  // drag on this SVG, with no listener on the window.
+  svg.addEventListener('pointerdown', function(e) {
     if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
       isPanning = true;
       startX = e.clientX;
       startY = e.clientY;
+      svg.setPointerCapture(e.pointerId);
       e.preventDefault();
     }
   });
 
-  window.addEventListener('mousemove', function(e) {
+  svg.addEventListener('pointermove', function(e) {
     if (!isPanning) return;
     const vb = svg.viewBox.baseVal;
     const rect = svg.getBoundingClientRect();
@@ -1630,9 +1783,18 @@ _INTERACTIVE_JS = """<script>
     updateTransform();
   });
 
-  window.addEventListener('mouseup', function() {
+  function stopPanning(e) {
+    if (!isPanning) return;
     isPanning = false;
-  });
+    if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
+  }
+  svg.addEventListener('pointerup', stopPanning);
+  svg.addEventListener('pointercancel', stopPanning);
 })();
 ]]>
 </script>"""
+
+
+def _interactive_js(id_prefix: str) -> str:
+    """The interactive script, looking up its elements under ``id_prefix``."""
+    return _INTERACTIVE_JS.replace("__ID_PREFIX__", json.dumps(id_prefix))

@@ -107,6 +107,25 @@ from pypedigree.parser import (
     help="Generate interactive SVG with tooltips and click highlighting.",
 )
 @click.option(
+    "--no-script",
+    is_flag=True,
+    help="With --interactive: the same SVG without script or tooltip, "
+    "for print or for a page that adds its own behaviour.",
+)
+@click.option(
+    "--id-prefix",
+    default="",
+    metavar="PREFIX",
+    help="With --interactive: prepend PREFIX to every id in the SVG, "
+    "so several figures can share one page.",
+)
+@click.option(
+    "--responsive",
+    is_flag=True,
+    help='With --interactive: write width="100%" and no height, '
+    "so the figure fills the width of its container.",
+)
+@click.option(
     "--plink",
     is_flag=True,
     help="Parse as PLINK format (only first 6 columns, ignore genotype data).",
@@ -137,6 +156,9 @@ def main(
     pgs_scale: str | None,
     phenotype_layout: str | None,
     interactive: bool,
+    no_script: bool,
+    id_prefix: str,
+    responsive: bool,
     plink: bool,
     circular: bool,
 ) -> None:
@@ -214,8 +236,15 @@ def main(
             pedigree = Pedigree(families={family: fam})
 
         # Interactive SVG mode
+        if (no_script or id_prefix or responsive) and not interactive:
+            raise click.UsageError("--no-script, --id-prefix and --responsive need --interactive.")
         if interactive:
-            from pypedigree.svg_renderer import render_interactive_svg
+            from pypedigree.svg_renderer import check_id_prefix, render_interactive_svg, render_svg
+
+            try:
+                check_id_prefix(id_prefix)
+            except ValueError as e:
+                raise click.BadParameter(str(e), param_hint="--id-prefix") from e
 
             if circular:
                 click.echo(
@@ -228,14 +257,18 @@ def main(
                 output = str(input_path.with_suffix(".svg"))
             elif not output.endswith(".svg"):
                 output = str(Path(output).with_suffix(".svg"))
-            render_interactive_svg(
+            render = render_svg if no_script else render_interactive_svg
+            render(
                 pedigree,
                 style=style,
                 output=output,
                 show_labels=not no_labels,
                 show_legend=not no_legend,
+                id_prefix=id_prefix,
+                responsive=responsive,
             )
-            click.echo(f"Saved interactive SVG: {output}")
+            kind = "static" if no_script else "interactive"
+            click.echo(f"Saved {kind} SVG: {output}")
             return
 
         # Determine output path
