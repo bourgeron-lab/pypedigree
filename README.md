@@ -50,6 +50,11 @@ With optional pandas support:
 pip install pypedigree[pandas]
 ```
 
+`import pypedigree` does not import matplotlib: it is loaded on the first
+PNG/PDF render. Parsing, layout and SVG output (`render_interactive_svg`,
+`--interactive`) never load it, so a web server using them avoids its import
+time and `pyplot`'s global state.
+
 ## Quick Start
 
 ### Command Line

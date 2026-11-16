@@ -8,8 +8,8 @@ Generates standalone SVG files with embedded JavaScript for:
 
 Uses the same FamilyLayout pipeline as the matplotlib renderer, and the
 same phenotype and carrier decisions (`pypedigree.phenotypes`,
-`pypedigree.carriers`), but writes SVG directly: from matplotlib it only
-uses `matplotlib.colors`, through `pypedigree.phenotypes`, to read colors.
+`pypedigree.carriers`), but writes SVG directly, without matplotlib: colors
+are read by `pypedigree.colors`.
 """
 
 from __future__ import annotations

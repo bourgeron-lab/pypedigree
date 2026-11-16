@@ -7,10 +7,6 @@ import warnings
 from pathlib import Path
 
 import click
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 from pypedigree import __version__
 from pypedigree.config import PedigreeStyle, resolve_style
@@ -22,7 +18,6 @@ from pypedigree.parser import (
     parse_phenotype_file,
     parse_plink_ped,
 )
-from pypedigree.renderer import render_pedigree
 
 
 @click.command()
@@ -251,9 +246,16 @@ def main(
         if fmt and output and not output.endswith(f".{fmt}"):
             output = str(Path(output).with_suffix(f".{fmt}"))
 
-        # Render
+        # Render. matplotlib is only imported here, so --interactive never
+        # imports it (#8).
+        import matplotlib
+
+        matplotlib.use("TkAgg" if show else "Agg")
+        import matplotlib.pyplot as plt
+
+        from pypedigree.renderer import render_pedigree
+
         if show:
-            matplotlib.use("TkAgg")
             fig = render_pedigree(
                 pedigree,
                 style=style,
