@@ -549,6 +549,8 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `base_radius` | `3.0` | Radius of the innermost ring in circular layout |
 | `phenotype_colors` | `{}` | Map of phenotype name to hex color (e.g. `{"IQ": "#3498db"}`) |
 | `show_phenotype_labels` | `False` | Show YES/NO text labels inside binary phenotype bands |
+| `phenotype_layout` | `"bands"` | `"bands"` (one horizontal band per phenotype) or `"quadrants"` (the symbol cut in four, one quadrant per phenotype or `cr_` carrier source, at most four; more fall back to bands with a `PedigreeStyleWarning`). Any other value raises `PedigreeError` |
+| `phenotype_quadrants` | `{}` | Column name → `"top-left"`, `"top-right"`, `"bottom-left"` or `"bottom-right"`, for the quadrant layout. Unlisted columns take their conventional quadrant (autism top left, ADHD top right, intellectual disability bottom left, epilepsy bottom right) or the next free one in column order. Two columns in one quadrant raise `PedigreeError` |
 | `show_na_labels` | `True` | Write "NA" in bands with no data (`-9`, `NA`, empty). When `False` they stay grey with no text, so they look like an "unknown" (`0`) band |
 | `pgs_colors` | `{}` | Map of PGS column name to hex color for the marker line (default marker color: `#e74c3c`) |
 | `gradient_range` | `{}` | Custom min/max for gradient normalization, e.g. `{"SRS": [40, 90]}` |
@@ -564,6 +566,10 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 ### `DEFAULT_PHENOTYPE_PALETTE`
 
 List of 8 default hex colors used to auto-assign phenotype band colors when no `phenotype_colors` are specified: red, blue, orange, green, purple, teal, yellow, pink.
+
+### `KNOWN_PHENOTYPE_COLORS` and `known_phenotype(name)`
+
+In `pypedigree.config`. Phenotypes with a conventional color, applied to any column without one in `phenotype_colors`, in both layouts: autism `#386eb2` (blue), intellectual disability `#d34436` (red), ADHD `#e59635` (yellow), epilepsy `#5e287e` (purple). `known_phenotype(name)` returns `"autism"`, `"intellectual disability"`, `"adhd"`, `"epilepsy"` or `None`; case, accents, `_` and `-` are ignored, and the aliases are `ASD`, `TSA`, `autisme`, `autism spectrum disorder`; `ID`, `DI`, `déficience intellectuelle`; `TDAH`; `épilepsie`. When such a column is present, the palette skips its own lookalike colors for the other columns.
 
 ### `PhenotypeDisplayMode`
 

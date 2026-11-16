@@ -10,7 +10,7 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 ## Features
 
 - **Standard pedigree symbols**: squares (male), circles (female), diamonds (unknown sex), with affected/unaffected fill
-- **Multi-phenotype rendering**: horizontal color bands for multiple phenotypes per individual (binary: 0=unknown/grey, -9=no data/grey with "NA"; continuous: gradient). The legend always matches the bands it describes; it is sized from the font, so it reads the same under a 4-person pedigree as under a 45-person one.
+- **Multi-phenotype rendering**: horizontal color bands for multiple phenotypes per individual (binary: 0=unknown/grey, -9=no data/grey with "NA"; continuous: gradient), or the symbol cut in four quadrants, one per phenotype (`--phenotype-layout quadrants`). Autism, intellectual disability, ADHD and epilepsy columns get conventional colors (blue, red, yellow, purple) and quadrants (top left, bottom left, top right, bottom right). The legend always matches the bands it describes; it is sized from the font, so it reads the same under a 4-person pedigree as under a 45-person one.
 - **PGS (Polygenic Score) curves**: gaussian distribution with individual score marker, drawn alongside each node. Supports multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) with colored markers on a single curve.
 - **Annotations**: columns with `a_` prefix in .ped header display italic grey text below individual ID labels. Also loadable from external file via `--annotations`.
 - **Twins support**: monozygotic, dizygotic, and unknown zygosity with correct connectors
@@ -78,6 +78,9 @@ pypedigree family.ped --show
 
 # Interactive SVG with tooltips and click highlighting
 pypedigree family.ped --interactive -o family.svg
+
+# Four quadrants instead of horizontal bands (up to four phenotypes)
+pypedigree family.ped --phenotype-layout quadrants -o family.png
 
 # Circular/radial layout
 pypedigree family.ped --circular -o family_radial.png
@@ -273,9 +276,23 @@ PLINK `.fam` files use the same 6-column format (FID, IID, PAT, MAT, SEX, PHENO)
     "gradient_diverging": {
         "IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}
     },
-    "zero_pad_ids": 3
+    "zero_pad_ids": 3,
+    "phenotype_layout": "quadrants",
+    "phenotype_quadrants": {"IQ": "bottom-right"}
 }
 ```
+
+`phenotype_layout` is `"bands"` (default) or `"quadrants"`: the symbol is cut
+in four and each phenotype column, or `cr_` carrier source, fills one quadrant
+(at most four; with more, the figure falls back to bands with a warning). Autism
+(`Autism`, `ASD`, `TSA`), ADHD (`ADHD`, `TDAH`), intellectual disability (`ID`,
+`DI`) and epilepsy columns take the top-left, top-right, bottom-left and
+bottom-right quadrants, the other columns the free ones in column order;
+`phenotype_quadrants` places a column explicitly. The legend starts with a key
+showing which quadrant holds which column. These four phenotypes also get
+conventional colors by default, in both layouts: autism `#386eb2` (blue),
+intellectual disability `#d34436` (red), ADHD `#e59635` (yellow), epilepsy
+`#5e287e` (purple); `phenotype_colors` overrides them.
 
 ### Phenotype File (.pheno)
 
@@ -314,6 +331,8 @@ Options:
   --no-legend                    Hide the phenotype legend
   --show-phenotype-labels        Show YES/NO text labels inside binary phenotype bands
   --no-na-labels                 Do not write "NA" in bands with no data (they stay grey)
+  --phenotype-layout [bands|quadrants]
+                                 Horizontal bands (default) or four quadrants, one per phenotype
   --interactive                  Generate interactive SVG with tooltips and click highlighting
   --circular                     Use circular/radial layout (founders at center)
   --plink                        Parse as PLINK format (ignore genotype columns)

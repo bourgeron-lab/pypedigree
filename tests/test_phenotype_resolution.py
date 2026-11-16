@@ -14,7 +14,7 @@ import pytest
 from conftest import PHENOTYPE_DIR
 
 from pypedigree import PedigreeStyle, parse_pedigree, parse_pedigree_from_string, render_pedigree
-from pypedigree.config import apply_pgs_spacing, is_pgs_column, resolve_style
+from pypedigree.config import apply_pgs_spacing, is_pgs_column, known_phenotype, resolve_style
 from pypedigree.errors import PedigreeError
 from pypedigree.phenotypes import (
     NA_FILL,
@@ -64,10 +64,64 @@ class TestResolveStyle:
         assert "IQ" in resolved.phenotype_colors
 
     def test_user_colors_win(self):
+        """User colors are kept; a known phenotype left out gets its own color,
+        any other column none (the renderer's fallback grey)."""
         style = PedigreeStyle()
         style.phenotype_colors = {"IQ": "#123456"}
-        resolved = resolve_style(style, ["IQ", "epilepsy"])
-        assert resolved.phenotype_colors == {"IQ": "#123456"}
+        resolved = resolve_style(style, ["IQ", "epilepsy", "SRS"])
+        assert resolved.phenotype_colors == {"IQ": "#123456", "epilepsy": "#5e287e"}
+
+    def test_user_color_beats_the_conventional_one(self):
+        style = PedigreeStyle(phenotype_colors={"ASD": "#000000"})
+        assert resolve_style(style, ["ASD"]).phenotype_colors == {"ASD": "#000000"}
+
+
+class TestKnownPhenotypeColors:
+    """Autism blue, intellectual disability red, ADHD yellow, epilepsy purple."""
+
+    @pytest.mark.parametrize(
+        ("name", "key"),
+        [
+            ("Autism", "autism"),
+            ("ASD", "autism"),
+            ("TSA", "autism"),
+            ("autisme", "autism"),
+            ("Autism_spectrum_disorder", "autism"),
+            ("ID", "intellectual disability"),
+            ("DI", "intellectual disability"),
+            ("Intellectual disability", "intellectual disability"),
+            ("Déficience intellectuelle", "intellectual disability"),
+            ("ADHD", "adhd"),
+            ("TDAH", "adhd"),
+            ("Epilepsy", "epilepsy"),
+            ("épilepsie", "epilepsy"),
+            ("IQ", None),
+            ("Synesthesia", None),
+            ("autism score", None),
+        ],
+    )
+    def test_names_are_recognised(self, name, key):
+        assert known_phenotype(name) == key
+
+    def test_conventional_colors(self):
+        resolved = resolve_style(None, ["Autism", "ID", "ADHD", "Epilepsy"])
+        assert resolved.phenotype_colors == {
+            "Autism": "#386eb2",
+            "ID": "#d34436",
+            "ADHD": "#e59635",
+            "Epilepsy": "#5e287e",
+        }
+
+    def test_other_columns_avoid_lookalike_palette_colors(self):
+        """With autism (blue) present, no other column gets the palette's blue."""
+        resolved = resolve_style(None, ["ASD", "IQ", "SRS"])
+        assert resolved.phenotype_colors["ASD"] == "#386eb2"
+        assert "#3498db" not in (resolved.phenotype_colors["IQ"], resolved.phenotype_colors["SRS"])
+        assert len(set(resolved.phenotype_colors.values())) == 3
+
+    def test_figures_without_known_phenotypes_keep_their_colors(self):
+        resolved = resolve_style(None, ["PGS", "IQ", "SRS"])
+        assert resolved.phenotype_colors == {"IQ": "#3498db", "SRS": "#e67e22"}
 
     def test_does_not_mutate_input(self):
         style = PedigreeStyle()

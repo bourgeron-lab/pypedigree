@@ -6,6 +6,7 @@ should exist in layout.py or renderer.py.
 
 from __future__ import annotations
 
+import unicodedata
 import warnings
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field, fields, replace
@@ -24,6 +25,55 @@ DEFAULT_PHENOTYPE_PALETTE = [
     "#f1c40f",  # yellow
     "#e91e63",  # pink
 ]
+
+# Phenotypes with a conventional color, recognised by name whatever the
+# column prefix or case: autism blue, intellectual disability red, ADHD
+# yellow, epilepsy purple. A color in `phenotype_colors` still wins.
+KNOWN_PHENOTYPE_COLORS = {
+    "autism": "#386eb2",
+    "intellectual disability": "#d34436",
+    "adhd": "#e59635",
+    "epilepsy": "#5e287e",
+}
+_KNOWN_PHENOTYPE_ALIASES = {
+    "autism": ("autism", "autisme", "asd", "tsa", "autism spectrum disorder"),
+    "intellectual disability": (
+        "intellectual disability",
+        "id",
+        "di",
+        "deficience intellectuelle",
+    ),
+    "adhd": ("adhd", "tdah"),
+    "epilepsy": ("epilepsy", "epilepsie"),
+}
+# Palette entries close to a known phenotype's color: skipped for the other
+# columns while that phenotype is in the figure, so no two bands look alike.
+_PALETTE_LOOKALIKES = {
+    "autism": ("#3498db",),
+    "intellectual disability": ("#e74c3c", "#e91e63"),
+    "adhd": ("#e67e22", "#f1c40f"),
+    "epilepsy": ("#9b59b6",),
+}
+
+
+def known_phenotype(name: str) -> str | None:
+    """The conventional phenotype a column name stands for, or None.
+
+    Case, accents, and ``_``/``-`` separators are ignored, so ``ASD``,
+    ``autisme`` and ``Autism_spectrum_disorder`` all give ``"autism"``.
+
+    Args:
+        name: Phenotype column name, prefix already stripped.
+
+    Returns:
+        One of the keys of `KNOWN_PHENOTYPE_COLORS`, or None.
+    """
+    folded = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    folded = " ".join(folded.lower().replace("_", " ").replace("-", " ").split())
+    for key, aliases in _KNOWN_PHENOTYPE_ALIASES.items():
+        if folded in aliases:
+            return key
+    return None
 
 
 @dataclass
@@ -68,6 +118,18 @@ class PedigreeStyle:
 
     # Show YES/NO text labels inside binary phenotype bands (default: color only)
     show_phenotype_labels: bool = False
+
+    # How phenotypes divide a symbol: "bands" (horizontal stripes, one per
+    # column) or "quadrants" (the symbol cut in four, one quadrant per
+    # column, up to four columns). See `phenotype_quadrants`.
+    phenotype_layout: str = "bands"
+
+    # Quadrant of a column in the "quadrants" layout: column name ->
+    # "top-left", "top-right", "bottom-left" or "bottom-right". Columns not
+    # listed take their conventional quadrant (autism top left, ADHD top
+    # right, intellectual disability bottom left, epilepsy bottom right) or
+    # the next free one, in column order.
+    phenotype_quadrants: dict[str, str] = field(default_factory=dict)
 
     # Write "NA" in bands with no data (-9 / NA / empty). Without it, a band
     # with no data is the same plain grey as an "unknown" (0) one.
@@ -171,17 +233,30 @@ def resolve_style(
     # replace() copies the dataclass but shares its mutable fields.
     resolved.phenotype_colors = dict(resolved.phenotype_colors)
     resolved.pgs_colors = dict(resolved.pgs_colors)
+    resolved.phenotype_quadrants = dict(resolved.phenotype_quadrants)
     resolved.gradient_range = {k: list(v) for k, v in resolved.gradient_range.items()}
     resolved.gradient_diverging = {k: dict(v) for k, v in resolved.gradient_diverging.items()}
 
-    # Auto-assign band colors from the palette when the user set none.
-    names = list(phenotype_names or [])
-    if names and not resolved.phenotype_colors:
-        for i, name in enumerate(names):
-            if not is_pgs_column(name):
-                resolved.phenotype_colors[name] = DEFAULT_PHENOTYPE_PALETTE[
-                    i % len(DEFAULT_PHENOTYPE_PALETTE)
-                ]
+    all_names = list(phenotype_names or [])
+    names = [n for n in all_names if not is_pgs_column(n)]
+    user_set_colors = bool(resolved.phenotype_colors)
+
+    # Conventional colors for known phenotypes (autism, ID, ADHD, epilepsy),
+    # unless the user chose one.
+    known = {n: k for n in names if (k := known_phenotype(n)) is not None}
+    for name, key in known.items():
+        resolved.phenotype_colors.setdefault(name, KNOWN_PHENOTYPE_COLORS[key])
+
+    # Auto-assign the other band colors from the palette when the user set
+    # none, skipping the entries that look like a known phenotype's color.
+    if names and not user_set_colors:
+        taken = {c for key in known.values() for c in _PALETTE_LOOKALIKES[key]}
+        palette = [c for c in DEFAULT_PHENOTYPE_PALETTE if c not in taken]
+        # Indexed by position among all columns, as before known phenotypes
+        # existed, so a figure without one keeps its colors.
+        for i, name in enumerate(all_names):
+            if name in names and name not in known:
+                resolved.phenotype_colors[name] = palette[i % len(palette)]
 
     return resolved
 

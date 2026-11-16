@@ -30,13 +30,14 @@ reproduction case to a fabricated file that still shows the bug.
 | `consanguinity/` | First cousins, uncle–niece, sibling union |
 | `nomenclature/` | Pregnancies and pregnancy losses, adoption, childlessness, gamete donor, gender identity, consultand |
 | `multi_partner/` | Individuals with several partners, duplicate nodes |
-| `phenotype/` | Multi-phenotype bands, prefixes, PGS, annotations, carriers |
+| `phenotype/` | Multi-phenotype bands, prefixes, PGS, annotations, carriers, the quadrant layout (`quadrants.ped`) |
 | `plink/` | `.fam` files and PLINK `.ped` with genotype columns |
 | `format/` | Separator detection, headers, unicode IDs, malformed input |
 | `complex/` | Large and structurally awkward pedigrees, including the gallery's five-generation example with two loops (`multigenerational.ped`) |
 
 Each `.ped` is paired with a `.png` rendered at the default 150 dpi with no
-style file, as a visual reference. These are documentation, not assertions —
+style file, as a visual reference (`phenotype/quadrants.png` with
+`--phenotype-layout quadrants`, the layout it exists for). These are documentation, not assertions —
 the pixel-comparison suite uses `tests/visual/golden/` instead.
 
 ## Regenerating

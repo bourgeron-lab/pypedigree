@@ -400,6 +400,69 @@ def _comma_decimal(value: float) -> str:
     return f"{value:.10f}".replace(".", ",")
 
 
+def build_quadrants() -> tuple[list[str], list[list[str]]]:
+    """Three generations with the four conventional phenotypes.
+
+    The gallery's example of the quadrant layout: autism, ADHD,
+    intellectual disability and epilepsy as binary columns (each drawn in
+    its conventional quadrant and color), plus an `o_` column for the
+    individuals with sequencing data. The shape and every value are drawn
+    at random from the seed.
+    """
+    rng = random.Random(SEED + 303)
+    header = [
+        "FID",
+        "IID",
+        "Father",
+        "Mother",
+        "Sex",
+        "Deceased",
+        "Proband",
+        "b_Autism",
+        "b_ADHD",
+        "b_ID",
+        "b_Epilepsy",
+        "o_WGS",
+    ]
+    rows: list[list[str]] = []
+    next_id = 1
+
+    def add(pat: str, mat: str, sex: int, gen: int) -> str:
+        nonlocal next_id
+        sid = f"{gen}{next_id:02d}"
+        next_id += 1
+        if rng.random() < 0.08:
+            values = ["-9"] * 4
+        else:
+            values = [
+                str(rng.choice(choices))
+                for choices in ([1, 1, 2], [1, 1, 2], [1, 1, 1, 2], [1, 1, 1, 1, 2])
+            ]
+        rows.append(["FAM1", sid, pat, mat, sex, 0, 0, *values, rng.choice([1, 2, 2])])
+        return sid
+
+    grandfather = add("0", "0", 1, 1)
+    grandmother = add("0", "0", 2, 1)
+    couples = []
+    for _ in range(rng.choice([2, 3])):
+        sex = rng.choice([1, 2])
+        child = add(grandfather, grandmother, sex, 2)
+        spouse = add("0", "0", 2 if sex == 1 else 1, 2)
+        couples.append((child, spouse) if sex == 1 else (spouse, child))
+    add(grandfather, grandmother, rng.choice([1, 2]), 2)  # stays single
+    grandchildren = []
+    for pat, mat in couples:
+        for _ in range(rng.choice([2, 3, 4])):
+            grandchildren.append(add(pat, mat, rng.choice([1, 2]), 3))
+
+    by_id = {r[1]: r for r in rows}
+    proband = rng.choice(grandchildren)
+    by_id[proband][6] = 1
+    by_id[proband][7] = "2"  # the proband has autism
+    by_id[grandfather][5] = 1
+    return header, rows
+
+
 def main() -> None:
     print(f"Generating synthetic fixtures (seed {SEED})")
 
@@ -480,6 +543,9 @@ def main() -> None:
 
     header, rows = build_multigenerational()
     _write(DATA_DIR / "complex/multigenerational.ped", header, rows)
+
+    header, rows = build_quadrants()
+    _write(DATA_DIR / "phenotype/quadrants.ped", header, rows)
 
 
 if __name__ == "__main__":
