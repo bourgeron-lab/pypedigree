@@ -4,6 +4,7 @@
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://github.com/bourgeron-lab/pypedigree/actions/workflows/ci.yml/badge.svg)](https://github.com/bourgeron-lab/pypedigree/actions/workflows/ci.yml)
 [![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24289471.svg)](https://doi.org/10.5281/zenodo.24289471)
 
 Generate publication-quality pedigree (family tree) diagrams from standard pedigree files used in genetics research.
 
@@ -429,6 +430,11 @@ uv run ruff format src/ tests/
 If you use pypedigree in your research, please cite it. Citation metadata is
 in [CITATION.cff](CITATION.cff); GitHub renders it as a **Cite this
 repository** button.
+
+Every release is archived on Zenodo. The DOI
+[10.5281/zenodo.24289471](https://doi.org/10.5281/zenodo.24289471) cites pypedigree as a whole
+and resolves to the latest release; each release also has its own DOI, listed
+on that page (0.4.4: [10.5281/zenodo.24289472](https://doi.org/10.5281/zenodo.24289472)).
 
 ## Releasing
 

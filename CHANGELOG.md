@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Zenodo DOI: [10.5281/zenodo.24289471](https://doi.org/10.5281/zenodo.24289471) for all versions
+  (0.4.4: 10.5281/zenodo.24289472), in `CITATION.cff` and the README.
+
 ## [0.4.4] - 2026-11-16
 
 ### Added
