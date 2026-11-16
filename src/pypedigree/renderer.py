@@ -871,7 +871,7 @@ def _draw_pregnancy_loss(ax: Axes, node: NodeLayout, style: PedigreeStyle, fill:
 def _draw_notation(
     ax: Axes, node: NodeLayout, style: PedigreeStyle, carriers: CarrierScheme, banded: bool
 ) -> None:
-    """Draw adoption brackets and the letter inside a symbol (P, D or S).
+    """Draw adoption brackets, the documented-evaluation asterisk, and the letter (P, D or S).
 
     The letter is white on a filled symbol and gets a white backing on
     carrier sections. A symbol with phenotype bands has text of its own, so
@@ -889,6 +889,20 @@ def _draw_notation(
                 solid_joinstyle="miter",
                 zorder=10,
             )
+    if node.notation.is_evaluated:
+        ex, ey = symbols.evaluation_mark_position(node.x, node.y, half, node.sex, triangle)
+        ax.text(
+            ex,
+            ey,
+            symbols.EVALUATION_MARK,
+            fontsize=style.font_size * symbols.EVALUATION_MARK_FONT_SCALE,
+            fontfamily=style.font_family,
+            fontweight="bold",
+            ha="center",
+            va="center",
+            color=style.line_color,
+            zorder=10,
+        )
     letter = symbols.inner_letter(node.notation)
     if letter is None or triangle:
         return

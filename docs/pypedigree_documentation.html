@@ -698,6 +698,7 @@ without writing .ped files. All methods return <code>self</code> for method chai
   <dt>art: str | ReproductiveRole | None = None</dt><dd><code>"D"</code> gamete donor or <code>"S"</code> surrogate.</dd>
   <dt>gender: str | Gender | None = None</dt><dd>Gender identity, <code>"man"</code>, <code>"woman"</code> or <code>"nonbinary"</code>: the symbol follows it, and <code>sex</code> is the sex assigned at birth.</dd>
   <dt>consultand: bool = False</dt><dd>Arrow without &ldquo;P&rdquo;.</dd>
+  <dt>evaluated: bool | str = False</dt><dd>Documented evaluation: <code>True</code> draws an asterisk at the lower right; text is the result, written below.</dd>
   <dt>twin_of: str | list[str] | None = None</dt><dd>Sample ID of this individual's twin (a list for triplets and more), added before or after.</dd>
   <dt>css_class: str | list[str] | None = None</dt><dd>Extra classes on the individual's node in the interactive SVG.</dd>
   <dt>data: Mapping[str, object] | None = None</dt><dd>Extra <code>data-*</code> attributes on that node, e.g. <code>{"qc": "high"}</code> &rarr; <code>data-qc="high"</code>.</dd>
@@ -1092,6 +1093,7 @@ fig = builder.render(output=<span class="string">"carriers.png"</span>)</code></
     <tr><td><code>art</code> (<code>assisted_reproduction</code>)</td><td><code>D</code> gamete donor, <code>S</code> surrogate (<code>GC</code> accepted)</td><td>&ldquo;D&rdquo; or &ldquo;S&rdquo; inside the symbol</td></tr>
     <tr><td><code>gender_identity</code> (<code>identity</code>)</td><td><code>man</code>, <code>woman</code>, <code>nonbinary</code> (also <code>M</code>/<code>F</code>/<code>NB</code>, <code>1</code>/<code>2</code>/<code>3</code>)</td><td>The symbol follows the gender identity (square, circle, diamond); <code>sex</code> becomes the sex assigned at birth, written below as AMAB or AFAB when the two differ</td></tr>
     <tr><td><code>consultand</code></td><td><code>1</code></td><td>An arrow without &ldquo;P&rdquo;</td></tr>
+    <tr><td><code>evaluated</code></td><td><code>1</code>, or a result (<code>WGS: negative</code>)</td><td>Documented evaluation, records reviewed: an asterisk at the lower right of the symbol (Bennett et al. 2022, Fig. 2); a result is written below, without the &ldquo;E&rdquo; the 2022 revision dropped</td></tr>
   </tbody>
 </table>
 
@@ -1108,7 +1110,7 @@ builder.add_individual(<span class="string">"c2"</span>, sex=<span class="string
 <p><code>build_notation()</code> turns the same codes into a <code>Notation</code>, the frozen dataclass attached to every <code>Individual</code> and <code>NodeLayout</code>.</p>
 
 <h3>Not covered</h3>
-<p>The diagonal lines that join a gamete donor or a surrogate to a pregnancy in the NSGC figures: in a pedigree file a donor is a parent and is joined to the other parent like any couple. Several individuals in one symbol (&ldquo;n&rdquo;), documented evaluation (&ldquo;*&rdquo;), the asymptomatic-carrier vertical line, and childlessness of a couple (the marker hangs from one individual).</p>
+<p>The diagonal lines that join a gamete donor or a surrogate to a pregnancy in the NSGC figures: in a pedigree file a donor is a parent and is joined to the other parent like any couple. Several individuals in one symbol (&ldquo;n&rdquo;), the asymptomatic-carrier vertical line, and childlessness of a couple (the marker hangs from one individual).</p>
 </section>
 
 <!-- ================================================================ -->

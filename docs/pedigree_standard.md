@@ -133,6 +133,10 @@ nothing to note, and any other value is an error naming the line.
   only when the header also has a `sex` column; alone it is the sex column.
 - **consultand**: `1` for the consultand (the person seeking counselling, when
   that is not the proband).
+- **evaluated** (aliases `documented_evaluation`, `evaluation`): `1`, `yes` or `true` for a
+  documented evaluation, records reviewed: an asterisk at the lower right of the symbol
+  (Bennett et al. 2022, Figure 2). Any other text marks it too and is the evaluation's result, written
+  below the symbol (e.g. `WGS: negative`); the 2022 revision dropped the "E" prefix.
 
 Gestational age, karyotype, the reason for infertility and similar details go in
 `a_` annotation columns.
@@ -336,8 +340,14 @@ couple.
 
 **Consultand**: the proband's arrow without the "P".
 
-Not covered: several individuals in one symbol ("n"), documented evaluation
-("*"), the asymptomatic-carrier vertical line, and childlessness of a couple
+**Documented evaluation, records reviewed**: an asterisk beside the lower right
+of the symbol (beside the right end of a pregnancy-loss triangle's base). The
+evaluation's result, when given, is written below the symbol, after the other
+notes; the 2022 revision dropped the "E" notation of 2008 (E+, E-), so the
+result is written as given.
+
+Not covered: several individuals in one symbol ("n"), the asymptomatic-carrier
+vertical line, and childlessness of a couple
 (drawn from the relationship line in the NSGC figures; here the marker hangs
 from one individual).
 
