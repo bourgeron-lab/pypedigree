@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import io
 import warnings
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any
 
 from pypedigree.config import PedigreeStyle, resolve_style
@@ -43,7 +43,12 @@ from pypedigree.models import (
     TwinType,
     Union,
 )
-from pypedigree.parser import _strip_display_prefix, build_notation
+from pypedigree.parser import (
+    _strip_display_prefix,
+    build_data_attributes,
+    build_notation,
+    parse_css_classes,
+)
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
@@ -134,6 +139,8 @@ class PedigreeBuilder:
         consultand: bool = False,
         twin_of: str | Sequence[str] | None = None,
         twin_type: TwinType | str = TwinType.UNKNOWN,
+        css_class: str | Sequence[str] | None = None,
+        data: Mapping[str, object] | None = None,
     ) -> PedigreeBuilder:
         """Add an individual to the pedigree.
 
@@ -171,16 +178,24 @@ class PedigreeBuilder:
                 after; see also `add_twins`.
             twin_type: "MZ" (monozygotic), "DZ" (dizygotic) or "TW"
                 (zygosity unknown, the default), or a ``TwinType``.
+            css_class: Extra classes on this individual's node in the
+                interactive SVG ("flagged", or several separated by spaces
+                or given as a list), for the host page's stylesheet.
+            data: Extra ``data-*`` attributes on that node: ``{"qc": "high"}``
+                writes ``data-qc="high"``; ``_`` in a name becomes ``-``.
 
         Returns:
             Self for method chaining.
 
         Raises:
-            PedigreeError: If the individual exists already, or a notation
-                value or twin type is not recognised.
+            PedigreeError: If the individual exists already, a notation
+                value or twin type is not recognised, or a class or data
+                attribute name is not usable.
         """
         if sample_id in self._individuals:
             raise PedigreeError(f"Individual '{sample_id}' already added.")
+        css_classes = parse_css_classes(css_class)
+        data_attributes = build_data_attributes(data)
         if twin_of is not None:
             others = [twin_of] if isinstance(twin_of, str) else list(twin_of)
             self._twins.append(([sample_id, *others], _twin_type(twin_type)))
@@ -214,6 +229,8 @@ class PedigreeBuilder:
                 gender=gender,
                 consultand=consultand,
             ),
+            "css_classes": css_classes,
+            "data_attributes": data_attributes,
         }
 
         # Track phenotype names (strip prefix if present)
@@ -401,6 +418,8 @@ class PedigreeBuilder:
                 extra_phenotypes_raw=extra_pheno_raw,
                 annotations={str(i): v for i, v in enumerate(data.get("annotations", []))},
                 notation=data["notation"],
+                css_classes=list(data["css_classes"]),
+                data_attributes=dict(data["data_attributes"]),
             )
             families[fid].individuals[data["sample_id"]] = ind
 

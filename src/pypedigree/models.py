@@ -197,6 +197,10 @@ class Individual:
         is_unknown_offspring: A placeholder child the layout adds under a
             couple that is alone in its family with no child in the file,
             drawn as a "?" (see ``layout.with_unknown_offspring``).
+        css_classes: Extra classes on the individual's node in the SVG, for
+            the host page's stylesheet (``css_class`` column or keyword).
+        data_attributes: Extra ``data-*`` attributes on that node, name
+            without the ``data-`` prefix → value (``data_`` columns).
     """
 
     sample_id: str
@@ -220,6 +224,8 @@ class Individual:
     annotations: dict[str, str] = field(default_factory=dict)
     notation: Notation = field(default_factory=Notation)
     is_unknown_offspring: bool = False
+    css_classes: list[str] = field(default_factory=list)
+    data_attributes: dict[str, str] = field(default_factory=dict)
 
     @property
     def is_founder(self) -> bool:
@@ -351,6 +357,8 @@ class NodeLayout:
             the label is moved down by it.
         is_unknown_offspring: Drawn as a "?" at the end of the descent line,
             with no symbol and no label.
+        css_classes: Extra classes on the SVG node (see ``Individual``).
+        data_attributes: Extra ``data-*`` attributes on the SVG node.
     """
 
     individual_id: str
@@ -378,6 +386,8 @@ class NodeLayout:
     notes: list[str] = field(default_factory=list)
     marker_depth: float = 0.0
     is_unknown_offspring: bool = False
+    css_classes: list[str] = field(default_factory=list)
+    data_attributes: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

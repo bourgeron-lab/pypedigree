@@ -697,6 +697,8 @@ without writing .ped files. All methods return <code>self</code> for method chai
   <dt>gender: str | Gender | None = None</dt><dd>Gender identity, <code>"man"</code>, <code>"woman"</code> or <code>"nonbinary"</code>: the symbol follows it, and <code>sex</code> is the sex assigned at birth.</dd>
   <dt>consultand: bool = False</dt><dd>Arrow without &ldquo;P&rdquo;.</dd>
   <dt>twin_of: str | list[str] | None = None</dt><dd>Sample ID of this individual's twin (a list for triplets and more), added before or after.</dd>
+  <dt>css_class: str | list[str] | None = None</dt><dd>Extra classes on the individual's node in the interactive SVG.</dd>
+  <dt>data: Mapping[str, object] | None = None</dt><dd>Extra <code>data-*</code> attributes on that node, e.g. <code>{"qc": "high"}</code> &rarr; <code>data-qc="high"</code>.</dd>
   <dt>twin_type: str | TwinType = "TW"</dt><dd><code>"MZ"</code> monozygotic, <code>"DZ"</code> dizygotic or <code>"TW"</code> zygosity unknown.</dd>
 </dl>
 
@@ -1117,6 +1119,7 @@ builder.add_individual(<span class="string">"c2"</span>, sex=<span class="string
 <ul>
   <li><strong>Tooltips on hover</strong> &mdash; Hovering over an individual displays their sample ID, sex, phenotype, and other metadata.</li>
   <li><strong>Click to highlight relatives</strong> &mdash; Clicking an individual highlights their parents, children, and partners.</li>
+  <li><strong>Hooks for host pages</strong> &mdash; A <code>css_class</code> column and <code>data_</code> columns (or the builder's <code>css_class=</code> and <code>data=</code>) add classes and <code>data-*</code> attributes to each individual's node, so a page can dim deselected members or outline QC-flagged ones with its own stylesheet (<code>.node.flagged</code>, <code>[data-qc="high"]</code>) without re-rendering. Names are validated; <code>node</code>, <code>dimmed</code> and pypedigree's own <code>data-*</code> names are reserved.</li>
   <li><strong>Zoom and pan</strong> &mdash; Mouse wheel to zoom, Ctrl+drag (or middle-button drag) to pan around large pedigrees.</li>
   <li><strong>No extra dependencies</strong> &mdash; All interactivity is embedded as inline JavaScript within the SVG file.</li>
 </ul>

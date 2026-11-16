@@ -7,8 +7,10 @@ the data model.
 
 from __future__ import annotations
 
+import re
 import warnings
 from collections import deque
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
@@ -19,6 +21,7 @@ if TYPE_CHECKING:
 
 from pypedigree.errors import (
     PedigreeDataWarning,
+    PedigreeError,
     PedigreeParseError,
     PedigreeValidationError,
 )
@@ -155,6 +158,10 @@ class ColumnMapping:
     """List of (column_index, annotation_name) for a_ prefixed annotation columns."""
     notation_cols: dict[str, int] = field(default_factory=dict)
     """Map of notation role (pregnancy, adopted, ...) → column index."""
+    css_class_col: int | None = None
+    """Index of the css_class column: classes for the individual's SVG node."""
+    data_cols: list[tuple[int, str]] = field(default_factory=list)
+    """List of (column_index, attribute_name) for data_ columns (data-* on the SVG node)."""
     phenotype_display_modes: dict[str, PhenotypeDisplayMode] = field(default_factory=dict)
     """Map of phenotype_name → display mode detected from prefix."""
 
@@ -254,6 +261,16 @@ def _parse_header_columns(header_fields: list[str]) -> ColumnMapping:
         # Check for annotation prefix (a_) before anything else
         if name_lower.startswith("a_") and len(name) > 2 and i >= 5:
             annotation_cols.append((i, name[2:]))  # Strip a_ prefix
+            continue
+        # Hooks for the host page: classes and data-* attributes on SVG nodes
+        if name_lower in ("css_class", "css_classes") and i >= 5:
+            mapping.css_class_col = i
+            continue
+        if name_lower.startswith("data_") and len(name) > 5 and i >= 5:
+            try:
+                mapping.data_cols.append((i, data_attribute_name(name[5:])))
+            except PedigreeError as exc:
+                raise PedigreeParseError(f"Header column {name!r}: {exc}") from exc
             continue
         # Check if this is a known structural column (using stripped name too)
         stripped_name, mode = _strip_display_prefix(name)
@@ -591,6 +608,20 @@ def _parse_individual_mapped(
 
     notation = _parse_notation({r: _get(i) for r, i in col_map.notation_cols.items()}, line_num)
 
+    try:
+        css_classes = (
+            parse_css_classes(_get(col_map.css_class_col))
+            if col_map.css_class_col is not None
+            else []
+        )
+    except PedigreeError as exc:
+        raise PedigreeParseError(f"Line {line_num}: {exc}") from exc
+    data_attributes: dict[str, str] = {}
+    for col_idx, attr in col_map.data_cols:
+        value = _get(col_idx).strip()
+        if value.lower() not in _HOOK_MISSING:
+            data_attributes[attr] = value
+
     return Individual(
         sample_id=sample_id,
         family_id=family_id,
@@ -608,7 +639,90 @@ def _parse_individual_mapped(
         extra_phenotypes_categorical=extra_phenotypes_categorical,
         annotations=annotations,
         notation=notation,
+        css_classes=css_classes,
+        data_attributes=data_attributes,
     )
+
+
+# --- Hooks for the host page: classes and data-* attributes on SVG nodes ------
+
+# A CSS class name (an identifier) and a data-* attribute name (HTML: no
+# uppercase, kept to letters, digits and hyphens).
+_CSS_CLASS_RE = re.compile(r"^-?[_a-zA-Z][_a-zA-Z0-9-]*$")
+_DATA_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+# data-* attributes pypedigree writes itself on every node.
+RESERVED_DATA_ATTRIBUTES = frozenset({"id", "parents", "children", "siblings", "x", "y", "size"})
+# Classes the SVG uses itself: every node is "node", and the click
+# highlighting adds and removes "dimmed", which would erase a host's own.
+RESERVED_CSS_CLASSES = frozenset({"node", "dimmed"})
+# Values left out of a data_ column (0 and -9 are kept: they may mean something).
+_HOOK_MISSING = frozenset({"", ".", "na", "nan"})
+
+
+def parse_css_classes(value: str | Sequence[str] | None) -> list[str]:
+    """CSS classes for an individual's SVG node, validated.
+
+    Args:
+        value: Class names separated by spaces or commas, or a list of them.
+
+    Returns:
+        The class names, in order, without repeats.
+
+    Raises:
+        PedigreeError: If a name is not a valid CSS class name, or is one
+            the SVG uses itself (``node``, ``dimmed``).
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        names = [t for t in re.split(r"[\s,]+", value.strip()) if t]
+    else:
+        names = [str(v).strip() for v in value if str(v).strip()]
+    if len(names) == 1 and names[0].lower() in _HOOK_MISSING:
+        return []
+    for name in names:
+        if not _CSS_CLASS_RE.match(name):
+            raise PedigreeError(
+                f"invalid CSS class name {name!r} (letters, digits, '-' and '_', "
+                "not starting with a digit)"
+            )
+        if name in RESERVED_CSS_CLASSES:
+            raise PedigreeError(
+                f"CSS class {name!r} is used by the SVG itself; choose another name"
+            )
+    return list(dict.fromkeys(names))
+
+
+def data_attribute_name(name: str) -> str:
+    """The ``data-*`` attribute name for a ``data_`` column or a ``data`` key.
+
+    Lowercased, with ``_`` turned into ``-``: ``QC_flag`` gives ``qc-flag``,
+    written as ``data-qc-flag``.
+
+    Raises:
+        PedigreeError: If the name is not usable, or is one pypedigree writes
+            itself (``id``, ``parents``, ``children``, ``siblings``, ``x``,
+            ``y``, ``size``).
+    """
+    attr = name.strip().lower().replace("_", "-")
+    if not _DATA_NAME_RE.match(attr):
+        raise PedigreeError(f"invalid data attribute name {name!r} (letters, digits, '-' and '_')")
+    if attr in RESERVED_DATA_ATTRIBUTES:
+        raise PedigreeError(f"data-{attr} is written by pypedigree itself; choose another name")
+    return attr
+
+
+def build_data_attributes(data: Mapping[str, object] | None) -> dict[str, str]:
+    """``data-*`` attributes from a mapping, names validated, values as text.
+
+    A value of None is left out.
+
+    Raises:
+        PedigreeError: If a name is not usable (see `data_attribute_name`).
+    """
+    if not data:
+        return {}
+    return {data_attribute_name(str(k)): str(v) for k, v in data.items() if v is not None}
 
 
 _E = TypeVar("_E", bound=Enum)
@@ -1151,6 +1265,8 @@ def _create_duplicate_nodes(family: Family) -> None:
                 extra_phenotypes_categorical=dict(original.extra_phenotypes_categorical),
                 duplicate_of=original_id,
                 notation=replace(original.notation, is_consultand=False),
+                css_classes=list(original.css_classes),
+                data_attributes=dict(original.data_attributes),
             )
             family.individuals[dup_id] = dup
 
@@ -1302,6 +1418,8 @@ def _parse_text(text: str, *, max_columns: int | None = None) -> Pedigree:
             col_map.extra_phenotype_cols
             or col_map.annotation_cols
             or col_map.notation_cols
+            or col_map.css_class_col is not None
+            or col_map.data_cols
             or not col_map.is_positional
         ):
             # Header has extra phenotype/annotation columns, or structural
