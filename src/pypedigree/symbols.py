@@ -60,6 +60,12 @@ BRACKET_OVERHANG = 0.08
 # Vertical step between lines of text below the label (notes, annotations).
 TEXT_LINE_STEP = 0.25
 
+# The "?" standing for an unknown child, relative to the style's font size.
+UNKNOWN_OFFSPRING_TEXT = "?"
+UNKNOWN_OFFSPRING_FONT_SCALE = 2.0
+# Gap between the end of the descent line and the top of the "?".
+UNKNOWN_OFFSPRING_GAP = 0.06
+
 _GENDER_SHAPE = {Gender.MAN: Sex.MALE, Gender.WOMAN: Sex.FEMALE, Gender.NONBINARY: Sex.UNKNOWN}
 _ASSIGNED_AT_BIRTH = {Sex.MALE: "AMAB", Sex.FEMALE: "AFAB"}
 _PREGNANCY_LOSSES = frozenset({Pregnancy.MISCARRIAGE, Pregnancy.TERMINATION, Pregnancy.ECTOPIC})
@@ -241,6 +247,17 @@ def childless_segments(
         d = end + CHILDLESS_BAR_GAP
         segments.append((at(d, -w), at(d, w)))
     return segments
+
+
+def unknown_offspring_anchor(
+    x: float, y: float, half: float, up: float = 1.0
+) -> tuple[float, float]:
+    """Top centre of the "?" of an unknown child: just below its descent line.
+
+    The descent line stops where the top of a symbol would be; the "?" hangs
+    from there, anchored by its top edge.
+    """
+    return x, y + up * (half - UNKNOWN_OFFSPRING_GAP)
 
 
 def text_lines_below(ind: Individual) -> int:

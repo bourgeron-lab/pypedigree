@@ -29,6 +29,7 @@ from pypedigree.models import (
     Individual,
     LineStyle,
     NodeLayout,
+    Sex,
     TwinConnector,
     TwinType,
     Union,
@@ -50,6 +51,7 @@ def compute_layout(family: Family, style: PedigreeStyle | None = None) -> Family
 
     if not family.individuals:
         return FamilyLayout(family_id=family.family_id)
+    family = with_unknown_offspring(family)
 
     # Steps 1-2: Assign generations and horizontal positions. Loops whose
     # drawing would make sibship lines overlap are broken by drawing one
@@ -662,6 +664,53 @@ def _with_duplicate_partners(family: Family, items: list[tuple[Union, str]]) -> 
     return Family(family_id=family.family_id, individuals=individuals, unions=unions)
 
 
+# Sample ID of the placeholder child; underscores are added if a real
+# individual already uses it.
+UNKNOWN_OFFSPRING_ID = "_unknown_offspring"
+
+
+def with_unknown_offspring(family: Family) -> Family:
+    """Add a "?" child under a couple that is alone in its family.
+
+    A family holding only a man and a woman, both founders, with no child
+    in the file (a trio whose child is missing, say), is drawn as their
+    couple with a descent line to a "?", not as two unrelated symbols. The
+    father stands on the left, as for every couple.
+
+    Args:
+        family: The family as parsed. Not modified.
+
+    Returns:
+        A copy with the placeholder child and the couple's union, or
+        `family` itself when it does not have that shape.
+    """
+    people = list(family.individuals.values())
+    if len(people) != 2 or family.unions:
+        return family
+    if any(not p.is_founder or p.is_phantom or p.is_duplicate for p in people):
+        return family
+    fathers = [p for p in people if p.sex == Sex.MALE]
+    mothers = [p for p in people if p.sex == Sex.FEMALE]
+    if len(fathers) != 1 or len(mothers) != 1:
+        return family
+    father, mother = fathers[0].sample_id, mothers[0].sample_id
+    child_id = UNKNOWN_OFFSPRING_ID
+    while child_id in family.individuals:
+        child_id += "_"
+    child = Individual(
+        sample_id=child_id,
+        family_id=family.family_id,
+        father_id=father,
+        mother_id=mother,
+        is_unknown_offspring=True,
+    )
+    return replace(
+        family,
+        individuals={**family.individuals, child_id: child},
+        unions=[Union(partner_ids=(father, mother), children_ids=[child_id])],
+    )
+
+
 def _get_node_label(sid: str, ind: Individual, style: PedigreeStyle | None = None) -> str:
     """Determine the display label for a node.
 
@@ -677,7 +726,7 @@ def _get_node_label(sid: str, ind: Individual, style: PedigreeStyle | None = Non
     Returns:
         The label string (may be empty for phantoms).
     """
-    if sid.startswith("_phantom_"):
+    if sid.startswith("_phantom_") or ind.is_unknown_offspring:
         return ""
     label = ind.duplicate_of if (ind.is_duplicate and ind.duplicate_of) else sid
     if style and style.zero_pad_ids > 0:
@@ -740,6 +789,7 @@ def _build_nodes(
                 notation=ind.notation,
                 notes=symbols.notes(ind),
                 marker_depth=symbols.childless_depth(ind.notation),
+                is_unknown_offspring=ind.is_unknown_offspring,
             )
         )
 
@@ -1298,6 +1348,7 @@ def compute_layout_circular(
 
     if not family.individuals:
         return FamilyLayout(family_id=family.family_id)
+    family = with_unknown_offspring(family)
 
     # Steps 1-2: Generations and left-to-right order, from the hierarchical
     # placement (the family may gain duplicate nodes there).
@@ -1460,6 +1511,7 @@ def _build_circular_nodes(
                 notation=ind.notation,
                 notes=symbols.notes(ind),
                 marker_depth=symbols.childless_depth(ind.notation),
+                is_unknown_offspring=ind.is_unknown_offspring,
             )
         )
     return nodes
