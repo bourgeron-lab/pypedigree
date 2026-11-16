@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   embedding the SVG can draw overlays (observed relatedness, links the
   pedigree does not show) in the same coordinate system through zoom and pan
   (bourgeron-lab/pypedigree#12).
+- Hooks for host pages: a `css_class` column and `data_` columns
+  (`data_qc` → `data-qc`), or the builder's `css_class=` and `data=`, add
+  classes and `data-*` attributes to the individual's node in the interactive
+  SVG, so a page can style or select individuals (dim deselected members,
+  outline QC flags) without re-rendering. Duplicated individuals carry them
+  too; the PNG ignores them. Names are validated (`PedigreeParseError` with
+  the line, `PedigreeError` from the builder); `node`, `dimmed` and
+  pypedigree's own `data-*` names are reserved (bourgeron-lab/pypedigree#9).
 - A family holding only two parents, a man and a woman, with no child in the
   file (a trio whose child is missing) is drawn as their couple, father on the
   left, with a descent line to a "?", instead of two unrelated symbols, in

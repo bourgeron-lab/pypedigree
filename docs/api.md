@@ -304,6 +304,8 @@ Add an individual to the pedigree.
 | `gender` | `str \| Gender \| None` | `None` | Gender identity `"man"`, `"woman"`, `"nonbinary"`: the symbol follows it and `sex` is the sex assigned at birth (AMAB/AFAB below when they differ) |
 | `consultand` | `bool` | `False` | Arrow without "P" |
 | `twin_of` | `str \| list[str] \| None` | `None` | Sample ID of this individual's twin (a list for triplets and more); the twin may be added before or after |
+| `css_class` | `str \| list[str] \| None` | `None` | Extra classes on the individual's node in the interactive SVG (`"flagged"`, several separated by spaces, or a list) |
+| `data` | `Mapping[str, object] \| None` | `None` | Extra `data-*` attributes on that node: `{"qc": "high"}` writes `data-qc="high"`; `_` in a name becomes `-`, `None` values are left out |
 | `twin_type` | `str \| TwinType` | `"TW"` | `"MZ"` (monozygotic), `"DZ"` (dizygotic) or `"TW"` (zygosity unknown); also `"monozygotic"`, `"dizygotic"`, `"unknown"` |
 
 An unknown notation code or twin type raises `PedigreeError`.
@@ -418,6 +420,7 @@ svg_str = render_interactive_svg(ped, output="family.svg")
 
 **Features**:
 - Hover tooltips (sample_id, sex, phenotype, DOB, extra phenotypes, carrier status)
+- Host hooks: each node is a `<g class="node …">` with `data-id`, `data-parents`, `data-children`, `data-siblings`, plus the individual's own classes and `data-*` attributes (`css_class` / `data_` columns, `css_class=` / `data=` builder keywords), so a page can style them (`.node.flagged`) or select them (`[data-qc="high"]`) without re-rendering. The click highlighting adds and removes only the `dimmed` class, so a host's classes stay
 - Click node to highlight parents, children, siblings (click again to reset)
 - Mouse wheel zoom, Ctrl+drag to pan
 - Carrier notation: patterned sections defined once as SVG `<pattern>`s (NSGC 2022), or half-fill and center dot with `carrier_notation="legacy"`
@@ -481,6 +484,8 @@ Represents one person in the pedigree.
 | `is_proband` | `bool` | Whether this is the proband |
 | `is_phantom` | `bool` | Whether this is a generated phantom parent |
 | `is_unknown_offspring` | `bool` | The placeholder child the layout adds under a couple alone in its family (drawn as "?") |
+| `css_classes` | `list[str]` | Extra classes on the individual's SVG node (`css_class` column or keyword) |
+| `data_attributes` | `dict[str, str]` | Extra `data-*` attributes on the SVG node, name without `data-` (`data_` columns, `data` keyword) |
 | `is_duplicate` | `bool` | Whether this is a duplicate node |
 | `is_carrier` | `bool` | Whether this is a carrier (`carrier` column = 1) |
 | `is_obligate_carrier` | `bool` | Whether this is an obligate carrier (`carrier` column = 2) |

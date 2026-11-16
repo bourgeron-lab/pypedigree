@@ -646,6 +646,8 @@ def _with_duplicate_partners(family: Family, items: list[tuple[Union, str]]) -> 
             extra_phenotypes_categorical=dict(original.extra_phenotypes_categorical),
             duplicate_of=original.duplicate_of or pid,
             notation=replace(original.notation, is_consultand=False),
+            css_classes=list(original.css_classes),
+            data_attributes=dict(original.data_attributes),
         )
         p1, p2 = union.partner_ids
         unions[index] = replace(
@@ -790,6 +792,8 @@ def _build_nodes(
                 notes=symbols.notes(ind),
                 marker_depth=symbols.childless_depth(ind.notation),
                 is_unknown_offspring=ind.is_unknown_offspring,
+                css_classes=list(ind.css_classes),
+                data_attributes=dict(ind.data_attributes),
             )
         )
 
@@ -1512,6 +1516,8 @@ def _build_circular_nodes(
                 notes=symbols.notes(ind),
                 marker_depth=symbols.childless_depth(ind.notation),
                 is_unknown_offspring=ind.is_unknown_offspring,
+                css_classes=list(ind.css_classes),
+                data_attributes=dict(ind.data_attributes),
             )
         )
     return nodes

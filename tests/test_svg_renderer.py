@@ -520,7 +520,11 @@ class TestSvgNodePositions:
 
     def _nodes(self, svg):
         root = ET.fromstring(svg)
-        return [g for g in root.iter("{http://www.w3.org/2000/svg}g") if g.get("class") == "node"]
+        return [
+            g
+            for g in root.iter("{http://www.w3.org/2000/svg}g")
+            if "node" in (g.get("class") or "").split()
+        ]
 
     def test_attributes_give_the_symbol_centre_and_size(self):
         from conftest import TEST_DATA_DIR
@@ -553,3 +557,105 @@ class TestSvgNodePositions:
         assert len(set(points)) == len(points)
         for x, y in points:
             assert vb_x <= x <= vb_x + vb_w and vb_y <= y <= vb_y + vb_h
+
+
+class TestSvgNodeHooks:
+    """Host classes and data-* attributes on each node (issue #9)."""
+
+    TEXT = (
+        "FID\tIID\tFather\tMother\tSex\tPhenotype\tcss_class\tdata_QC_flag\n"
+        "FAM1\tdad\t0\t0\t1\t1\tflagged deselected\thigh\n"
+        "FAM1\tmum\t0\t0\t2\t1\t.\t0\n"
+        "FAM1\tkid\tdad\tmum\t1\t2\t\tNA\n"
+    )
+
+    @staticmethod
+    def _node_tags(svg):
+        import re
+
+        return {
+            re.search(r'data-id="([^"]+)"', tag).group(1): tag
+            for tag in re.findall(r'<g class="node[^>]*>', svg)
+        }
+
+    def test_columns_reach_the_svg_nodes(self):
+        from pypedigree.parser import parse_pedigree_from_string
+
+        tags = self._node_tags(render_interactive_svg(parse_pedigree_from_string(self.TEXT)))
+        assert 'class="node flagged deselected"' in tags["dad"]
+        assert 'data-qc-flag="high"' in tags["dad"]
+        assert 'class="node"' in tags["mum"] and 'data-qc-flag="0"' in tags["mum"]  # 0 is kept
+        assert 'class="node"' in tags["kid"] and "data-qc-flag" not in tags["kid"]  # NA left out
+
+    def test_builder_keywords_and_escaping(self):
+        b = PedigreeBuilder("FAM1")
+        b.add_individual("a", sex="male", css_class=["flagged", "qc-fail"], data={"note": 'x<"y'})
+        b.add_individual("b", sex="female", data={"Score_2": 3.5, "skipped": None})
+        tags = self._node_tags(b.render_interactive_svg())
+        assert 'class="node flagged qc-fail"' in tags["a"]
+        assert 'data-note="x&lt;&quot;y"' in tags["a"]
+        assert 'data-score-2="3.5"' in tags["b"] and "data-skipped" not in tags["b"]
+
+    def test_duplicates_carry_the_same_hooks(self):
+        """A man with two partners is drawn twice; both nodes get his hooks."""
+        from pypedigree.layout import compute_layout
+        from pypedigree.parser import parse_pedigree_from_string
+
+        text = (
+            "FID\tIID\tFather\tMother\tSex\tPhenotype\tcss_class\tdata_qc\n"
+            "F\tman\t0\t0\t1\t1\tflagged\thigh\n"
+            "F\tw1\t0\t0\t2\t1\t\t\n"
+            "F\tw2\t0\t0\t2\t1\t\t\n"
+            "F\tc1\tman\tw1\t1\t1\t\t\n"
+            "F\tc2\tman\tw2\t2\t1\t\t\n"
+        )
+        layout = compute_layout(parse_pedigree_from_string(text).families["F"])
+        drawn = [n for n in layout.nodes if n.label == "man"]
+        assert len(drawn) == 2, "the man and his duplicate"
+        assert all(n.css_classes == ["flagged"] for n in drawn)
+        assert all(n.data_attributes == {"qc": "high"} for n in drawn)
+
+    @pytest.mark.parametrize(
+        ("header", "value", "message"),
+        [
+            ("css_class", "9lives", "invalid CSS class name"),
+            ("css_class", "dimmed", "used by the SVG itself"),
+            ("data_x", "1", "written by pypedigree itself"),
+            ("data_a b", "1", "invalid data attribute name"),
+        ],
+    )
+    def test_invalid_names_are_rejected(self, header, value, message):
+        from pypedigree.errors import PedigreeParseError
+        from pypedigree.parser import parse_pedigree_from_string
+
+        text = f"FID\tIID\tFather\tMother\tSex\tPhenotype\t{header}\nF\ta\t0\t0\t1\t1\t{value}\n"
+        with pytest.raises(PedigreeParseError, match=message):
+            parse_pedigree_from_string(text)
+
+    def test_builder_rejects_invalid_names(self):
+        from pypedigree.errors import PedigreeError
+
+        with pytest.raises(PedigreeError, match="used by the SVG itself"):
+            PedigreeBuilder("F").add_individual("a", css_class="node")
+        with pytest.raises(PedigreeError, match="written by pypedigree itself"):
+            PedigreeBuilder("F").add_individual("a", data={"id": 1})
+
+    def test_png_ignores_them(self):
+        import matplotlib.pyplot as plt
+
+        from pypedigree import render_pedigree
+        from pypedigree.parser import parse_pedigree_from_string
+
+        plain = (
+            "FID\tIID\tFather\tMother\tSex\tPhenotype\n"
+            "FAM1\tdad\t0\t0\t1\t1\nFAM1\tmum\t0\t0\t2\t1\nFAM1\tkid\tdad\tmum\t1\t2\n"
+        )
+        a = render_pedigree(parse_pedigree_from_string(self.TEXT))
+        b = render_pedigree(parse_pedigree_from_string(plain))
+        try:
+            assert len(a.axes[0].patches) == len(b.axes[0].patches)
+            texts_a = [t.get_text() for t in a.axes[0].texts]
+            assert texts_a == [t.get_text() for t in b.axes[0].texts]
+        finally:
+            plt.close(a)
+            plt.close(b)

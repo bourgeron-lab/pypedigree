@@ -195,6 +195,10 @@ Extended format adds:
 - Column 8: twins (comma-separated TYPE:sample_id entries)
 - Column 9: deceased (1=deceased, 0=alive)
 - Column 10: proband (1=proband, 0=not proband)
+- `css_class` column and `data_` prefixed columns: classes and `data-*` attributes on the
+  individual's SVG node (`Individual.css_classes`, `.data_attributes`; validated by
+  `parse_css_classes()` / `data_attribute_name()`; `node`, `dimmed` and pypedigree's own
+  `data-*` names are reserved). Empty/./NA left out, 0 and -9 kept. Not drawn in the PNG.
 - Columns with `a_` prefix: annotation columns (text displayed below individual's ID label, not phenotypes). Missing values (0, -9, NA, empty) produce no annotation line. Generation gap auto-increases when present.
 - Standard notation columns, by header name (`_NOTATION_ROLES` in parser.py; codes
   case-insensitive, unknown code -> `PedigreeParseError` with the line):
