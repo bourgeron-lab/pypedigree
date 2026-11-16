@@ -174,7 +174,12 @@ pypedigree mockup_with_pgs.ped -o output.png
 
 # PGS in a separate .pheno file
 pypedigree family.ped --pheno data_with_pgs.pheno -o output.png
+
+# Ancestry-matched z-scores on a fixed scale, +/-2 SD marked
+pypedigree family.ped --pgs-scale zscore -o output.png
 ```
+
+By default the marker sits between the pedigree's lowest and highest score. With `--pgs-scale zscore` or `percentile` it is placed on the population's standard normal, so the same score is drawn at the same place in every pedigree.
 
 ---
 

@@ -32,7 +32,7 @@ from pypedigree.carriers import (
     check_notation,
     resolve_carrier_scheme,
 )
-from pypedigree.config import PedigreeStyle, apply_pgs_spacing, resolve_style
+from pypedigree.config import PedigreeStyle, apply_pgs_spacing, is_pgs_column, resolve_style
 from pypedigree.layout import compute_layout
 from pypedigree.models import (
     DuplicateArc,
@@ -72,6 +72,7 @@ from pypedigree.phenotypes import (
     active_pgs,
     all_bands_na,
     band_cell,
+    check_pgs_scale,
     check_phenotype_layout,
     legend_metrics,
     legend_row_centers,
@@ -79,6 +80,8 @@ from pypedigree.phenotypes import (
     legend_slot_count,
     outline_color,
     pgs_curve,
+    pgs_tail_positions,
+    pgs_value_text,
     pregnancy_loss_fill,
     quadrant_box,
     quadrant_cell,
@@ -133,8 +136,12 @@ def render_interactive_svg(
     )
     render = resolve_phenotype_render(pedigree, names, modes, style)
     check_phenotype_layout(style)
+    check_pgs_scale(style)
     render = with_quadrants(render, render.band_names(names), carriers, style)
-    banded = bool(names and style.phenotype_colors and render.effective_modes)
+    # Bands need colors; PGS curves need none (see renderer._render_layout).
+    banded = bool(
+        names and render.effective_modes and (style.phenotype_colors or render.pgs_names(names))
+    )
     ctx = _SvgContext(
         style=style,
         carriers=carriers,
@@ -189,7 +196,9 @@ def render_interactive_svg(
         cursor = x1 + style.shape_size * 3
 
     bounds = _union(extents)
-    show_pheno_legend = show_legend and names and style.phenotype_colors
+    show_pheno_legend = (
+        show_legend and names and (style.phenotype_colors or render.pgs_names(names))
+    )
     show_carrier_legend = show_legend and (carriers.has_legacy_carriers or bool(carriers.keys))
     if show_pheno_legend or show_carrier_legend:
         rows = legend_rows(names, style, render, modes, carriers)
@@ -560,7 +569,9 @@ _CHILDLESS_LABELS = {"choice": "No children by choice", "infertility": "Infertil
 _ROLE_LABELS = {"D": "Gamete donor", "S": "Surrogate"}
 
 
-def _tooltip(node: NodeLayout, ind: Individual | None, carriers: CarrierScheme) -> str:
+def _tooltip(
+    node: NodeLayout, ind: Individual | None, carriers: CarrierScheme, pgs_scale: str = "minmax"
+) -> str:
     """Text of a node's tooltip, lines separated by " | "."""
     lines = [f"ID: {node.individual_id}"]
     sex = ind.sex if ind is not None else node.sex
@@ -608,8 +619,12 @@ def _tooltip(node: NodeLayout, ind: Individual | None, carriers: CarrierScheme) 
         value = raw.get(name)
         if category is not None:
             lines.append(f"{name}: {category}")
+        elif value is not None and math.isnan(value):
+            lines.append(f"{name}: NA")
+        elif value is not None and is_pgs_column(name):
+            lines.append(f"{name}: {pgs_value_text(value, pgs_scale)}")
         elif value is not None:
-            lines.append(f"{name}: {'NA' if math.isnan(value) else f'{value:g}'}")
+            lines.append(f"{name}: {value:g}")
     return " | ".join(lines)
 
 
@@ -701,7 +716,9 @@ def _svg_node(
     if ctx.show_labels and node.label:
         parts.append(_svg_labels(node, style))
 
-    parts.append(f"<title>{html.escape(_tooltip(node, ind, ctx.carriers))}</title>")
+    parts.append(
+        f"<title>{html.escape(_tooltip(node, ind, ctx.carriers, style.pgs_scale))}</title>"
+    )
     parts.append("</g>")
     return "\n".join(p for p in parts if p)
 
@@ -1004,7 +1021,7 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
     each score's position on [0, 1] marked by a dashed line and a dot.
     """
     style = ctx.style
-    active = active_pgs(node, ctx.pgs_names)
+    active = active_pgs(node, ctx.pgs_names, style.pgs_scale)
     if not active:
         return ""
     half = style.shape_size / 2
@@ -1025,6 +1042,13 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
         f'<polygon points="{area}" fill="{FALLBACK_COLOR}" fill-opacity="0.08"/>',
         f'<polyline points="{pts}" fill="none" stroke="#aaaaaa" stroke-width="{0.6 * _PT:.3f}"/>',
     ]
+    for tail in pgs_tail_positions(style.pgs_scale):
+        ty = bottom - tail * box_h
+        out.append(
+            f'<line class="pgs-tail" x1="{left:.3f}" y1="{ty:.3f}" x2="{left + box_w:.3f}" '
+            f'y2="{ty:.3f}" stroke="#aaaaaa" stroke-width="{thin:.3f}" '
+            'stroke-dasharray="0.02 0.03"/>'
+        )
     for name, value in active:
         color = html.escape(style.pgs_colors.get(name, DEFAULT_PGS_COLOR))
         y = bottom - value * box_h

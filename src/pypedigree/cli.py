@@ -95,6 +95,13 @@ from pypedigree.renderer import render_pedigree
     "quadrants, one per column (up to four).",
 )
 @click.option(
+    "--pgs-scale",
+    type=click.Choice(["minmax", "zscore", "percentile"]),
+    default=None,
+    help="How PGS values are placed on their curve: between the pedigree's lowest and "
+    "highest score (minmax, default), as z-scores, or as population percentiles.",
+)
+@click.option(
     "--no-na-labels",
     is_flag=True,
     help='Do not write "NA" in bands with no data (they stay grey, like unknown).',
@@ -132,6 +139,7 @@ def main(
     no_legend: bool,
     show_phenotype_labels: bool,
     no_na_labels: bool,
+    pgs_scale: str | None,
     phenotype_layout: str | None,
     interactive: bool,
     plink: bool,
@@ -166,6 +174,8 @@ def main(
                 style.show_phenotype_labels = True
             if no_na_labels:
                 style.show_na_labels = False
+            if pgs_scale:
+                style.pgs_scale = pgs_scale
             if phenotype_layout:
                 style.phenotype_layout = phenotype_layout
 

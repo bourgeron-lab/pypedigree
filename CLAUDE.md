@@ -231,6 +231,10 @@ Multi-phenotype support:
 - Binary phenotypes: 1=unaffected (white), 2=affected (color), 0=unknown (grey), -9=no data (grey with "NA" text: `NA_FILL`, the grey of 0, and `NA_TEXT_COLOR`; a `cr_` band with no data too; `show_na_labels=False` / `--no-na-labels` drops the text, leaving plain grey)
 - When all bands are NA for an individual, a single centered "NA" is shown instead of repeating per band
 - Continuous phenotypes → color gradient bands
+- PGS scale: `pgs_scale` ("minmax" default, "zscore", "percentile") decides the position on the curve:
+  `active_pgs(node, names, scale)`, `pgs_position(z) = 0.5 + z * PGS_CURVE_SIGMA` on fixed scales,
+  `pgs_tail_positions()` (±2 SD dotted lines), `pgs_value_text()` for the SVG tooltip. Curves (and the
+  legend) are drawn even with no other phenotype column. `tests/test_pgs_scale.py`
 - PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve. Multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) show colored markers on a single curve. Marker colors via `pgs_colors` style option. `couple_gap` and `sibling_gap` auto-increase when PGS present.
 - Colors from `phenotype_colors` in style JSON, or auto-assigned from palette
 - Comma decimal separator: parser accepts `0,712` as `0.712` (European locale)
@@ -278,6 +282,7 @@ pypedigree INPUT.ped [OPTIONS]
 --no-legend              Hide the phenotype legend
 --show-phenotype-labels  Show YES/NO text inside binary phenotype bands
 --no-na-labels           Do not write "NA" in bands with no data (style `show_na_labels`)
+--pgs-scale [minmax|zscore|percentile]  PGS position: min-max over the pedigree (default), z-score or percentile
 --phenotype-layout [bands|quadrants]  Horizontal bands (default) or four quadrants, one per phenotype
 --interactive            Generate interactive SVG with tooltips and click highlighting
 --circular               Use circular/radial layout (founders at center, descendants on concentric rings)

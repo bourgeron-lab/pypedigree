@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- PGS on a fixed scale: `--pgs-scale zscore` / `percentile` (style
+  `pgs_scale`) places each PGS value on the drawn standard normal, the same
+  for every pedigree, instead of between the pedigree's lowest and highest
+  score (`minmax`, still the default). The ±2 SD tails are marked, values
+  beyond the box are clipped to its edge, the legend names the scale, and
+  the SVG tooltip gives z and percentile ("z = +1.10, 86th percentile")
+  (bourgeron-lab/pypedigree#7).
 - Individuals with a row but never sampled: a `not_sampled` column (aliases
   `inferred`, `unsampled`, `dummy`; `1`, `yes` or `true`) or the builder's
   `inferred=True` draws "dummy" individuals, who only link real members, with
@@ -74,6 +81,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- PGS curves, and the legend, were drawn only when the pedigree also had
+  another phenotype column: a pedigree with PGS columns alone showed none
+  (bourgeron-lab/pypedigree#7).
 - A parent named in the father or mother column but with no row of their
   own left the child unconnected: the child was drawn alone, joined to
   neither parent. The parser now does what `PedigreeBuilder` does and makes
