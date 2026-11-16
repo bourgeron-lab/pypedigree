@@ -12,7 +12,7 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 - **Standard pedigree symbols**: squares (male), circles (female), diamonds (unknown sex), with affected/unaffected fill
 - **Parents without children**: a family holding only the two parents (no child in the file) is drawn as their couple, father on the left, with a descent line to a "?".
 - **Multi-phenotype rendering**: horizontal color bands for multiple phenotypes per individual (binary: 0=unknown/grey, -9=no data/grey with "NA"; continuous: gradient), or the symbol cut in four quadrants, one per phenotype (`--phenotype-layout quadrants`). Autism, intellectual disability, ADHD and epilepsy columns get conventional colors (blue, red, yellow, purple) and quadrants (top left, bottom left, top right, bottom right). The legend always matches the bands it describes; it is sized from the font, so it reads the same under a 4-person pedigree as under a 45-person one.
-- **PGS (Polygenic Score) curves**: gaussian distribution with individual score marker, drawn alongside each node. Supports multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) with colored markers on a single curve.
+- **PGS (Polygenic Score) curves**: gaussian distribution with individual score marker, drawn alongside each node. Supports multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) with colored markers on a single curve. Scores are placed between the pedigree's lowest and highest by default, or on a fixed scale with `--pgs-scale zscore` / `percentile` (±2 SD marked, z and percentile in the SVG tooltip).
 - **Hooks for host pages**: a `css_class` column and `data_` columns (or the builder's `css_class=` and `data=`) add classes and `data-*` attributes to each individual's node in the interactive SVG, so a page can style or select individuals without re-rendering.
 - **Individuals never sampled**: a `not_sampled` column (or the builder's `inferred=True`) draws "dummy" individuals that only link real members with a dashed outline, keeping their label, parents and phenotypes.
 - **Annotations**: columns with `a_` prefix in .ped header display italic grey text below individual ID labels. Also loadable from external file via `--annotations`.
@@ -340,6 +340,8 @@ Options:
   --no-legend                    Hide the phenotype legend
   --show-phenotype-labels        Show YES/NO text labels inside binary phenotype bands
   --no-na-labels                 Do not write "NA" in bands with no data (they stay grey)
+  --pgs-scale [minmax|zscore|percentile]
+                                 Place PGS values min-max over the pedigree (default), as z-scores or percentiles
   --phenotype-layout [bands|quadrants]
                                  Horizontal bands (default) or four quadrants, one per phenotype
   --interactive                  Generate interactive SVG with tooltips and click highlighting

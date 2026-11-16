@@ -15,6 +15,7 @@ import math
 import warnings
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from statistics import NormalDist
 from typing import Any, Protocol
 
 import matplotlib.colors as mcolors
@@ -53,6 +54,12 @@ GRADIENT_STEPS = 20  # swatches making up a legend gradient bar
 
 # Shape of the PGS distribution curve: a gaussian of this width on [0, 1].
 PGS_CURVE_SIGMA = 0.18
+# The curve is a normal density over [0, 1] with this sigma, centred on 0.5,
+# so it spans 0.5 / PGS_CURVE_SIGMA (about 2.8) standard deviations each way:
+# a z-score is placed at 0.5 + z * PGS_CURVE_SIGMA, clipped to the box.
+PGS_SCALES = ("minmax", "zscore", "percentile")
+PGS_TAIL_SD = 2.0  # tails marked on a fixed scale
+_PERCENTILE_LIMITS = (0.01, 99.99)  # a percentile of 0 or 100 has no z
 
 
 # --- Colors -----------------------------------------------------------------
@@ -619,14 +626,79 @@ def outline_color(
     return None
 
 
-def active_pgs(node: _HasPhenotypes, pgs_names: Sequence[str]) -> list[tuple[str, float]]:
-    """PGS columns with a value for this individual, with their [0, 1] position."""
+def check_pgs_scale(style: PedigreeStyle) -> None:
+    """Reject an unknown ``pgs_scale`` before anything is drawn.
+
+    Raises:
+        PedigreeError: If ``style.pgs_scale`` is not one of `PGS_SCALES`.
+    """
+    if style.pgs_scale not in PGS_SCALES:
+        raise PedigreeError(
+            f"Unknown pgs_scale {style.pgs_scale!r}: expected one of {', '.join(PGS_SCALES)}"
+        )
+
+
+def pgs_zscore(raw: float, scale: str) -> float:
+    """The z-score a PGS value stands for, on the "zscore" or "percentile" scale."""
+    if scale == "percentile":
+        low, high = _PERCENTILE_LIMITS
+        return NormalDist().inv_cdf(min(max(raw, low), high) / 100)
+    return raw
+
+
+def pgs_position(z: float) -> float:
+    """Position of a z-score on the curve's [0, 1] axis, clipped to the box."""
+    return min(max(0.5 + z * PGS_CURVE_SIGMA, 0.0), 1.0)
+
+
+def pgs_tail_positions(scale: str) -> tuple[float, ...]:
+    """Where the +/-2 SD tails are marked on the curve: none on "minmax"."""
+    if scale == "minmax":
+        return ()
+    return (pgs_position(-PGS_TAIL_SD), pgs_position(PGS_TAIL_SD))
+
+
+def active_pgs(
+    node: _HasPhenotypes, pgs_names: Sequence[str], scale: str = "minmax"
+) -> list[tuple[str, float]]:
+    """PGS columns with a value for this individual, with their [0, 1] position.
+
+    On "minmax" the position is the value normalised over the pedigree; on
+    "zscore" and "percentile" it is the value's z-score on the drawn
+    normal curve (`pgs_position`), the same for every pedigree.
+    """
     out = []
     for name in pgs_names:
-        value = node.extra_phenotypes.get(name)
-        if not is_na_value(value):
-            out.append((name, value or 0.0))
+        if scale == "minmax":
+            value = node.extra_phenotypes.get(name)
+            if not is_na_value(value):
+                out.append((name, value or 0.0))
+            continue
+        raw = node.extra_phenotypes_raw.get(name)
+        if not is_na_value(raw) and raw is not None:
+            out.append((name, pgs_position(pgs_zscore(raw, scale))))
     return out
+
+
+def _ordinal(n: int) -> str:
+    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
+def pgs_value_text(raw: float, scale: str) -> str:
+    """A PGS value as the tooltip writes it.
+
+    "z = +1.10, 86th percentile" on "zscore", "86th percentile, z = +1.08"
+    on "percentile", the value alone on "minmax".
+    """
+    if scale == "minmax":
+        return f"{raw:g}"
+    z = pgs_zscore(raw, scale)
+    percentile = round(NormalDist().cdf(z) * 100)
+    percentile = min(max(percentile, 1), 99)
+    if scale == "percentile":
+        return f"{_ordinal(round(min(max(raw, 0), 100)))} percentile, z = {z:+.2f}"
+    return f"z = {z:+.2f}, {_ordinal(percentile)} percentile"
 
 
 # --- Legend ------------------------------------------------------------------
@@ -866,12 +938,18 @@ def quadrant_key_geometry(row: LegendRow, m: LegendMetrics, y_center: float) -> 
     )
 
 
-def pgs_legend_description(pgs_names: Sequence[str]) -> str:
-    """Caption of the PGS row, from its column names."""
+def pgs_legend_description(pgs_names: Sequence[str], scale: str = "minmax") -> str:
+    """Caption of the PGS row, from its column names and the scale."""
     if len(pgs_names) == 1 and pgs_names[0].upper() == "PGS":
-        return "PGS distribution (vertical) with individual score"
-    traits = [n[4:] if n.upper().startswith("PGS_") else n for n in pgs_names]
-    return f"PGS distribution ({', '.join(traits)})"
+        caption = "PGS distribution (vertical) with individual score"
+    else:
+        traits = [n[4:] if n.upper().startswith("PGS_") else n for n in pgs_names]
+        caption = f"PGS distribution ({', '.join(traits)})"
+    if scale == "zscore":
+        return f"{caption}: z-score, \u00b12 SD marked"
+    if scale == "percentile":
+        return f"{caption}: population percentile, \u00b12 SD marked"
+    return caption
 
 
 def legend_rows(
@@ -940,7 +1018,7 @@ def legend_rows(
         rows.append(
             LegendRow(
                 "pgs",
-                pgs_legend_description(pgs_names),
+                pgs_legend_description(pgs_names, style.pgs_scale),
                 pgs={n: style.pgs_colors.get(n, DEFAULT_PGS_COLOR) for n in pgs_names},
             )
         )

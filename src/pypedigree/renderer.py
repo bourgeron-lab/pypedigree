@@ -68,12 +68,14 @@ from pypedigree.phenotypes import (
     active_pgs,
     all_bands_na,
     band_cell,
+    check_pgs_scale,
     check_phenotype_layout,
     legend_metrics,
     legend_row_centers,
     legend_rows,
     legend_slot_count,
     outline_color,
+    pgs_tail_positions,
     pregnancy_loss_fill,
     quadrant_box,
     quadrant_cell,
@@ -144,6 +146,7 @@ def render_pedigree(
         style.carrier_notation,
     )
     check_phenotype_layout(style)
+    check_pgs_scale(style)
     pheno_render = with_quadrants(
         pheno_render, pheno_render.band_names(pheno_names or []), carriers, style
     )
@@ -216,7 +219,11 @@ def render_pedigree(
 
     # Draw the legend after tight_layout: it grows the figure downward by its
     # own height instead of taking a share of the pedigree's.
-    show_pheno_legend = show_legend and pheno_names and style.phenotype_colors
+    show_pheno_legend = (
+        show_legend
+        and pheno_names
+        and (style.phenotype_colors or pheno_render.pgs_names(pheno_names))
+    )
     show_carrier_legend = show_legend and (carriers.has_legacy_carriers or bool(carriers.keys))
     if show_pheno_legend or show_carrier_legend:
         _draw_legend(
@@ -372,7 +379,13 @@ def _render_layout(
         _draw_duplicate_arc(ax, arc, style)
 
     # Determine if we use banded rendering
-    use_banded = bool(phenotype_names and style.phenotype_colors and pheno_render.effective_modes)
+    # Bands need colors; PGS curves need none, so a pedigree with PGS
+    # columns only still gets its curves.
+    use_banded = bool(
+        phenotype_names
+        and pheno_render.effective_modes
+        and (style.phenotype_colors or pheno_render.pgs_names(phenotype_names))
+    )
     names = phenotype_names if use_banded and phenotype_names is not None else []
     # Carrier columns are neither: they are drawn from `carriers`.
     band_names = pheno_render.band_names(names)
@@ -1593,7 +1606,7 @@ def _draw_pgs_ridge(
     cx, cy = node.x, node.y
 
     # Filter to PGS columns that have data for this node
-    active = active_pgs(node, pgs_names)
+    active = active_pgs(node, pgs_names, style.pgs_scale)
     if not active:
         return
 
@@ -1619,7 +1632,7 @@ def _draw_pgs_ridge(
     # Single gaussian curve (grey/neutral)
     n_points = 50
     y_vals = np.linspace(0, 1, n_points)
-    density = np.exp(-0.5 * ((y_vals - 0.5) / 0.18) ** 2)
+    density = np.exp(-0.5 * ((y_vals - 0.5) / PGS_CURVE_SIGMA) ** 2)
     density = density / density.max()
 
     plot_x = box_left + density * box_width * 0.8 + box_width * 0.1
@@ -1634,6 +1647,18 @@ def _draw_pgs_ridge(
         color="#999999",
         zorder=4,
     )
+
+    # On a fixed scale, the +/-2 SD tails: thin dotted lines across the box.
+    for tail in pgs_tail_positions(style.pgs_scale):
+        tail_y = box_bottom + tail * box_height
+        ax.plot(
+            [box_left, box_left + box_width],
+            [tail_y, tail_y],
+            color="#aaaaaa",
+            linewidth=0.5,
+            linestyle=":",
+            zorder=4,
+        )
 
     # One colored marker per PGS trait
     for pgs_name, norm_val in active:

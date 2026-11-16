@@ -508,6 +508,7 @@ child      2         105   62</code></pre>
     <tr><td><code>--no-legend</code></td><td>Hide phenotype legend</td><td>Off</td></tr>
     <tr><td><code>--show-phenotype-labels</code></td><td>Show YES/NO text inside binary phenotype bands (hidden by default)</td><td>Off</td></tr>
     <tr><td><code>--phenotype-layout</code></td><td><code>bands</code> (horizontal bands) or <code>quadrants</code> (the symbol cut in four, one quadrant per phenotype, up to four)</td><td>bands</td></tr>
+    <tr><td><code>--pgs-scale</code></td><td>PGS position: <code>minmax</code> over the pedigree, <code>zscore</code> or <code>percentile</code> (fixed scales mark &plusmn;2 SD)</td><td>minmax</td></tr>
     <tr><td><code>--no-na-labels</code></td><td>Do not write &ldquo;NA&rdquo; in bands with no data (they stay grey, like unknown)</td><td>Off</td></tr>
     <tr><td><code>--plink</code></td><td>Treat input as PLINK .ped file (ignore genotype columns after column 6)</td><td>Off</td></tr>
     <tr><td><code>--interactive</code></td><td>Generate interactive SVG with tooltips, click highlighting, and zoom/pan (same bands, legend and PGS curves as the PNG; not with <code>--circular</code>)</td><td>Off</td></tr>
@@ -822,6 +823,9 @@ produce the same figure for the same input.</p>
   <img src="imgs/examples/multi_phenotype_pgs.png" alt="PGS rendering" style="max-width:500px">
   <figcaption>Pedigree with phenotype bands + PGS Gaussian curves</figcaption>
 </figure>
+
+<h4>PGS on a Fixed Scale</h4>
+<p>By default a PGS value is placed between the pedigree's lowest and highest score, so in a trio with z = +2.5, &minus;0.2 and +1.1 the parent at the 42nd percentile sits at the bottom of the curve. With <code>--pgs-scale zscore</code> (style <code>"pgs_scale": "zscore"</code>) each value is a z-score placed on the drawn standard normal, the same for every pedigree; with <code>--pgs-scale percentile</code> it is a population percentile (0&ndash;100). On these fixed scales the &plusmn;2 SD tails are marked with dotted lines, the legend names the scale, and the SVG tooltip gives z and percentile (<code>z = +1.10, 86th percentile</code>). PGS curves are drawn even when the pedigree has no other phenotype column.</p>
 
 <h4>Multiple PGS Columns</h4>
 <p>Any column starting with <code>PGS</code> (case-insensitive) is treated as a PGS column. For example: <code>PGS_autism</code>, <code>PGS_IQ</code>, <code>PGS_ADHD</code>. All PGS columns share a single gaussian curve, with each trait's individual score marked by a colored dashed line. Colors are set via the <code>pgs_colors</code> style option.</p>
@@ -1213,6 +1217,7 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>phenotype_layout</code></td><td>str</td><td>"bands"</td><td><code>"bands"</code> or <code>"quadrants"</code> (one quadrant per phenotype or carrier source, up to four)</td></tr>
     <tr><td><code>phenotype_quadrants</code></td><td>dict</td><td>{}</td><td>Column name &rarr; <code>"top-left"</code>, <code>"top-right"</code>, <code>"bottom-left"</code> or <code>"bottom-right"</code>; other columns take their conventional or the next free quadrant</td></tr>
     <tr><td><code>show_na_labels</code></td><td>bool</td><td>True</td><td>Write &ldquo;NA&rdquo; in bands with no data; when false they stay grey with no text, like an &ldquo;unknown&rdquo; band</td></tr>
+    <tr><td><code>pgs_scale</code></td><td>str</td><td>"minmax"</td><td><code>"minmax"</code>, <code>"zscore"</code> or <code>"percentile"</code>: how a PGS value is placed on its curve</td></tr>
     <tr><td><code>pgs_colors</code></td><td>dict</td><td>{}</td><td>Map of PGS column name to hex color for marker line (e.g. <code>{"PGS_autism": "#3498db"}</code>)</td></tr>
     <tr><td><code>gradient_range</code></td><td>dict</td><td>{}</td><td>Custom min/max for gradient normalization (e.g. <code>{"SRS": [40, 90]}</code>)</td></tr>
     <tr><td><code>gradient_diverging</code></td><td>dict</td><td>{}</td><td>Tricolor diverging gradient config (e.g. <code>{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}</code>)</td></tr>
