@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import warnings
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import click
@@ -18,6 +20,25 @@ from pypedigree.parser import (
     parse_phenotype_file,
     parse_plink_ped,
 )
+
+
+@contextmanager
+def _reported_warnings() -> Iterator[None]:
+    """Report the warnings raised inside the block as ``Warning: <message>``.
+
+    Parsing, style resolution and rendering all warn through Python's
+    `warnings` (`PedigreeDataWarning`, `PedigreeStyleWarning`); left alone,
+    they would print as raw Python warnings carrying an internal path and an
+    unrelated source line. Each message is written once, on stderr, when the
+    block ends, also when it ends with an error.
+    """
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        try:
+            yield
+        finally:
+            for message in dict.fromkeys(str(entry.message) for entry in caught):
+                click.echo(f"Warning: {message}", err=True)
 
 
 @click.command()
@@ -169,13 +190,8 @@ def main(
     Supports .ped, .fam (PLINK), and extended formats.
     """
     try:
-        # Style and data warnings are collected so they can be reported as
-        # clean CLI messages instead of raw Python warnings carrying internal
-        # paths and an unrelated source line.
         input_path = Path(pedigree_file)
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-
+        with _reported_warnings():
             # Build style
             style = PedigreeStyle()
             if style_file:
@@ -220,11 +236,8 @@ def main(
                 ann_data, ann_names = parse_annotation_file(annotations_file)
                 apply_annotations_to_pedigree(pedigree, ann_data, ann_names)
 
-        for entry in caught:
-            click.echo(f"Warning: {entry.message}", err=True)
-
-        # Fill in palette colors and PGS spacing from the pedigree's phenotypes
-        style = resolve_style(style, pedigree.phenotype_names)
+            # Fill in palette colors and PGS spacing from the pedigree's phenotypes
+            style = resolve_style(style, pedigree.phenotype_names)
 
         # Filter to specific family if requested
         if family:
@@ -259,15 +272,16 @@ def main(
             elif not output.endswith(".svg"):
                 output = str(Path(output).with_suffix(".svg"))
             render = render_svg if no_script else render_interactive_svg
-            render(
-                pedigree,
-                style=style,
-                output=output,
-                show_labels=not no_labels,
-                show_legend=not no_legend,
-                id_prefix=id_prefix,
-                responsive=responsive,
-            )
+            with _reported_warnings():
+                render(
+                    pedigree,
+                    style=style,
+                    output=output,
+                    show_labels=not no_labels,
+                    show_legend=not no_legend,
+                    id_prefix=id_prefix,
+                    responsive=responsive,
+                )
             kind = "static" if no_script else "interactive"
             click.echo(f"Saved {kind} SVG: {output}")
             return
@@ -289,24 +303,18 @@ def main(
 
         from pypedigree.renderer import render_pedigree
 
-        if show:
+        with _reported_warnings():
             fig = render_pedigree(
                 pedigree,
                 style=style,
+                output=None if show else output,
                 show_labels=not no_labels,
                 show_legend=not no_legend,
                 circular=circular,
             )
+        if show:
             plt.show()
         else:
-            fig = render_pedigree(
-                pedigree,
-                style=style,
-                output=output,
-                show_labels=not no_labels,
-                show_legend=not no_legend,
-                circular=circular,
-            )
             click.echo(f"Saved: {output}")
             plt.close(fig)
 

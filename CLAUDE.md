@@ -179,8 +179,10 @@ src/pypedigree/
 
 11. **Diagnostics use the `Pedigree*Warning` categories** from `errors.py`, never
    a bare `UserWarning`, so callers can filter or escalate them. The CLI
-   captures them with `warnings.catch_warnings` and re-emits them as
-   `Warning: <message>` on stderr.
+   runs parsing, style resolution and rendering inside `cli._reported_warnings()`,
+   which captures them with `warnings.catch_warnings` and re-emits each message
+   once as `Warning: <message>` on stderr, before "Saved". `TestRenderWarnings`
+   checks it for every output, on a real stderr too.
 
 12. **Standard notation is decided in `symbols.py`.** `models.Notation` holds an
     individual's pregnancy, adoption, childlessness, assisted-reproduction role,
