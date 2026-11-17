@@ -36,7 +36,8 @@ reproduction case to a fabricated file that still shows the bug.
 | `complex/` | Large and structurally awkward pedigrees, including the gallery's five-generation example with two loops (`multigenerational.ped`) |
 
 Each `.ped` is paired with a `.png` rendered at the default 150 dpi with no
-style file, as a visual reference (`phenotype/quadrants.png` with
+style file, as a visual reference: since 0.5.0, phenotypes in quadrants up to
+four columns and in bands beyond (`phenotype/quadrants.png` with
 `--phenotype-layout quadrants`, the layout it exists for). These are documentation, not assertions —
 the pixel-comparison suite uses `tests/visual/golden/` instead.
 

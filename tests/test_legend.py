@@ -131,7 +131,9 @@ class TestLegendPhysicalSize:
         try:
             wide_h = self._inches(wide, wide.axes[1])
             assert wide_h == pytest.approx(self._inches(circular, circular.axes[1]))
-            assert wide_h < 2.0
+            # Three rows, the PGS row and, since 0.5.0 (quadrants by default),
+            # the two-row quadrant key: about 5 cm.
+            assert wide_h < 2.5
         finally:
             plt.close(wide)
             plt.close(circular)

@@ -89,7 +89,19 @@ class TestAssignment:
         assert assignment == {"Autism": "top-left", "ADHD": "bottom-right", "Epilepsy": "top-right"}
 
     def test_bands_layout_assigns_nothing(self):
-        assert assign_quadrants(["Autism", "ADHD"], PedigreeStyle()) == {}
+        assert assign_quadrants(["Autism", "ADHD"], PedigreeStyle(phenotype_layout="bands")) == {}
+
+    def test_default_is_auto_and_assigns_up_to_four(self):
+        assert PedigreeStyle().phenotype_layout == "auto"
+        assert assign_quadrants(["Autism", "ADHD"], PedigreeStyle()) == {
+            "Autism": "top-left",
+            "ADHD": "top-right",
+        }
+
+    def test_auto_falls_back_to_bands_beyond_four_without_a_warning(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert assign_quadrants(["A", "B", "C", "D", "E"], PedigreeStyle()) == {}
 
     def test_more_than_four_columns_fall_back_to_bands(self):
         with pytest.warns(PedigreeStyleWarning, match="at most 4 columns"):
@@ -215,9 +227,9 @@ class TestRendering:
         assert fills.count(COLORS["ID"]) == 1  # kid
         assert fills.count(NA_FILL) == 1  # kid's epilepsy
 
-    def test_default_layout_is_still_bands(self):
+    def test_bands_layout_draws_equal_bands(self):
         pedigree = parse_pedigree_from_string(TRIO)
-        svg = render_interactive_svg(pedigree)
+        svg = render_interactive_svg(pedigree, style=PedigreeStyle(phenotype_layout="bands"))
         heights = set(re.findall(r'<rect class="band" [^>]*height="([^"]+)"', svg))
         assert len(heights) == 1, "equal horizontal bands"
         assert float(heights.pop()) == pytest.approx(PedigreeStyle().shape_size / 4, abs=1e-3)
@@ -345,7 +357,7 @@ class TestOptions:
                 {"phenotype_layout": "quadrants", "phenotype_quadrants": {"IQ": "top-left"}}
             )
         assert style.phenotype_layout == "quadrants"
-        assert PedigreeStyle().phenotype_layout == "bands"
+        assert PedigreeStyle().phenotype_layout == "auto"
 
     def test_cli_flag(self, tmp_path):
         runner = CliRunner()

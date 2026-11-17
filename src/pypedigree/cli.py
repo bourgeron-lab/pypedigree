@@ -105,10 +105,11 @@ def _reported_warnings() -> Iterator[None]:
 )
 @click.option(
     "--phenotype-layout",
-    type=click.Choice(["bands", "quadrants"]),
+    type=click.Choice(["auto", "quadrants", "bands"]),
     default=None,
-    help="How phenotypes divide a symbol: horizontal bands (default) or four "
-    "quadrants, one per column (up to four).",
+    help="How phenotypes divide a symbol: four quadrants, one per column (up to "
+    "four), or horizontal bands. Default 'auto': quadrants up to four columns, "
+    "bands beyond.",
 )
 @click.option(
     "--pgs-scale",

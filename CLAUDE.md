@@ -156,11 +156,13 @@ src/pypedigree/
    column to its effective mode (`binary`/`gradient`/`categorical`/`outline`/
    `carrier`/`pgs`) and, for categorical columns, to its value -> color mapping.
    `band_cell()` gives each band's color and text, `legend_rows()` the legend's
-   rows. With `phenotype_layout="quadrants"`, `with_quadrants()` stores in
+   rows. With `phenotype_layout` "auto" (the default since 0.5.0) or "quadrants",
+   `with_quadrants()` stores in
    `PhenotypeRender.quadrants` which quadrant each column or carrier source
    takes (`assign_quadrants()`: `phenotype_quadrants`, then the conventional
    quadrant of autism/ADHD/ID/epilepsy, then free ones in order; more than four
-   columns warn and fall back to bands), `quadrant_box()`/`quadrant_center()`
+   columns fall back to bands, silently with "auto", with a warning with
+   "quadrants"), `quadrant_box()`/`quadrant_center()`
    give the geometry (with an `up` sign for the SVG) and `quadrant_cell()` the
    fill and shorter text. With carrier sources but no band column,
    `with_quadrants()` assigns nothing: the symbol is drawn whole, as with bands,
@@ -318,7 +320,7 @@ pypedigree INPUT.ped [OPTIONS]
 --show-phenotype-labels  Show YES/NO text inside binary phenotype bands
 --no-na-labels           Do not write "NA" in bands with no data (style `show_na_labels`)
 --pgs-scale [minmax|zscore|percentile]  PGS position: min-max over the pedigree (default), z-score or percentile
---phenotype-layout [bands|quadrants]  Horizontal bands (default) or four quadrants, one per phenotype
+--phenotype-layout [auto|quadrants|bands]  Quadrants up to four phenotypes, bands beyond (auto, default), or one of them
 --interactive            Generate interactive SVG with tooltips and click highlighting
 --no-script              With --interactive: same SVG, no script or tooltip (`render_svg`)
 --id-prefix PREFIX       With --interactive: prefix every id in the SVG

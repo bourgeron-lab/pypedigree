@@ -79,9 +79,10 @@ class TestRender:
         assert out["individuals"] == 1
 
     def test_options_reach_the_drawing(self):
-        bands = _render()["static_svg"]
-        assert ">3</text>" in bands and "Legend" in bands
-        assert _render(phenotype_layout="quadrants")["static_svg"] != bands
+        default = _render()["static_svg"]
+        assert ">3</text>" in default and "Legend" in default
+        assert _render(phenotype_layout="quadrants")["static_svg"] == default  # auto, one column
+        assert _render(phenotype_layout="bands")["static_svg"] != default
         assert ">3</text>" not in _render(show_labels=False)["static_svg"]
         assert "Legend" not in _render(show_legend=False)["static_svg"]
 

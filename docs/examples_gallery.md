@@ -111,9 +111,9 @@ See the [PedigreeStyle reference](api.md#pedigreestyle) for all available parame
 
 ---
 
-## Multi-phenotype rendering (banded nodes)
+## Multi-phenotype rendering
 
-**Description**: Display multiple phenotypes as horizontal color bands inside each individual's shape. Binary phenotypes show color (affected), white (unaffected), grey (unknown/0), or grey with "NA" (no data/-9). When all bands are NA, a single centered "NA" is shown. Continuous phenotypes show a color gradient proportional to the normalized value. The legend is sized from `font_size`: its text, swatches and rows keep the same physical size whatever the size of the pedigree, and the figure grows downward to make room for it.
+**Description**: Display multiple phenotypes inside each individual's shape: one quadrant each up to four phenotypes (the default since 0.5.0), or horizontal color bands (`--phenotype-layout bands`, and automatically beyond four). Binary phenotypes show color (affected), white (unaffected), grey (unknown/0), or grey with "NA" (no data/-9). When all bands are NA, a single centered "NA" is shown. Continuous phenotypes show a color gradient proportional to the normalized value. The legend is sized from `font_size`: its text, swatches and rows keep the same physical size whatever the size of the pedigree, and the figure grows downward to make room for it.
 
 **With inline phenotypes** (columns 11+ in the .ped file, requires header):
 
@@ -153,7 +153,7 @@ pypedigree tests/data/basic/couple_only.ped --phenotype-layout quadrants -o coup
 
 **Description**: Synthetic three-generation pedigree, written by `tests/data/generate_fixtures.py` from a fixed seed, with four binary phenotype columns (`b_Autism`, `b_ADHD`, `b_ID`, `b_Epilepsy`) and an `o_WGS` outline for the individuals with sequencing data.
 
-**Features**: `--phenotype-layout quadrants` cuts each symbol in four. Autism is top left in blue, ADHD top right in yellow, intellectual disability bottom left in red, epilepsy bottom right in purple: these four phenotypes are recognised by name (whatever the column order) and get their conventional quadrant and color. Other columns take the free quadrants in column order, and `phenotype_quadrants` in a style file places any column explicitly. A `cr_` carrier source takes a quadrant too, patterned. The legend starts with a key, a square and a circle cut in four with the column names around them. A symbol with no data at all (316) is grey with a single "NA".
+**Features**: the quadrant layout (the default since 0.5.0) cuts each symbol in four. Autism is top left in blue, ADHD top right in yellow, intellectual disability bottom left in red, epilepsy bottom right in purple: these four phenotypes are recognised by name (whatever the column order) and get their conventional quadrant and color. Other columns take the free quadrants in column order, and `phenotype_quadrants` in a style file places any column explicitly. A `cr_` carrier source takes a quadrant too, patterned. The legend starts with a key, a square and a circle cut in four with the column names around them. A symbol with no data at all (316) is grey with a single "NA".
 
 ```bash
 pypedigree tests/data/phenotype/quadrants.ped --phenotype-layout quadrants -o quadrants.png
@@ -388,7 +388,7 @@ Detail of the first branch: 401 and 406 are first cousins, grandchildren of 201.
 **Features**: loops, `b_ASD` binary band, `g_IQ` gradient band with values, `cr_HEXA` carrier band (carrier and obligate carrier), dizygotic (318-319) and monozygotic (410-411) twins, deceased individuals with their age at death in an `a_` column, a miscarriage (503) and a child adopted in (436), `-9` no-data values for the oldest generations. Identifiers are cohort-style (generation, then rank in the file), not the clinical left-to-right numbering, since loop ordering moves siblings.
 
 ```bash
-pypedigree tests/data/complex/multigenerational.ped -o multigenerational.png
+pypedigree tests/data/complex/multigenerational.ped --phenotype-layout bands -o multigenerational.png
 # Interactive version, to zoom in and hover over individuals
 pypedigree tests/data/complex/multigenerational.ped --interactive -o multigenerational.svg
 ```

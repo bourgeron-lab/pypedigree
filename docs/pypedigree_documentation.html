@@ -265,7 +265,7 @@
   <div class="container">
     <h1>pypedigree</h1>
     <p class="subtitle">Generate publication-quality pedigree diagrams from standard genetics pedigree files</p>
-    <span class="version">v0.4.7</span>
+    <span class="version">v0.5.0</span>
   </div>
 </header>
 
@@ -473,9 +473,9 @@ FAM1       daughter   father  mother  2    1      0    0      0         0       
 </div>
 
 <h3>Quadrant Layout</h3>
-<p>Instead of horizontal bands, <code>--phenotype-layout quadrants</code> (style <code>"phenotype_layout": "quadrants"</code>) cuts each symbol in four, one quadrant per phenotype column or <code>cr_</code> carrier source, up to four (more fall back to bands with a warning). Carrier sources alone, with no phenotype column, are drawn as with bands. A quadrant shows the same codes as a band; a gradient value is written alone. The legend starts with a key, a square and a circle cut in four with the column names around them.</p>
+<p>By default (since 0.5.0) each symbol is cut in four, one quadrant per phenotype column or <code>cr_</code> carrier source, up to four. With more, the default <code>"phenotype_layout": "auto"</code> draws horizontal bands instead; <code>--phenotype-layout quadrants</code> does the same with a warning, and <code>--phenotype-layout bands</code> (the default before 0.5.0) always draws one band per column. Carrier sources alone, with no phenotype column, are drawn as with bands. A quadrant shows the same codes as a band; a gradient value is written alone. The legend starts with a key, a square and a circle cut in four with the column names around them.</p>
 <p>Autism (<code>Autism</code>, <code>ASD</code>, <code>TSA</code>), ADHD (<code>ADHD</code>, <code>TDAH</code>), intellectual disability (<code>ID</code>, <code>DI</code>) and epilepsy columns are recognised by name, whatever their prefix, case or order, and take the top-left, top-right, bottom-left and bottom-right quadrants; other columns take the free quadrants in column order, and <code>phenotype_quadrants</code> places any column, e.g. <code>{"IQ": "bottom-right"}</code>. In both layouts these four phenotypes are drawn in conventional colors by default: autism blue <code>#386eb2</code>, intellectual disability red <code>#d34436</code>, ADHD yellow <code>#e59635</code>, epilepsy purple <code>#5e287e</code>; <code>phenotype_colors</code> overrides them.</p>
-<pre><code>pypedigree family.ped --phenotype-layout quadrants -o family.png</code></pre>
+<pre><code>pypedigree family.ped --phenotype-layout bands -o family.png   <span class="comment"># horizontal bands instead</span></code></pre>
 
 <h3>Separate Phenotype File</h3>
 <p>Extra phenotypes can also be supplied via a separate TSV file with the <code>--pheno</code> CLI flag:</p>
@@ -511,7 +511,7 @@ child      2         105   62</code></pre>
     <tr><td><code>--no-labels</code></td><td>Hide sample ID labels under shapes</td><td>Off</td></tr>
     <tr><td><code>--no-legend</code></td><td>Hide phenotype legend</td><td>Off</td></tr>
     <tr><td><code>--show-phenotype-labels</code></td><td>Show YES/NO text inside binary phenotype bands (hidden by default)</td><td>Off</td></tr>
-    <tr><td><code>--phenotype-layout</code></td><td><code>bands</code> (horizontal bands) or <code>quadrants</code> (the symbol cut in four, one quadrant per phenotype, up to four)</td><td>bands</td></tr>
+    <tr><td><code>--phenotype-layout</code></td><td><code>auto</code> (quadrants up to four phenotypes, bands beyond), <code>quadrants</code> (the symbol cut in four, one quadrant per phenotype, up to four) or <code>bands</code> (horizontal bands)</td><td>auto</td></tr>
     <tr><td><code>--pgs-scale</code></td><td>PGS position: <code>minmax</code> over the pedigree, <code>zscore</code> or <code>percentile</code> (fixed scales mark &plusmn;2 SD)</td><td>minmax</td></tr>
     <tr><td><code>--no-na-labels</code></td><td>Do not write &ldquo;NA&rdquo; in bands with no data (they stay grey, like unknown)</td><td>Off</td></tr>
     <tr><td><code>--plink</code></td><td>Treat input as PLINK .ped file (ignore genotype columns after column 6)</td><td>Off</td></tr>
@@ -784,7 +784,7 @@ fig = builder.render(output=<span class="string">"family.png"</span>)</code></pr
 <section id="phenotypes">
 <h2>Multi-Phenotype Support</h2>
 
-<p>pypedigree can display multiple phenotypes per individual using colored bands or gradient fills on each shape.</p>
+<p>pypedigree can display multiple phenotypes per individual, each in a quadrant of the symbol (the default, up to four) or in a horizontal band, as a color or a gradient fill.</p>
 
 <h3>Phenotype Types</h3>
 <table>
@@ -837,7 +837,7 @@ produce the same figure for the same input.</p>
 
 <figure class="example-img">
   <img src="imgs/examples/multi_phenotype_pgs.png" alt="PGS rendering" style="max-width:500px">
-  <figcaption>Pedigree with phenotype bands + PGS Gaussian curves</figcaption>
+  <figcaption>Pedigree with phenotypes in quadrants and PGS Gaussian curves</figcaption>
 </figure>
 
 <h4>PGS on a Fixed Scale</h4>
@@ -1246,7 +1246,7 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>carrier_notation</code></td><td>str</td><td>"nsgc2022"</td><td><code>"nsgc2022"</code>: patterned sections, one per carrier result (Bennett et al. 2022). <code>"legacy"</code>: half-filled shape and center dot</td></tr>
     <tr><td><code>carrier_dot_radius</code></td><td>float</td><td>0.08</td><td>Radius of the center dot for obligate carriers (legacy notation)</td></tr>
     <tr><td><code>show_phenotype_labels</code></td><td>bool</td><td>False</td><td>Show YES/NO text inside binary phenotype bands</td></tr>
-    <tr><td><code>phenotype_layout</code></td><td>str</td><td>"bands"</td><td><code>"bands"</code> or <code>"quadrants"</code> (one quadrant per phenotype or carrier source, up to four)</td></tr>
+    <tr><td><code>phenotype_layout</code></td><td>str</td><td>"auto"</td><td><code>"auto"</code> (quadrants up to four phenotype or carrier sources, bands beyond), <code>"quadrants"</code> (the same, with a warning when it falls back) or <code>"bands"</code> (one band per column)</td></tr>
     <tr><td><code>phenotype_quadrants</code></td><td>dict</td><td>{}</td><td>Column name &rarr; <code>"top-left"</code>, <code>"top-right"</code>, <code>"bottom-left"</code> or <code>"bottom-right"</code>; other columns take their conventional or the next free quadrant</td></tr>
     <tr><td><code>show_na_labels</code></td><td>bool</td><td>True</td><td>Write &ldquo;NA&rdquo; in bands with no data; when false they stay grey with no text, like an &ldquo;unknown&rdquo; band</td></tr>
     <tr><td><code>pgs_scale</code></td><td>str</td><td>"minmax"</td><td><code>"minmax"</code>, <code>"zscore"</code> or <code>"percentile"</code>: how a PGS value is placed on its curve</td></tr>
@@ -1573,7 +1573,7 @@ export_fam(ped, "output.fam")  # Ready for PLINK/KING</code></pre>
 <h3>Multi-Phenotype with PGS</h3>
 <figure class="example-img">
   <img src="imgs/examples/multi_phenotype_pgs.png" alt="PGS" style="max-width:500px">
-  <figcaption>Phenotype bands combined with PGS Gaussian distribution curves</figcaption>
+  <figcaption>Phenotypes in quadrants combined with PGS Gaussian distribution curves</figcaption>
 </figure>
 
 <h3>Annotations with Multi-PGS</h3>
@@ -1591,7 +1591,7 @@ export_fam(ped, "output.fam")  # Ready for PLINK/KING</code></pre>
 <h3>Five Generations with Loops (81 individuals)</h3>
 <figure class="example-img">
   <img src="imgs/examples/multigenerational.png" alt="Five-generation pedigree with two loops" style="max-width:100%">
-  <figcaption><code>multigenerational.ped</code> (synthetic): a first-cousin marriage (401 &times; 406) and a marriage between two branches (412 &times; 429), both drawn side by side with no duplicated individual, because each sibship is ordered so the branches of a loop meet. Binary, gradient and carrier bands, both kinds of twins, deceased individuals, a miscarriage and an adoption. Open it with <code>--interactive</code> to zoom in.</figcaption>
+  <figcaption><code>multigenerational.ped</code> (synthetic): a first-cousin marriage (401 &times; 406) and a marriage between two branches (412 &times; 429), both drawn side by side with no duplicated individual, because each sibship is ordered so the branches of a loop meet. Binary, gradient and carrier bands (drawn with <code>--phenotype-layout bands</code>), both kinds of twins, deceased individuals, a miscarriage and an adoption. Open it with <code>--interactive</code> to zoom in.</figcaption>
 </figure>
 <figure class="example-img">
   <img src="imgs/examples/multigenerational_detail.png" alt="Detail of the first-cousin loop" style="max-width:100%">
@@ -1666,7 +1666,7 @@ did you mean 'phenotype_colors'?</code></pre>
 
 <footer>
   <div class="container">
-    <p>pypedigree v0.4.7 &mdash; <a href="https://github.com/bourgeron-lab/pypedigree">GitHub</a> &mdash; DOI <a href="https://doi.org/10.5281/zenodo.24289471">10.5281/zenodo.24289471</a> &mdash; Bourgeron Lab</p>
+    <p>pypedigree v0.5.0 &mdash; <a href="https://github.com/bourgeron-lab/pypedigree">GitHub</a> &mdash; DOI <a href="https://doi.org/10.5281/zenodo.24289471">10.5281/zenodo.24289471</a> &mdash; Bourgeron Lab</p>
   </div>
 </footer>
 

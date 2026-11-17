@@ -20,6 +20,8 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+from dataclasses import replace
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -195,7 +197,7 @@ class TestVisualExtended:
     def test_multigenerational_loops(self, style: PedigreeStyle, regen_golden: bool) -> None:
         """Five generations, two loops drawn side by side, bands and carriers."""
         ped = parse_pedigree(DATA_DIR / "complex/multigenerational.ped")
-        fig = render_pedigree(ped, style=style)
+        fig = render_pedigree(ped, style=replace(style, phenotype_layout="bands"))
         _assert_visual_match(fig, "multigenerational", regen_golden)
 
     def test_couple_only(self, regen_golden: bool) -> None:
@@ -228,7 +230,7 @@ class TestVisualMultiPhenotype:
     """Visual regression for multi-phenotype rendering."""
 
     def test_inline_phenotypes(self, regen_golden: bool) -> None:
-        style = PedigreeStyle()
+        style = PedigreeStyle(phenotype_layout="bands")
         style.phenotype_colors = {
             "epilepsy": "#e74c3c",
             "IQ": "#3498db",
@@ -239,7 +241,7 @@ class TestVisualMultiPhenotype:
         _assert_visual_match(fig, "multi_phenotype_inline", regen_golden)
 
     def test_inline_phenotypes_with_pgs(self, regen_golden: bool) -> None:
-        style = PedigreeStyle()
+        style = PedigreeStyle(phenotype_layout="bands")
         style.phenotype_colors = {
             "epilepsy": "#e74c3c",
             "IQ": "#3498db",
@@ -251,7 +253,7 @@ class TestVisualMultiPhenotype:
         _assert_visual_match(fig, "multi_phenotype_pgs", regen_golden)
 
     def test_pheno_file(self, regen_golden: bool) -> None:
-        style = PedigreeStyle()
+        style = PedigreeStyle(phenotype_layout="bands")
         style.phenotype_colors = {
             "epilepsy": "#e74c3c",
             "IQ": "#3498db",
@@ -264,7 +266,7 @@ class TestVisualMultiPhenotype:
         _assert_visual_match(fig, "pheno_file", regen_golden)
 
     def test_no_legend(self, regen_golden: bool) -> None:
-        style = PedigreeStyle()
+        style = PedigreeStyle(phenotype_layout="bands")
         style.phenotype_colors = {
             "epilepsy": "#e74c3c",
             "IQ": "#3498db",
@@ -275,7 +277,7 @@ class TestVisualMultiPhenotype:
         _assert_visual_match(fig, "multi_phenotype_no_legend", regen_golden)
 
     def test_no_labels(self, regen_golden: bool) -> None:
-        style = PedigreeStyle()
+        style = PedigreeStyle(phenotype_layout="bands")
         style.phenotype_colors = {
             "epilepsy": "#e74c3c",
             "IQ": "#3498db",
@@ -359,5 +361,5 @@ class TestVisualCircular:
 
     def test_bands_and_pgs(self, style: PedigreeStyle, regen_golden: bool) -> None:
         ped = parse_pedigree(DATA_DIR / "phenotype/test_all.ped")
-        fig = render_pedigree(ped, style=style, circular=True)
+        fig = render_pedigree(ped, style=replace(style, phenotype_layout="bands"), circular=True)
         _assert_visual_match(fig, "circular_test_all", regen_golden)
