@@ -50,7 +50,6 @@ EXAMPLES: list[dict[str, object]] = [
         "title": "Four phenotypes in quadrants",
         "description": "Autism, ADHD, intellectual disability and epilepsy, one per quadrant, "
         "and an outline column.",
-        "options": {"phenotype_layout": "quadrants"},
     },
     {
         "file": "phenotype/carrier_genes.ped",

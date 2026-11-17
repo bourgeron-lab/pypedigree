@@ -55,7 +55,21 @@ function showExamples(examples) {
   }
 }
 
+// An example is named in the page's address by its file name without the
+// extension, e.g. ?example=quadrants, so a link opens the page on it.
+function exampleName(example) {
+  return example.file.split("/").pop().replace(/\.[^.]+$/, "");
+}
+
+function setExampleInAddress(name) {
+  const url = new URL(location.href);
+  if (name) url.searchParams.set("example", name);
+  else url.searchParams.delete("example");
+  history.replaceState(null, "", url);
+}
+
 async function openExample(example) {
+  setExampleInAddress(exampleName(example));
   const response = await fetch(example.file);
   text.value = await response.text();
   baseName = example.file.split("/").pop().replace(/\.[^.]+$/, "");
@@ -71,6 +85,7 @@ async function openExample(example) {
 function readFile(file) {
   const reader = new FileReader();
   reader.onload = () => {
+    setExampleInAddress(null);
     text.value = reader.result;
     baseName = file.name.replace(/\.[^.]+$/, "") || "pedigree";
     $("file-name").textContent = file.name;
@@ -244,7 +259,11 @@ wire();
 loadProgram()
   .then(() => {
     setStatus("Ready. Paste, drop or open a pedigree file, or try an example.");
-    if (text.value.trim()) draw({ newFile: true });
+    const wanted = new URLSearchParams(location.search).get("example");
+    const example = wanted && config.examples.find((e) => exampleName(e) === wanted);
+    if (example) openExample(example);
+    else if (wanted) setStatus(`No example named "${wanted}". Choose one below.`, true);
+    else if (text.value.trim()) draw({ newFile: true });
   })
   .catch((error) => {
     console.error(error);

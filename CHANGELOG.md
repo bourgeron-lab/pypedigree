@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Web app: a link can open the page on an example, by its file name without the extension
+  (`?example=quadrants`). Clicking an example puts it in the address bar; opening a file of
+  one's own takes it out.
+
+### Fixed
+
+- Web app: the download buttons showed before anything was drawn, and stayed after an error,
+  because a `display` rule overrode their `hidden` attribute.
+- Web app: tab-separated files lined up badly in the text box when a column name was longer
+  than the tab width (8). Tabs are now 12 characters wide. The "Four phenotypes in quadrants"
+  example no longer forces the quadrant layout, which is the default since 0.5.0.
+
 ## [0.5.0] - 2026-11-17
 
 ### Changed
