@@ -197,6 +197,18 @@ class TestSite:
         build.build(site, wheel)
         assert [p.name for p in (site / "wheels").iterdir()] == [wheel.name]
 
+    def test_examples_have_distinct_names(self):
+        """A link names an example by its file name without the extension
+        (``?example=quadrants``), so no two may share one."""
+        names = [Path(str(e["file"])).stem for e in build.EXAMPLES]
+        assert len(set(names)) == len(names)
+        assert "quadrants" in names  # the name the help page links to
+
+    def test_hidden_wins_over_display_rules(self):
+        """The download buttons sit in a flex row; `hidden` must still hide them."""
+        css = (WEB / "app.css").read_text()
+        assert re.search(r"\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}", css)
+
     def test_script_only_uses_ids_of_the_page(self):
         html = (WEB / "index.html").read_text()
         ids = set(re.findall(r'id="([^"]+)"', html))
