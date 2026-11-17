@@ -359,18 +359,18 @@ fig = builder.render(output="builder_example.png")
 
 ---
 
-## synesthesia.ped
+## large_multi_union.ped
 
 **Description**: Synthetic pedigree, written by `tests/data/generate_fixtures.py` from a fixed seed — 55 individuals across 3 generations (a founder couple, their thirteen children and twelve spouses, twenty-eight grandchildren) with 3 phenotype columns.
 
-**Features**: Smart header-based column mapping, prefix-based display modes (`b_ASD`, `b_Synesthesia`, `o_Psychiatric comorbidities`), Deceased and Proband columns, 0 vs -9 distinction (unknown vs no data), legend sized from the font, large family layout.
+**Features**: Smart header-based column mapping, prefix-based display modes (`b_ASD`, `b_Dyslexia`, `o_Sleep disorder`), Deceased and Proband columns, 0 vs -9 distinction (unknown vs no data), legend sized from the font, large family layout.
 
 ```bash
 # --style takes a path to a JSON file:
 cat > style.json <<'EOF'
-{"phenotype_colors": {"ASD": "#e74c3c", "Synesthesia": "#3498db", "Psychiatric comorbidities": "#e67e22"}}
+{"phenotype_colors": {"ASD": "#e74c3c", "Dyslexia": "#3498db", "Sleep disorder": "#e67e22"}}
 EOF
-pypedigree tests/data/complex/synesthesia.ped --style style.json -o synesthesia.png
+pypedigree tests/data/complex/large_multi_union.ped --style style.json -o large_multi_union.png
 ```
 
 ---
@@ -404,7 +404,7 @@ pypedigree tests/data/complex/multigenerational.ped --interactive -o multigenera
 pypedigree tests/data/basic/three_gen.ped --circular -o three_gen_circular.png
 
 # Combine with other options
-pypedigree tests/data/complex/synesthesia.ped --circular --dpi 300 -o synesthesia_circular.png
+pypedigree tests/data/complex/large_multi_union.ped --circular --dpi 300 -o large_multi_union_circular.png
 ```
 
 **Python API**:

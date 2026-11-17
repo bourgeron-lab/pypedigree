@@ -96,7 +96,7 @@ class TestKnownPhenotypeColors:
             ("Epilepsy", "epilepsy"),
             ("épilepsie", "epilepsy"),
             ("IQ", None),
-            ("Synesthesia", None),
+            ("Dyslexia", None),
             ("autism score", None),
         ],
     )

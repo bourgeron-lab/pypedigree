@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deceased, proband, relationship lines, twins, and the labelled diagram of the four kinds of
   line) are now drawn by pypedigree, from invented individuals, by
   `docs/imgs/make_notation_images.py`. They were cropped from a published nomenclature figure.
+- The large synthetic fixture `complex/synesthesia.ped` is now `complex/large_multi_union.ped`,
+  family `FAM3`, with the columns `b_ASD`, `b_Dyslexia` and `o_Sleep disorder` (were
+  `FAM_SYN01`, `b_Synesthesia` and `o_Psychiatric comorbidities`). The data are unchanged and
+  were already generated; the old labels suggested a study family. Its reference images, the
+  gallery, the README and `pedigree_standard.md` follow.
 
 ## [0.5.2] - 2026-11-17
 

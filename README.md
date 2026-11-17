@@ -243,7 +243,7 @@ A column with no prefix is auto-detected once per column, from all of its values
 **Smart header mapping**: When a header row is present, columns are matched by name (not position). Any unrecognised column name after the core 5 (FID, ID, Father, Mother, Sex) is treated as a phenotype column. This means you can write compact files without the DOB/twins/deceased/proband columns:
 
 ```
-FID	ID	Father	Mother	Sex	ASD	Synesthesia
+FID	ID	Father	Mother	Sex	ASD	Dyslexia
 FAM1	child	father	mother	2	1	2
 FAM1	father	0	0	1	2	1
 ```
