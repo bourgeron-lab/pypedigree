@@ -455,3 +455,57 @@ class TestEdgeCaseRendering:
         assert len(layout.nodes) == 3
         assert len(ax.patches) > 0
         plt.close(fig)
+
+
+class TestDrawingCost:
+    """Drawing grows with the pedigree, not with its square.
+
+    Up to 0.5.1, matplotlib re-fitted the view to all artists after each one
+    was added (a PGS curve's `fill_betweenx`), and `_render_layout` counted
+    the axes' artists before every node: a 1,000-person pedigree with PGS
+    curves took 17 s to draw, 5,000 people 264 s. These counts must not grow
+    with the number of individuals. All pedigrees here are synthetic.
+    """
+
+    @staticmethod
+    def _sibship(children: int) -> str:
+        """Two parents and ``children`` children, each with a phenotype and a PGS."""
+        rows = ["FID\tIID\tFather\tMother\tSex\tb_A\tPGS_x"]
+        rows += ["F\tp1\t0\t0\t1\t1\t0.1", "F\tp2\t0\t0\t2\t2\t-0.4"]
+        rows += [
+            f"F\tc{i}\tp1\tp2\t{1 + i % 2}\t{1 + i % 2}\t{(i % 7) / 3 - 1:.2f}"
+            for i in range(children)
+        ]
+        return "\n".join(rows) + "\n"
+
+    def _counts(self, monkeypatch, children: int) -> tuple[int, int]:
+        from matplotlib.axes import Axes
+        from matplotlib.axes._base import _AxesBase
+
+        from pypedigree.parser import parse_pedigree_from_string
+
+        calls = {"autoscale": 0, "len": 0}
+        autoscale = Axes.autoscale_view
+        length = _AxesBase.ArtistList.__len__
+
+        def counted_autoscale(self, *args, **kwargs):
+            # Only a call with autoscaling on walks all the artists; with it
+            # off, matplotlib returns at once.
+            if self.get_autoscalex_on() or self.get_autoscaley_on():
+                calls["autoscale"] += 1
+            return autoscale(self, *args, **kwargs)
+
+        def counted_len(self):
+            calls["len"] += 1
+            return length(self)
+
+        monkeypatch.setattr(Axes, "autoscale_view", counted_autoscale)
+        monkeypatch.setattr(_AxesBase.ArtistList, "__len__", counted_len)
+        fig = render_pedigree(parse_pedigree_from_string(self._sibship(children)))
+        plt.close(fig)
+        return calls["autoscale"], calls["len"]
+
+    def test_view_fitted_and_artists_counted_a_fixed_number_of_times(self, monkeypatch):
+        small = self._counts(monkeypatch, 10)
+        large = self._counts(monkeypatch, 80)
+        assert large == small

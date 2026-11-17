@@ -369,6 +369,12 @@ def _render_layout(
     if carriers is None:
         carriers = CarrierScheme()
 
+    # matplotlib re-fits the view to every artist after each one is added,
+    # which grows with the square of the number of artists (16 s of a 17 s
+    # render for 1,000 people with PGS curves). The data limits are still
+    # recorded as artists are added; `_finalize_axes` fits the view once.
+    ax.set_autoscale_on(False)
+
     # Draw edges first (behind nodes)
     for edge in layout.edges:
         _draw_edge(ax, edge, style)
@@ -413,10 +419,14 @@ def _render_layout(
                 zorder=5,
             )
             continue
-        # Count elements before drawing to apply rotation afterwards
-        n_patches_before = len(ax.patches)
-        n_lines_before = len(ax.lines)
-        n_texts_before = len(ax.texts)
+        # Count elements before drawing to apply rotation afterwards. Only
+        # for a rotated node: each count walks all of the axes' artists, so
+        # counting for every node made drawing grow with the square of the
+        # pedigree's size.
+        if node.rotation != 0.0:
+            n_patches_before = len(ax.patches)
+            n_lines_before = len(ax.lines)
+            n_texts_before = len(ax.texts)
 
         banded = use_banded and bool(node.extra_phenotypes) and not node.is_phantom
         if symbols.is_pregnancy_loss(node.notation):
