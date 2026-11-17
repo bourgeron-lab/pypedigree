@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-17
+
+### Added
+
+- Web app: a link can open the page on an example, by its file name without the extension
+  (`?example=quadrants`). Clicking an example puts it in the address bar; opening a file of
+  one's own takes it out.
+
 ### Changed
 
 - Circular layout: an ID label no longer always goes radially outward, where the lines of the
@@ -16,12 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   final size, so they stay clear when a figure is resized after rendering. On the test
   fixtures at the default size, labels touching something drop from 15 of 53 to 0
   (`synesthesia.ped`) and from 49 of 79 to 2 (`multigenerational.ped`).
-
-### Added
-
-- Web app: a link can open the page on an example, by its file name without the extension
-  (`?example=quadrants`). Clicking an example puts it in the address bar; opening a file of
-  one's own takes it out.
 
 ### Fixed
 
