@@ -50,7 +50,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://pypi.org/pypi/pypedigree/json
    heading with today's date:
 
    ```markdown
-   ## [0.4.6] - 2027-01-15
+   ## [0.4.7] - 2027-01-15
    ```
 
    This section becomes the GitHub release notes: the release workflow
@@ -60,7 +60,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://pypi.org/pypi/pypedigree/json
 3. Bump the version in **one** place — `pyproject.toml`:
 
    ```toml
-   version = "0.4.6"
+   version = "0.4.7"
    ```
 
    `pypedigree.__version__` reads the installed package metadata, so no
@@ -87,8 +87,8 @@ curl -s -o /dev/null -w '%{http_code}\n' https://pypi.org/pypi/pypedigree/json
    workflow fails the build if it disagrees with `pyproject.toml`:
 
    ```bash
-   git commit -am "Release 0.4.6"
-   git tag -a v0.4.6 -m "Release 0.4.6"
+   git commit -am "Release 0.4.7"
+   git tag -a v0.4.7 -m "Release 0.4.7"
    git push origin main --follow-tags
    ```
 
