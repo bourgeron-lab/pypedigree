@@ -434,6 +434,10 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_nomenclature.py` — Standard notation: parsing and codes, `symbols.py`
   decisions and geometry, layout (shape from gender, dashed adopted-in line,
   childless edges, circular direction), PNG and SVG drawing, builder
+- CI runs the suite on Linux, macOS and Windows, Python 3.10–3.14. Read and write text
+  files with an explicit `encoding="utf-8"` (inputs: `parser._read_text`, UTF-8 with an
+  optional BOM): the default is the locale's, cp1252 on Windows. `.gitattributes` checks
+  text out with LF everywhere, so generated fixtures match byte for byte
 - CI also runs the suite with the newest release of every dependency
   (`uv sync --upgrade`, job `test-latest-versions`), since `uv.lock` pins older ones
 - CI also runs the suite with every dependency at its declared minimum version

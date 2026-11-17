@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Input files (`.ped`, `.fam`, PLINK `.ped`, `--pheno`, `--annotations`) and style JSON files
+  were read with the system's default encoding, cp1252 on most Windows systems, so non-ASCII
+  IDs and phenotype names were garbled there. They are now read as UTF-8 on every platform; a
+  byte order mark (Excel's "CSV UTF-8") is ignored, and a file that is not UTF-8 raises
+  `PedigreeParseError` asking to save it as UTF-8 instead of a bare `UnicodeDecodeError`.
+  `export_fam` writes UTF-8 with `\n` line endings on every platform.
+
 ### Changed
 
+- CI runs the test suite on Windows too (Python 3.10–3.14). `.gitattributes` checks text files
+  out with LF line endings everywhere.
 - The notation images of `docs/pedigree_standard.md` (`docs/imgs/*.png`: sexes, affected,
   deceased, proband, relationship lines, twins, and the labelled diagram of the four kinds of
   line) are now drawn by pypedigree, from invented individuals, by

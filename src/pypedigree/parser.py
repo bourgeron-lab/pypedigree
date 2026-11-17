@@ -1352,6 +1352,24 @@ def _create_duplicate_nodes(family: Family) -> None:
                     child.mother_id = dup_id
 
 
+def _read_text(path: Path) -> str:
+    """Read an input file as UTF-8, whatever the system's default encoding.
+
+    Without an explicit encoding Python uses the locale's, cp1252 on most
+    Windows systems, which garbles non-ASCII IDs and phenotype names. A UTF-8
+    byte order mark (Excel's "CSV UTF-8") is dropped.
+
+    Raises:
+        PedigreeParseError: If the file is not UTF-8 text.
+    """
+    try:
+        return path.read_text(encoding="utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise PedigreeParseError(
+            f"{path} is not UTF-8 text (byte {exc.start}); save it as UTF-8"
+        ) from exc
+
+
 def parse_pedigree(file_path: str | Path) -> Pedigree:
     """Parse a pedigree from a file.
 
@@ -1372,7 +1390,7 @@ def parse_pedigree(file_path: str | Path) -> Pedigree:
     if not path.exists():
         raise FileNotFoundError(f"Pedigree file not found: {path}")
 
-    text = path.read_text().strip()
+    text = _read_text(path).strip()
     if not text:
         raise PedigreeParseError(f"Pedigree file is empty: {path}")
 
@@ -1690,7 +1708,7 @@ def parse_phenotype_file(
         maps sample_id -> {pheno_name: raw_value}.
     """
     path = Path(file_path)
-    text = path.read_text().strip()
+    text = _read_text(path).strip()
     lines = [line for line in text.splitlines() if line.strip()]
     if len(lines) < 2:
         raise PedigreeParseError(f"Phenotype file must have header + data: {path}")
@@ -1744,7 +1762,7 @@ def parse_annotation_file(
         maps sample_id -> {ann_name: value_string}.
     """
     path = Path(file_path)
-    text = path.read_text().strip()
+    text = _read_text(path).strip()
     lines = [line for line in text.splitlines() if line.strip()]
     if len(lines) < 2:
         raise PedigreeParseError(f"Annotation file must have header + data: {path}")
@@ -1819,7 +1837,7 @@ def parse_fam_file(file_path: str | Path) -> Pedigree:
     if not path.exists():
         raise FileNotFoundError(f"FAM file not found: {path}")
 
-    text = path.read_text().strip()
+    text = _read_text(path).strip()
     if not text:
         raise PedigreeParseError(f"FAM file is empty: {path}")
 
@@ -1848,7 +1866,7 @@ def parse_plink_ped(file_path: str | Path) -> Pedigree:
     if not path.exists():
         raise FileNotFoundError(f"PLINK .ped file not found: {path}")
 
-    text = path.read_text().strip()
+    text = _read_text(path).strip()
     if not text:
         raise PedigreeParseError(f"PLINK .ped file is empty: {path}")
 
@@ -1912,7 +1930,7 @@ def export_fam(pedigree: Pedigree, file_path: str | Path) -> Path:
 
             lines.append(f"{fid}\t{iid}\t{pat}\t{mat}\t{sex}\t{pheno}")
 
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return path
 
 

@@ -365,7 +365,7 @@ fig = builder.render(output=<span class="string">"trio.png"</span>)</code></pre>
 <section id="file-format">
 <h2>Pedigree File Format</h2>
 
-<p>pypedigree reads tab-, comma-, or space-separated pedigree files. The separator is auto-detected.</p>
+<p>pypedigree reads tab-, comma-, or space-separated pedigree files. The separator is auto-detected. Files are read as UTF-8 on every platform, Windows included; a byte order mark (Excel's &ldquo;CSV UTF-8&rdquo;) is ignored, and a file in another encoding is a parse error asking to save it as UTF-8.</p>
 
 <h3>Smart Header-Based Column Mapping</h3>
 <p>When a header row is present, columns are matched <strong>by name, not by position</strong>. This means you can arrange columns in any order, and any column that doesn't match a known structural name is automatically treated as a phenotype column.</p>

@@ -4,7 +4,7 @@
 
 ### `parse_pedigree(file_path)`
 
-Parse a pedigree from a file. Auto-detects separator (tab, comma, space) and header rows. When a header is present, columns are matched by name (not position), so phenotype columns can appear directly after Sex without needing the full 10-column format.
+Parse a pedigree from a file. Auto-detects separator (tab, comma, space) and header rows. When a header is present, columns are matched by name (not position), so phenotype columns can appear directly after Sex without needing the full 10-column format. The file is read as UTF-8 whatever the system's default encoding (cp1252 on most Windows systems); a byte order mark is ignored, and a file that is not UTF-8 raises `PedigreeParseError`. `parse_fam_file`, `parse_plink_ped`, `--pheno` and `--annotations` files are read the same way, and `export_fam` writes UTF-8 with `\n` line endings.
 
 ```python
 from pypedigree import parse_pedigree

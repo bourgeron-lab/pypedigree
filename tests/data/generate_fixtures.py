@@ -98,7 +98,7 @@ def _write(path: Path, header: list[str], rows: list[list[str]]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = ["\t".join(header)]
     lines += ["\t".join(str(f) for f in row) for row in rows]
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     print(f"  wrote {path.relative_to(DATA_DIR.parent.parent)} ({len(rows)} individuals)")
 
 

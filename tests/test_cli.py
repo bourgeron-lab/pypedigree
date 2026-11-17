@@ -347,5 +347,5 @@ class TestNoNaLabels:
             main, [str(ped), "--interactive", "--no-na-labels", "-o", str(hidden)]
         )
         assert result.exit_code == 0, result.output
-        assert ">NA<" in shown.read_text()
-        assert ">NA<" not in hidden.read_text()
+        assert ">NA<" in shown.read_text(encoding="utf-8")
+        assert ">NA<" not in hidden.read_text(encoding="utf-8")

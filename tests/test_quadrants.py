@@ -365,7 +365,7 @@ class TestOptions:
         args = [str(FIXTURE), "--interactive", "--phenotype-layout", "quadrants", "-o", str(out)]
         result = runner.invoke(main, args)
         assert result.exit_code == 0, result.output
-        assert 'clipPath id="legend-key-square"' in out.read_text()
+        assert 'clipPath id="legend-key-square"' in out.read_text(encoding="utf-8")
 
     def test_cli_rejects_an_unknown_layout(self, tmp_path):
         result = CliRunner().invoke(

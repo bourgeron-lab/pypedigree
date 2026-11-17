@@ -158,10 +158,12 @@ class TestWithoutDependencies:
 class TestExamples:
     @pytest.mark.parametrize("example", build.EXAMPLES, ids=lambda e: str(e["file"]))
     def test_example_draws_without_warnings(self, example):
-        text = (build.DATA / str(example["file"])).read_text()
+        text = (build.DATA / str(example["file"])).read_text(encoding="utf-8")
         options = dict(example.get("options", {}))  # type: ignore[call-overload]
         if "style" in example:
-            options["style"] = json.loads((build.DATA / str(example["style"])).read_text())
+            options["style"] = json.loads(
+                (build.DATA / str(example["style"])).read_text(encoding="utf-8")
+            )
         out = _render(text, **options)
         assert out["ok"] is True, out.get("error")
         assert out["warnings"] == []
@@ -172,7 +174,7 @@ class TestSite:
         wheel = tmp_path / "pypedigree-9.9.9-py3-none-any.whl"
         wheel.write_bytes(b"not a real wheel")
         out = build.build(tmp_path / "site", wheel)
-        config = json.loads((out / "config.json").read_text())
+        config = json.loads((out / "config.json").read_text(encoding="utf-8"))
         assert config["version"] == "9.9.9"
         assert config["wheel"] == "wheels/pypedigree-9.9.9-py3-none-any.whl"
         assert config["pyodide"] == build.PYODIDE_VERSION
@@ -206,17 +208,17 @@ class TestSite:
 
     def test_hidden_wins_over_display_rules(self):
         """The download buttons sit in a flex row; `hidden` must still hide them."""
-        css = (WEB / "app.css").read_text()
+        css = (WEB / "app.css").read_text(encoding="utf-8")
         assert re.search(r"\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}", css)
 
     def test_script_only_uses_ids_of_the_page(self):
-        html = (WEB / "index.html").read_text()
+        html = (WEB / "index.html").read_text(encoding="utf-8")
         ids = set(re.findall(r'id="([^"]+)"', html))
-        used = set(re.findall(r'\$\("([^"]+)"\)', (WEB / "app.js").read_text()))
+        used = set(re.findall(r'\$\("([^"]+)"\)', (WEB / "app.js").read_text(encoding="utf-8")))
         assert used and used <= ids, used - ids
 
     def test_form_fields_match_the_options_sent(self):
-        html = (WEB / "index.html").read_text()
+        html = (WEB / "index.html").read_text(encoding="utf-8")
         names = set(re.findall(r'name="([^"]+)"', html))
         assert set(web.STYLE_CHOICES) <= names
         assert {"family", "show_labels", "show_legend", "show_na_labels", "style"} <= names

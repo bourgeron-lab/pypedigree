@@ -115,7 +115,7 @@ def build(out: Path, wheel: Path | None = None) -> Path:
         entry = {k: v for k, v in example.items() if k not in ("file", "style")}
         entry["file"] = target
         if "style" in example:
-            entry["style"] = json.loads((DATA / str(example["style"])).read_text())
+            entry["style"] = json.loads((DATA / str(example["style"])).read_text(encoding="utf-8"))
         examples.append(entry)
 
     config = {
@@ -124,7 +124,7 @@ def build(out: Path, wheel: Path | None = None) -> Path:
         "pyodide": PYODIDE_VERSION,
         "examples": examples,
     }
-    (out / "config.json").write_text(json.dumps(config, indent=2) + "\n")
+    (out / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
     # The full documentation, with its images, next to the app.
     docs = out / "docs"
@@ -141,7 +141,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--wheel", type=Path, help="Use this wheel instead of building one.")
     args = parser.parse_args(argv)
     out = build(args.output, args.wheel)
-    config = json.loads((out / "config.json").read_text())
+    config = json.loads((out / "config.json").read_text(encoding="utf-8"))
     print(f"Site written to {out} (pypedigree {config['version']}, Pyodide {config['pyodide']})")
     return 0
 
