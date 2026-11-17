@@ -92,7 +92,9 @@ src/pypedigree/
    duplicates the partner and lays out again. To make that rare,
    `_children_group` orders each sibship so a loop's branches meet: a child
    whose line leads to a partner in a family placed later goes last, one whose
-   line leads to a partner already drawn goes first. `loops_to_break` breaks
+   line leads to a partner already drawn goes first, and the two ends of a loop
+   closing inside the sibship (cousins marrying) go together just before the
+   last ones, so a sibling marrying out never parts them. `loops_to_break` breaks
    one loop per tangle (group of overlapping lines) per pass, the one
    stretching the widest line, and every tangled loop only after half of
    `_MAX_LOOP_BREAKING_PASSES`. Don't add passes that move nodes individually

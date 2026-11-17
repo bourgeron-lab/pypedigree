@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- A loop between the descendants of two siblings (cousins marrying) was drawn with a
+  duplicated individual when a third sibling married into a family placed later: that sibling
+  was ordered between the two branches, which no longer met. Both branches now go just before
+  the siblings who marry out, so the cousins are drawn side by side. On the test generators
+  this removes one duplicate in every 100 (1,851 to 1,833 over 95 pedigrees); no fixture
+  changes.
+
 ## [0.4.5] - 2026-11-17
 
 ### Fixed

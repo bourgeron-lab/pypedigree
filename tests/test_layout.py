@@ -1011,6 +1011,33 @@ class TestLoopDuplicates:
         assert _added_duplicates(family, style) == 1
         assert _overlapping_sibships(compute_layout(family, style)) == []
 
+    def test_cousin_loop_inside_a_sibship_is_not_parted_by_a_marriage_out(self, style):
+        # Two of A's children marry two of B's children: one duplicate is
+        # needed. p1's daughter and p3's son also marry; p2, who marries into
+        # B, must not be drawn between p1 and p3, or that loop is broken too.
+        family = _family_from_rows(
+            """
+            F ga1 0 0 1 1
+            F ga2 0 0 2 1
+            F gb1 0 0 1 1
+            F gb2 0 0 2 1
+            F p1 ga1 ga2 1 1
+            F p2 ga1 ga2 2 1
+            F p3 ga1 ga2 1 1
+            F q1 gb1 gb2 2 1
+            F q2 gb1 gb2 1 1
+            F s3 0 0 2 1
+            F a1 p1 q1 1 1
+            F a2 p1 q1 2 1
+            F b1 q2 p2 1 1
+            F d1 p3 s3 1 1
+            F d2 p3 s3 2 1
+            F c1 d1 a2 1 1
+            """
+        )
+        assert _added_duplicates(family, style) == 1
+        assert _overlapping_sibships(compute_layout(family, style)) == []
+
     def test_loop_duplicate_keeps_phenotype_values(self, style):
         """The partner drawn twice to break a loop gets the original's bands."""
         from pypedigree.parser import parse_pedigree_from_string

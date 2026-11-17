@@ -582,24 +582,33 @@ class _HierarchicalPlacer:
         # placed earlier) goes first. Applied at every generation from the
         # common ancestors down, the two branches of a loop end up side by
         # side, and the line joining them crosses no other sibship.
-        def leads_out(cid: str) -> bool:
-            line = self._line(cid)
-            return any(
-                ui2 not in self.done_unions
+        # A loop between two of these children's lines (cousins marrying)
+        # closes inside this sibship: both ends go just before the children
+        # leading out, so that no sibling marrying into a later family is
+        # drawn between them.
+        lines = {c: self._line(c) for c in children}
+        inside = frozenset().union(*lines.values())
+
+        def loop_partners(cid: str) -> list[str]:
+            """Partners, not yet placed, of ``cid``'s line from other lineages."""
+            line = lines[cid]
+            return [
+                q
+                for d in line
+                for ui2 in self.unions_of.get(d, [])
+                if ui2 not in self.done_unions
                 and (q := self._partner(ui2, d)) in self.parent_union
                 and q not in self.claimed
                 and q not in line
-                for d in line
-                for ui2 in self.unions_of.get(d, [])
-            )
-
-        def leads_in(cid: str) -> bool:
-            return any(d in self.attached_by for d in self._line(cid))
+            ]
 
         movable = [c for c in children if c not in twins]
-        first = [c for c in movable if leads_in(c)]
-        last = [c for c in movable if c not in first and leads_out(c)]
-        children = first + [c for c in children if c not in first and c not in last] + last
+        first = [c for c in movable if any(d in self.attached_by for d in lines[c])]
+        partners = {c: loop_partners(c) for c in movable if c not in first}
+        last = [c for c, qs in partners.items() if any(q not in inside for q in qs)]
+        within = [c for c, qs in partners.items() if qs and c not in last]
+        middle = [c for c in children if c not in first and c not in within and c not in last]
+        children = first + middle + within + last
 
         group = _Block()
         for cid in children:
