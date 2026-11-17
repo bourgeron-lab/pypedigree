@@ -671,8 +671,11 @@ layout = compute_layout_circular(family, PedigreeStyle())
 crowded for the shapes to fit, so nodes never overlap. Shapes stay upright: a
 square turned to face outward would read as the unknown-sex diamond, and
 phenotype bands stay horizontal as in the hierarchical layout. ID labels are
-set radially outside each shape, away from the lines arriving from the centre,
-on a white backing. Twins hang from one point of the sibship arc, as a V with
+set outside each shape, away from the lines arriving from the centre, on a white
+backing: radially outward, or, where a line, a shape or another label is in the
+way, turned aside to the first free direction. The labels are placed when the
+figure is drawn, at its final size, so they also stay clear when the figure is
+resized after rendering. Twins hang from one point of the sibship arc, as a V with
 a bar for MZ twins, and duplicates are joined to their original by a dotted
 arc.</p>
 </section>

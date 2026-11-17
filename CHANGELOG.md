@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Circular layout: an ID label no longer always goes radially outward, where the lines of the
+  node's own descendants and the next ring often cross it. It takes the first direction, turning
+  from outward to either side, where its text touches no line, shape or other label, and keeps
+  a small gap in points from its shape. The labels are placed when the figure is drawn, at its
+  final size, so they stay clear when a figure is resized after rendering. On the test
+  fixtures at the default size, labels touching something drop from 15 of 53 to 0
+  (`synesthesia.ped`) and from 49 of 79 to 2 (`multigenerational.ped`).
+
 ### Added
 
 - Web app: a link can open the page on an example, by its file name without the extension
