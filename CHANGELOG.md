@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-11-17
+
 ### Fixed
 
 - A loop between the descendants of two siblings (cousins marrying) was drawn with a
