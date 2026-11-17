@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- PNG and PDF rendering grew with the square of the pedigree's size: matplotlib re-fitted the
+  view to every artist after each one was added (a PGS curve's `fill_betweenx` triggered it),
+  and the renderer counted the axes' artists before drawing every node, which only a rotated
+  node needs. The view is now fitted once, at the end, and the artists counted only for
+  rotated nodes. The figure is pixel-identical. On a synthetic pedigree with two phenotypes
+  and a PGS, a PNG takes 5 s instead of 17 s for 1,000 people, 15 s instead of 52 s for 2,000,
+  and 47 s instead of 264 s for 5,000.
+
 ## [0.5.1] - 2026-11-17
 
 ### Added

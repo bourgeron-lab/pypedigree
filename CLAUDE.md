@@ -133,7 +133,11 @@ src/pypedigree/
    `tests/test_unknown_offspring.py` checks it.
 
 4. **renderer.py never computes positions.** It only draws from
-   pre-computed FamilyLayout objects. It supports waypoint-based
+   pre-computed FamilyLayout objects. Keep drawing linear in the number of
+   artists: `_render_layout` turns matplotlib's autoscaling off while it
+   draws (otherwise each `fill_betweenx` re-fits the view to every artist)
+   and `_finalize_axes` fits the view once; never call `len(ax.patches)` or
+   the like per node (each call walks all artists). `TestDrawingCost`. It supports waypoint-based
    polyline edges for curved/non-orthogonal connections (circular layout).
    The one exception is where a circular-layout label goes around its node,
    decided at drawing time from the text's real size (`_RadialLabels`).
