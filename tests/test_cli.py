@@ -247,6 +247,71 @@ class TestCLIWarnings:
         assert result.output.count("listed as father but has sex=FEMALE") == 1
 
 
+class TestRenderWarnings:
+    """Warnings raised while drawing are reported like those raised while parsing.
+
+    Before, only parsing ran inside the CLI's warning capture: a renderer's
+    `PedigreeStyleWarning` (here, quadrants falling back to bands) printed as
+    a raw Python warning, with an internal path and a source line.
+    """
+
+    FIVE = (
+        "FID\tIID\tFather\tMother\tSex\tb_autism\tb_ADHD\tb_ID\tb_epilepsy\tb_other\n"
+        "F\t1\t0\t0\t1\t2\t1\t1\t1\t2\n"
+        "F\t2\t0\t0\t2\t1\t2\t1\t1\t1\n"
+        "F\t3\t1\t2\t1\t1\t1\t2\t2\t1\n"
+    )
+    MESSAGE = "Warning: phenotype_layout 'quadrants' holds at most 4 columns"
+
+    @pytest.fixture
+    def five(self, tmp_path):
+        path = tmp_path / "five.ped"
+        path.write_text(self.FIVE)
+        return path
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["-o", "out.png"],
+            ["-o", "out.pdf"],
+            ["--circular", "-o", "out.png"],
+            ["--interactive", "-o", "out.svg"],
+            ["--interactive", "--no-script", "-o", "out.svg"],
+        ],
+        ids=["png", "pdf", "circular", "interactive", "static-svg"],
+    )
+    def test_render_warning_is_one_clean_line(self, runner, tmp_path, five, args):
+        args = [a if not a.startswith("out.") else str(tmp_path / a) for a in args]
+        result = runner.invoke(main, [str(five), "--phenotype-layout", "quadrants", *args])
+        assert result.exit_code == 0, result.output
+        assert result.output.count(self.MESSAGE) == 1
+        assert "PedigreeStyleWarning" not in result.output
+        # Reported before the file is announced as saved.
+        assert result.output.index(self.MESSAGE) < result.output.index("Saved")
+
+    def test_default_layout_does_not_warn(self, runner, tmp_path, five):
+        result = runner.invoke(main, [str(five), "-o", str(tmp_path / "out.png")])
+        assert result.exit_code == 0, result.output
+        assert "Warning" not in result.output
+
+    def test_no_raw_warning_on_a_real_stderr(self, tmp_path, five):
+        """pytest swallows raw warnings under CliRunner: check a real process."""
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, "-m", "pypedigree", str(five), "--phenotype-layout", "quadrants"]
+            + ["-o", str(tmp_path / "out.svg"), "--interactive"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stderr.count(self.MESSAGE) == 1
+        assert "PedigreeStyleWarning" not in result.stderr
+        assert ".py:" not in result.stderr
+
+
 class TestPhenoFileWarning:
     def test_unmatched_pheno_ids_are_reported(self, runner, tmp_path):
         pheno = tmp_path / "other.tsv"

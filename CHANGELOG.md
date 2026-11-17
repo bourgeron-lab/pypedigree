@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Warnings raised while drawing, such as `--phenotype-layout quadrants` falling back to bands
+  with more than four phenotype columns, printed in the CLI as raw Python warnings with an
+  internal path and a source line. Like those raised while parsing, they are now reported once
+  as `Warning: <message>` on stderr, for PNG, PDF, circular and SVG output.
+
 ## [0.4.7] - 2026-11-17
 
 ### Added
