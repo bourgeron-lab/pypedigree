@@ -104,6 +104,16 @@ src/pypedigree/
    under the twin connector; loop partners keep their forced right side.
    `TestTwinSpouses` checks it.
 
+   A proband's or consultand's marker sits at the lower left of the symbol,
+   level with the labels. `_HierarchicalPlacer.marker_room` gives each of them
+   the distance their left neighbour needs (`symbols.marker_clearance`, for the
+   longest label of the generation, text converted with
+   `symbols.UNITS_PER_POINT`, the SVG's scale); only those needing more than
+   the sibling gap are listed. It is applied while packing, not after: as a
+   left margin on the contour (`_Block.add(..., margin)`) and as a wider
+   couple gap when they are the partner on the right. At the default style it
+   is never needed, so nothing moves. `tests/test_proband_marker.py`.
+
    A family of exactly two founders, a man and a woman, with no union
    (parents whose child is missing) gets a placeholder child from
    `with_unknown_offspring()` before placement (`Individual.is_unknown_offspring`),
@@ -142,7 +152,9 @@ src/pypedigree/
    quadrant of autism/ADHD/ID/epilepsy, then free ones in order; more than four
    columns warn and fall back to bands), `quadrant_box()`/`quadrant_center()`
    give the geometry (with an `up` sign for the SVG) and `quadrant_cell()` the
-   fill and shorter text. Conventional colors (`KNOWN_PHENOTYPE_COLORS`,
+   fill and shorter text. With carrier sources but no band column,
+   `with_quadrants()` assigns nothing: the symbol is drawn whole, as with bands,
+   and the legend has no key. Conventional colors (`KNOWN_PHENOTYPE_COLORS`,
    `known_phenotype()`) are applied in `config.resolve_style()`. The matplotlib renderer and the SVG renderer only translate these into
    artists or elements, so the PNG, its legend and the interactive SVG can never
    disagree. Put any new display decision there, not in a renderer. Nothing is
@@ -383,6 +395,8 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   rotation, edge composition, arc waypoints, rendering across 15 fixtures
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
+- `tests/test_proband_marker.py` — The proband's "P" clear of the label on its left: room kept by
+  the layout with tight spacing or large text, none at the default style, no overlap in the PNG
 - `tests/test_unknown_offspring.py` — A couple alone in its family: when the
   placeholder child is added, father left, "?" in PNG and SVG, no node or tooltip
 - `tests/test_quadrants.py` — Quadrant layout: assignment (known names, explicit, free

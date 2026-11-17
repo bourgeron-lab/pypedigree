@@ -822,14 +822,13 @@ def _draw_proband_marker(
         style: Visual style.
         letter: Write the "P" of the proband; the consultand's arrow has none.
     """
-    arrow_start_x = tip_x - half * 0.5
-    arrow_start_y = tip_y - half * 0.5
+    (arrow_start_x, arrow_start_y), (letter_x, letter_y) = symbols.marker_points(tip_x, tip_y, half)
 
     # Draw the "P"
     if letter:
         ax.text(
-            arrow_start_x - half * 0.3,
-            arrow_start_y - half * 0.1,
+            letter_x,
+            letter_y,
             "P",
             fontsize=style.font_size,
             fontfamily=style.font_family,

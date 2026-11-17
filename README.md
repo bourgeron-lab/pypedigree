@@ -313,7 +313,9 @@ PLINK `.fam` files use the same 6-column format (FID, IID, PAT, MAT, SEX, PHENO)
 
 `phenotype_layout` is `"bands"` (default) or `"quadrants"`: the symbol is cut
 in four and each phenotype column, or `cr_` carrier source, fills one quadrant
-(at most four; with more, the figure falls back to bands with a warning). Autism
+(at most four; with more, the figure falls back to bands with a warning). With
+carrier sources and no phenotype column, nothing is cut: the symbol is drawn as
+with bands. Autism
 (`Autism`, `ASD`, `TSA`), ADHD (`ADHD`, `TDAH`), intellectual disability (`ID`,
 `DI`) and epilepsy columns take the top-left, top-right, bottom-left and
 bottom-right quadrants, the other columns the free ones in column order;

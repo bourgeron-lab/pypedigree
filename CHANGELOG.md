@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-11-17
+
+### Fixed
+
+- With `phenotype_layout: "quadrants"` and carrier sources but no phenotype column (a `carrier`
+  column or `cr_` columns alone), the legend showed a quadrant key with the carrier in one
+  quadrant, while the symbol was hatched whole. Nothing is cut into quadrants then: the symbol
+  and the legend are drawn as with bands.
+- With tight spacing or large text, the proband's "P" ran into the label of the individual on
+  the left (for example `sibling_gap` 1.0 with `font_size` 18). The layout now keeps that
+  neighbour, or the partner on the left, far enough for the "P" and their label
+  (`symbols.marker_clearance`, using the longest label of the generation); a consultand's arrow
+  gets the same room. With the default style no pedigree moves. Both renderers take the marker's
+  geometry from `symbols.marker_points`.
+
 ### Added
 
 - Zenodo DOI: [10.5281/zenodo.24289471](https://doi.org/10.5281/zenodo.24289471) for all versions

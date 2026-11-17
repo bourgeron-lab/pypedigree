@@ -282,7 +282,7 @@ def _render(
 
 # Layout units per typographic point: font sizes and line widths, given in
 # points in PedigreeStyle, are scaled by this in the SVG.
-_PT = 0.02
+_PT = symbols.UNITS_PER_POINT
 
 _Extent = tuple[float, float, float, float]  # x0, y0, x1, y1 (y down)
 
@@ -826,13 +826,12 @@ def _svg_node(
             tip_x, tip_y = symbols.triangle_points(node.x, node.y, half, up=-1.0)[1]
         else:
             tip_x, tip_y = node.x - half, node.y + half
-        ax = tip_x - half * 0.5
-        ay = tip_y + half * 0.5
+        (ax, ay), (px, py) = symbols.marker_points(tip_x, tip_y, half, up=-1.0)
         if node.is_proband:
             parts.append(
                 _svg_text(
-                    ax - half * 0.3,
-                    ay + half * 0.1,
+                    px,
+                    py,
                     "P",
                     style.font_size * _PT,
                     style,
