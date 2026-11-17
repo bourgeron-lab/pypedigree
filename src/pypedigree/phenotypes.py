@@ -665,6 +665,15 @@ def pgs_tail_positions(scale: str) -> tuple[float, ...]:
     return (pgs_position(-PGS_TAIL_SD), pgs_position(PGS_TAIL_SD))
 
 
+def pgs_caption_above(node: NodeLayout) -> bool:
+    """Whether the "PGS" caption of a curve goes above it rather than below.
+
+    A proband's or a consultand's marker sits at the symbol's lower left,
+    just under the curve, where the caption would otherwise be written.
+    """
+    return node.is_proband or node.notation.is_consultand
+
+
 def active_pgs(
     node: _HasPhenotypes, pgs_names: Sequence[str], scale: str = "minmax"
 ) -> list[tuple[str, float]]:

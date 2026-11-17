@@ -81,6 +81,7 @@ from pypedigree.phenotypes import (
     legend_rows,
     legend_slot_count,
     outline_color,
+    pgs_caption_above,
     pgs_curve,
     pgs_tail_positions,
     pgs_value_text,
@@ -826,15 +827,17 @@ def _svg_node(
             tip_x, tip_y = symbols.triangle_points(node.x, node.y, half, up=-1.0)[1]
         else:
             tip_x, tip_y = node.x - half, node.y + half
-        (ax, ay), (px, py) = symbols.marker_points(tip_x, tip_y, half, up=-1.0)
+        size = style.font_size * _PT
+        ax, ay = symbols.marker_points(tip_x, tip_y, size, up=-1.0)
         if node.is_proband:
             parts.append(
                 _svg_text(
-                    px,
-                    py,
+                    ax - symbols.MARKER_LETTER_GAP_EM * size,
+                    ay,
                     "P",
-                    style.font_size * _PT,
+                    size,
                     style,
+                    anchor="end",
                     color=style.line_color,
                     weight="bold",
                 )
@@ -1195,14 +1198,15 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
         out.append(
             f'<circle cx="{left + box_w / 2:.3f}" cy="{y:.3f}" r="{1.5 * _PT:.3f}" fill="{color}"/>'
         )
+    above = pgs_caption_above(node)
     out.append(
         _svg_text(
             left + box_w / 2,
-            bottom + half * 0.15,
+            bottom - box_h - half * 0.15 if above else bottom + half * 0.15,
             "PGS",
             style.font_size * 0.6 * _PT,
             style,
-            baseline="hanging",
+            baseline="auto" if above else "hanging",
             color="#666666",
         )
     )

@@ -75,6 +75,7 @@ from pypedigree.phenotypes import (
     legend_rows,
     legend_slot_count,
     outline_color,
+    pgs_caption_above,
     pgs_tail_positions,
     pregnancy_loss_fill,
     quadrant_box,
@@ -457,7 +458,6 @@ def _render_layout(
                     ax,
                     node.x + reach * math.cos(_PROBAND_DIRECTION),
                     node.y + reach * math.sin(_PROBAND_DIRECTION),
-                    half,
                     style,
                     letter=node.is_proband,
                 )
@@ -614,7 +614,7 @@ def _draw_node(
     # Proband marker. A rotated node gets its marker after rotation instead,
     # so the "P" stays upright (see _render_layout).
     if (node.is_proband or node.notation.is_consultand) and node.rotation == 0.0:
-        _draw_proband_marker(ax, node.x - half, node.y - half, half, style, letter=node.is_proband)
+        _draw_proband_marker(ax, node.x - half, node.y - half, style, letter=node.is_proband)
 
 
 @dataclass(frozen=True)
@@ -803,7 +803,6 @@ def _draw_proband_marker(
     ax: Axes,
     tip_x: float,
     tip_y: float,
-    half: float,
     style: PedigreeStyle,
     *,
     letter: bool = True,
@@ -812,28 +811,29 @@ def _draw_proband_marker(
 
     The tip is the bottom-left corner of an unrotated shape, or the point of
     a rotated shape's outline in that direction. The marker itself is always
-    drawn upright.
+    drawn upright, and sized in points from the font (`symbols.MARKER_ARROW_EM`,
+    `symbols.MARKER_LETTER_GAP_EM`), so it reads the same at any scale.
 
     Args:
         ax: The Axes to draw on.
         tip_x: X coordinate the arrow points at.
         tip_y: Y coordinate the arrow points at.
-        half: Half the shape size, which scales the marker.
         style: Visual style.
         letter: Write the "P" of the proband; the consultand's arrow has none.
     """
-    (arrow_start_x, arrow_start_y), (letter_x, letter_y) = symbols.marker_points(tip_x, tip_y, half)
-
-    # Draw the "P"
+    # The arrow's start and the "P", in points from the tip (y up): the SVG
+    # gets the same from `symbols.marker_points` with the font in layout units.
+    start_x, start_y = symbols.marker_points(0.0, 0.0, style.font_size)
     if letter:
-        ax.text(
-            letter_x,
-            letter_y,
+        ax.annotate(
             "P",
+            xy=(tip_x, tip_y),
+            xytext=(start_x - symbols.MARKER_LETTER_GAP_EM * style.font_size, start_y),
+            textcoords="offset points",
             fontsize=style.font_size,
             fontfamily=style.font_family,
             fontweight="bold",
-            ha="center",
+            ha="right",
             va="center",
             color=style.line_color,
         )
@@ -842,7 +842,8 @@ def _draw_proband_marker(
     ax.annotate(
         "",
         xy=(tip_x, tip_y),
-        xytext=(arrow_start_x, arrow_start_y),
+        xytext=(start_x, start_y),
+        textcoords="offset points",
         arrowprops=dict(
             arrowstyle="->",
             color=style.line_color,
@@ -877,7 +878,7 @@ def _draw_pregnancy_loss(ax: Axes, node: NodeLayout, style: PedigreeStyle, fill:
         )
     if (node.is_proband or node.notation.is_consultand) and node.rotation == 0.0:
         tip_x, tip_y = points[1]
-        _draw_proband_marker(ax, tip_x, tip_y, half, style, letter=node.is_proband)
+        _draw_proband_marker(ax, tip_x, tip_y, style, letter=node.is_proband)
 
 
 def _draw_notation(
@@ -1400,7 +1401,7 @@ def _draw_banded_node(
     # Proband marker. A rotated node gets its marker after rotation instead,
     # so the "P" stays upright (see _render_layout).
     if (node.is_proband or node.notation.is_consultand) and node.rotation == 0.0:
-        _draw_proband_marker(ax, cx - half, cy - half, half, style, letter=node.is_proband)
+        _draw_proband_marker(ax, cx - half, cy - half, style, letter=node.is_proband)
 
 
 def _draw_bands(
@@ -1681,15 +1682,17 @@ def _draw_pgs_ridge(
             zorder=6,
         )
 
-    # Single "PGS" label
+    # Single "PGS" caption, below the curve, or above it when the proband
+    # marker takes the place below.
+    above = pgs_caption_above(node)
     ax.text(
         box_left + box_width / 2,
-        box_bottom - half * 0.15,
+        box_bottom + box_height + half * 0.15 if above else box_bottom - half * 0.15,
         "PGS",
         fontsize=style.font_size * 0.6,
         fontfamily=style.font_family,
         ha="center",
-        va="top",
+        va="bottom" if above else "top",
         color="#666666",
         zorder=4,
     )
