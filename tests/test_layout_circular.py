@@ -47,7 +47,7 @@ SIMPLE_TRIO = BASIC_DIR / "simple_trio.ped"
 THREE_GEN = BASIC_DIR / "three_gen.ped"
 TWO_GEN_SIBLINGS = BASIC_DIR / "two_gen_siblings.ped"
 CONSANGUINITY = CONSANG_DIR / "consanguinity.ped"
-SYNESTHESIA = COMPLEX_DIR / "synesthesia.ped"
+LARGE_MULTI_UNION = COMPLEX_DIR / "large_multi_union.ped"
 TWINS_MZ = TWINS_DIR / "twins_mz.ped"
 MULTI_PARTNER = PARTNERS_DIR / "multiple_partners.ped"
 
@@ -70,7 +70,7 @@ ALL_FIXTURES = [
     TWINS_DIR / "twins_mz.ped",
     TWINS_DIR / "twins_triplets.ped",
     TWINS_DIR / "twins_with_siblings.ped",
-    COMPLEX_DIR / "synesthesia.ped",
+    COMPLEX_DIR / "large_multi_union.ped",
 ]
 
 
@@ -176,7 +176,7 @@ class TestCircularRings:
 
     def test_dense_ring_expands_base_radius(self):
         """A ring too crowded for base_radius is pushed outward, not overlapped."""
-        family = first_family(SYNESTHESIA)
+        family = first_family(LARGE_MULTI_UNION)
         style = PedigreeStyle(base_radius=3.0)
         grouped = radii_by_generation(family, compute_layout_circular(family, style))
         assert next(iter(grouped[1])) > style.base_radius
@@ -202,7 +202,7 @@ class TestCircularSpacing:
 
     def test_larger_shapes_still_do_not_overlap(self):
         style = PedigreeStyle(shape_size=1.6)
-        layout = compute_layout_circular(first_family(SYNESTHESIA), style)
+        layout = compute_layout_circular(first_family(LARGE_MULTI_UNION), style)
         points = [(n.x, n.y) for n in layout.nodes]
         closest = min(math.dist(a, b) for i, a in enumerate(points) for b in points[i + 1 :])
         assert closest >= style.shape_size
@@ -403,7 +403,7 @@ class TestCircularRendering:
         plt.close(fig)
 
     def test_large_pedigree_completes(self):
-        fig = render_pedigree(parse_pedigree(SYNESTHESIA), circular=True)
+        fig = render_pedigree(parse_pedigree(LARGE_MULTI_UNION), circular=True)
         plt.close(fig)
 
 
@@ -423,7 +423,7 @@ class TestRotatedNodeLabels:
         """Render the large fixture's circular layout, shapes turned outward."""
         from dataclasses import replace
 
-        family = first_family(SYNESTHESIA)
+        family = first_family(LARGE_MULTI_UNION)
         style = PedigreeStyle()
         base = compute_layout_circular(family, style)
         layout = replace(
@@ -615,7 +615,7 @@ class TestRadialLabels:
         return touching
 
     def test_labels_clear_their_shape_and_keep_a_backing(self):
-        fig, ax, labels = self._drawn(SYNESTHESIA)
+        fig, ax, labels = self._drawn(LARGE_MULTI_UNION)
         try:
             renderer = fig.canvas.get_renderer()
             half = PedigreeStyle().shape_size / 2
@@ -628,7 +628,7 @@ class TestRadialLabels:
         finally:
             plt.close(fig)
 
-    @pytest.mark.parametrize("path", [SYNESTHESIA, COMPLEX_DIR / "large_family.ped"])
+    @pytest.mark.parametrize("path", [LARGE_MULTI_UNION, COMPLEX_DIR / "large_family.ped"])
     def test_no_label_touches_anything_at_the_default_size(self, path):
         """Labels sent outward only touch something on 15 of 53 and 4 of 5."""
         fig, ax, labels = self._drawn(path)
@@ -654,7 +654,7 @@ class TestRadialLabels:
 
     def test_placement_follows_a_resize_after_rendering(self):
         """The paper's figures resize the figure after `render_pedigree`."""
-        fig, ax, labels = self._drawn(SYNESTHESIA)
+        fig, ax, labels = self._drawn(LARGE_MULTI_UNION)
         try:
             renderer = fig.canvas.get_renderer()
             before = [t.get_position() for _n, _d, texts in labels._groups for t in texts[:1]]
@@ -668,7 +668,7 @@ class TestRadialLabels:
             plt.close(fig)
 
     def test_tight_bounding_box_includes_the_labels(self, tmp_path):
-        fig, ax, labels = self._drawn(SYNESTHESIA)
+        fig, ax, labels = self._drawn(LARGE_MULTI_UNION)
         try:
             out = tmp_path / "c.png"
             fig.savefig(out, bbox_inches="tight", dpi=40)

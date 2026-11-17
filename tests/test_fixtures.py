@@ -21,7 +21,7 @@ GENERATOR = TEST_DATA_DIR / "generate_fixtures.py"
 
 # Files written by the generator, relative to tests/data/.
 GENERATED = [
-    "complex/synesthesia.ped",
+    "complex/large_multi_union.ped",
     "complex/large_family.ped",
     "complex/multi_phenotype_pgs.ped",
     "phenotype/test_all.ped",
@@ -85,7 +85,7 @@ class TestNoIdentifiersInFixtures:
 
     def test_family_ids_are_from_the_synthetic_set(self):
         """Family IDs are invented labels, not numbers carried over from data."""
-        allowed = {"FID", "FAM1", "FAM2", "FAM_SYN01"}
+        allowed = {"FID", "FAM1", "FAM2", "FAM3"}
         seen: set[str] = set()
         for path in sorted(TEST_DATA_DIR.rglob("*.ped")):
             lines = path.read_text(errors="replace").splitlines()

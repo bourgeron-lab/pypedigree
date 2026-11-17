@@ -852,18 +852,16 @@ class TestPhenotypeDisplayPrefixes:
         assert "epilepsy" in ped.phenotype_names
         assert len(ped.phenotype_display_modes) == 0  # No prefixes
 
-    def test_synesthesia_prefixes(self):
-        """Synesthesia file uses b_ and o_ prefixes."""
-        ped = parse_pedigree(str(TEST_DATA_DIR / "complex" / "synesthesia.ped"))
+    def test_large_multi_union_prefixes(self):
+        """The large multi-union file uses b_ and o_ prefixes."""
+        ped = parse_pedigree(str(TEST_DATA_DIR / "complex" / "large_multi_union.ped"))
         assert "ASD" in ped.phenotype_names  # b_ stripped
-        assert "Synesthesia" in ped.phenotype_names
-        assert "Psychiatric comorbidities" in ped.phenotype_names  # o_ stripped
+        assert "Dyslexia" in ped.phenotype_names
+        assert "Sleep disorder" in ped.phenotype_names  # o_ stripped
         from pypedigree.models import PhenotypeDisplayMode
 
         assert ped.phenotype_display_modes["ASD"] == PhenotypeDisplayMode.BINARY
-        assert (
-            ped.phenotype_display_modes["Psychiatric comorbidities"] == PhenotypeDisplayMode.OUTLINE
-        )
+        assert ped.phenotype_display_modes["Sleep disorder"] == PhenotypeDisplayMode.OUTLINE
 
 
 class TestPhenotypeFile:

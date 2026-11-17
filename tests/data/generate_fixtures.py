@@ -122,12 +122,12 @@ def build_large_multi_union() -> tuple[list[str], list[list[str]]]:
         "Mother",
         "Sex",
         "b_ASD",
-        "b_Synesthesia",
+        "b_Dyslexia",
         "Deceased",
         "Proband",
-        "o_Psychiatric comorbidities",
+        "o_Sleep disorder",
     ]
-    fid = "FAM_SYN01"
+    fid = "FAM3"
     rows: list[list[str]] = []
     next_id = 1
 
@@ -467,7 +467,7 @@ def main() -> None:
     print(f"Generating synthetic fixtures (seed {SEED})")
 
     header, rows = build_large_multi_union()
-    _write(DATA_DIR / "complex/synesthesia.ped", header, rows)
+    _write(DATA_DIR / "complex/large_multi_union.ped", header, rows)
 
     # Extended 10-column format plus four phenotype columns, one a PGS.
     def extended_values(rng, sid, is_child, proband=0):

@@ -82,7 +82,7 @@ Gradient band values (e.g. "IQ: 90") are always displayed regardless of band col
 Example — compact format (phenotypes directly after Sex):
 
 ```
-FID	ID	Father	Mother	Sex	ASD	Synesthesia
+FID	ID	Father	Mother	Sex	ASD	Dyslexia
 FAM1	child	father	mother	2	1	2
 FAM1	father	0	0	1	2	1
 ```

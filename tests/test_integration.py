@@ -64,7 +64,7 @@ class TestEndToEnd:
             "multiple_partners.ped",
             "multiple_partners_male.ped",
             "multiple_partners_complex.ped",
-            "synesthesia.ped",
+            "large_multi_union.ped",
         ]
         for fname in valid_files:
             fpath = TEST_DATA_DIR / fname
@@ -260,10 +260,10 @@ class TestEndToEnd:
         assert out.stat().st_size > 1000
         plt.close(fig)
 
-    def test_synesthesia_pedigree_parsing(self, style):
+    def test_large_multi_union_pedigree_parsing(self, style):
         """Parse the large synthetic pedigree (55 individuals, founders 1 and 2)."""
-        ped = parse_pedigree(TEST_DATA_DIR / "complex/synesthesia.ped")
-        fam = ped.get_family("FAM_SYN01")
+        ped = parse_pedigree(TEST_DATA_DIR / "complex/large_multi_union.ped")
+        fam = ped.get_family("FAM3")
         assert fam is not None
 
         # 55 individuals: founders 1 and 2, thirteen children, most marrying out
@@ -281,10 +281,10 @@ class TestEndToEnd:
         # Multiple unions from children of the founders marrying out
         assert len(fam.unions) >= 10
 
-    def test_synesthesia_pedigree_layout(self, style):
+    def test_large_multi_union_pedigree_layout(self, style):
         """Layout for the large synthetic pedigree: no overlaps, 55 nodes positioned."""
-        ped = parse_pedigree(TEST_DATA_DIR / "complex/synesthesia.ped")
-        fam = ped.get_family("FAM_SYN01")
+        ped = parse_pedigree(TEST_DATA_DIR / "complex/large_multi_union.ped")
+        fam = ped.get_family("FAM3")
         layout = compute_layout(fam, style)
 
         assert len(layout.nodes) == 55
@@ -296,11 +296,11 @@ class TestEndToEnd:
                 if y1 == y2:
                     assert abs(x1 - x2) >= style.min_node_distance * 0.9
 
-    def test_synesthesia_pedigree_render(self, style, tmp_path):
-        """Full render of synesthesia pedigree to PNG and interactive SVG."""
-        ped = parse_pedigree(TEST_DATA_DIR / "complex/synesthesia.ped")
+    def test_large_multi_union_pedigree_render(self, style, tmp_path):
+        """Full render of the large multi-union pedigree to PNG and interactive SVG."""
+        ped = parse_pedigree(TEST_DATA_DIR / "complex/large_multi_union.ped")
 
-        out_png = tmp_path / "synesthesia.png"
+        out_png = tmp_path / "large_multi_union.png"
         fig = render_pedigree(ped, style=style, output=str(out_png))
         assert out_png.exists()
         assert out_png.stat().st_size > 5000
@@ -308,7 +308,7 @@ class TestEndToEnd:
 
         from pypedigree.svg_renderer import render_interactive_svg
 
-        out_svg = tmp_path / "synesthesia.svg"
+        out_svg = tmp_path / "large_multi_union.svg"
         svg = render_interactive_svg(ped, style=style, output=str(out_svg))
         assert out_svg.exists()
         assert "<svg" in svg

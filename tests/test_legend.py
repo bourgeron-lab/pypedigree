@@ -23,7 +23,7 @@ from pypedigree.phenotypes import (
 PREFIX_MODES = PHENOTYPE_DIR / "prefix_modes.ped"
 CARRIER = PHENOTYPE_DIR / "carrier.ped"
 TEST_ALL = PHENOTYPE_DIR / "test_all.ped"
-SYNESTHESIA = PHENOTYPE_DIR.parent / "complex" / "synesthesia.ped"
+LARGE_MULTI_UNION = PHENOTYPE_DIR.parent / "complex" / "large_multi_union.ped"
 
 
 class TestLegendMetrics:
@@ -126,8 +126,8 @@ class TestLegendPhysicalSize:
     def test_same_legend_height_whatever_the_figure(self):
         """Same rows, same font: same panel, for a 51 cm-wide hierarchical
         figure and a square circular one."""
-        wide = render_pedigree(parse_pedigree(SYNESTHESIA))
-        circular = render_pedigree(parse_pedigree(SYNESTHESIA), circular=True)
+        wide = render_pedigree(parse_pedigree(LARGE_MULTI_UNION))
+        circular = render_pedigree(parse_pedigree(LARGE_MULTI_UNION), circular=True)
         try:
             wide_h = self._inches(wide, wide.axes[1])
             assert wide_h == pytest.approx(self._inches(circular, circular.axes[1]))
@@ -139,8 +139,8 @@ class TestLegendPhysicalSize:
             plt.close(circular)
 
     def test_legend_adds_room_instead_of_squeezing_the_pedigree(self):
-        with_legend = render_pedigree(parse_pedigree(SYNESTHESIA))
-        without = render_pedigree(parse_pedigree(SYNESTHESIA), show_legend=False)
+        with_legend = render_pedigree(parse_pedigree(LARGE_MULTI_UNION))
+        without = render_pedigree(parse_pedigree(LARGE_MULTI_UNION), show_legend=False)
         try:
             main_with = self._inches(with_legend, with_legend.axes[0])
             main_without = self._inches(without, without.axes[0])
