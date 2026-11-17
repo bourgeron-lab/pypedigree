@@ -1,0 +1,51 @@
+name: Web app
+
+# Publishes the web app (web/) on GitHub Pages: the page, the wheel built from
+# this ref, the synthetic examples and the HTML documentation. It runs for each
+# release tag, so the app always draws with a released version, and can be run
+# by hand (Actions > Web app > Run workflow), e.g. after changing only web/.
+# A release created by release.yml cannot trigger it (events from GITHUB_TOKEN
+# start no workflow), hence the tag.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        with:
+          version: "latest"
+      - run: uv sync --extra dev
+      - name: Test the web app's Python side
+        run: uv run pytest -q tests/test_web.py
+      - name: Build the site
+        run: uv run python web/build.py
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: web/_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

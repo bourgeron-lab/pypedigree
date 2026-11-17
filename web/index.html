@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pypedigree – draw a pedigree in your browser</title>
+  <meta name="description" content="Draw a pedigree from a .ped file in your browser, with standard notation, several phenotypes and polygenic scores. Your data never leave your computer.">
+  <link rel="stylesheet" href="app.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="top">
+    <h1>pypedigree</h1>
+    <p class="tagline">Draw a pedigree from a <code>.ped</code> file, in your browser.</p>
+    <nav>
+      <a href="help.html">Help and tutorial</a>
+      <a href="docs/">Documentation</a>
+      <a href="https://github.com/bourgeron-lab/pypedigree">Source code</a>
+    </nav>
+  </header>
+
+  <p class="privacy" id="privacy">
+    <strong>Your data stay on your computer.</strong>
+    The page downloads the program once, then draws everything locally: the file you open is
+    never sent anywhere.
+  </p>
+
+  <main>
+    <section class="input" aria-labelledby="input-title">
+      <h2 id="input-title">1. Pedigree file</h2>
+      <div id="drop" class="drop">
+        <label for="text" class="visually-hidden">Content of the pedigree file</label>
+        <textarea id="text" spellcheck="false" wrap="off"
+          placeholder="Paste a pedigree file here, drop one on this box, or open one below.&#10;&#10;FID  IID  Father  Mother  Sex  Phenotype&#10;F1   1    0       0       1    1&#10;F1   2    0       0       2    1&#10;F1   3    1       2       1    2"></textarea>
+      </div>
+      <div class="row">
+        <label class="button" for="file">Open a file…</label>
+        <input id="file" type="file" accept=".ped,.fam,.txt,.tsv,.csv,text/plain" class="visually-hidden">
+        <span id="file-name" class="muted"></span>
+      </div>
+
+      <h3>Or try an example</h3>
+      <p class="muted small">All examples are synthetic families.</p>
+      <ul id="examples" class="examples"></ul>
+    </section>
+
+    <section class="options" aria-labelledby="options-title">
+      <h2 id="options-title">2. Options</h2>
+      <form id="options">
+        <label for="family">Family</label>
+        <select id="family" name="family" disabled>
+          <option value="">All families</option>
+        </select>
+
+        <label for="phenotype_layout">Phenotypes</label>
+        <select id="phenotype_layout" name="phenotype_layout">
+          <option value="bands">Horizontal bands</option>
+          <option value="quadrants">Quadrants (up to four)</option>
+        </select>
+
+        <label for="pgs_scale">Polygenic score position</label>
+        <select id="pgs_scale" name="pgs_scale">
+          <option value="minmax">Min–max in the pedigree</option>
+          <option value="zscore">Z-score</option>
+          <option value="percentile">Percentile</option>
+        </select>
+
+        <label for="carrier_notation">Carrier notation</label>
+        <select id="carrier_notation" name="carrier_notation">
+          <option value="nsgc2022">NSGC 2022 (hatched)</option>
+          <option value="legacy">Earlier (half-filled, dot)</option>
+        </select>
+
+        <fieldset>
+          <legend>Show</legend>
+          <label><input type="checkbox" name="show_labels" checked> Identifiers</label>
+          <label><input type="checkbox" name="show_legend" checked> Legend</label>
+          <label><input type="checkbox" name="show_na_labels" checked> “NA” for missing values</label>
+        </fieldset>
+
+        <details>
+          <summary>Advanced style (JSON)</summary>
+          <p class="muted small">Any option of a <code>--style</code> file, for example
+            <code>{"font_size": 12, "phenotype_colors": {"ASD": "#3366cc"}}</code>.
+            See the <a href="docs/#styling">style reference</a>.</p>
+          <label for="style" class="visually-hidden">Style as JSON</label>
+          <textarea id="style" name="style" rows="5" spellcheck="false"></textarea>
+        </details>
+      </form>
+    </section>
+
+    <section class="output" aria-labelledby="output-title">
+      <h2 id="output-title">3. Pedigree</h2>
+      <p id="status" class="status" role="status" aria-live="polite">Loading the program…</p>
+      <ul id="warnings" class="warnings" aria-live="polite"></ul>
+      <div id="viewer" class="viewer" hidden>
+        <iframe id="frame" title="Pedigree drawing" sandbox="allow-scripts"></iframe>
+      </div>
+      <label id="fit-label" class="small" hidden><input type="checkbox" id="fit" checked> Fit to the width of the page
+        (untick to see a large pedigree at full size and scroll)</label>
+      <p class="muted small" id="hint" hidden>
+        Hover over an individual for details; click to highlight their relatives.
+        Ctrl + mouse wheel (or pinch) zooms, Ctrl + drag moves the drawing.
+      </p>
+      <div class="row" id="downloads" hidden>
+        <button type="button" id="dl-svg">Download SVG (interactive)</button>
+        <button type="button" id="dl-static">Download SVG (for print)</button>
+        <span class="png">
+          <button type="button" id="dl-png">Download PNG</button>
+          <label for="dpi" class="visually-hidden">PNG resolution</label>
+          <select id="dpi">
+            <option value="150">150 dpi</option>
+            <option value="300" selected>300 dpi</option>
+            <option value="600">600 dpi</option>
+          </select>
+        </span>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      pypedigree <span id="version">…</span>, MIT licence.
+      Cite: <a href="https://doi.org/10.5281/zenodo.24289471">doi:10.5281/zenodo.24289471</a>.
+      Runs on <a href="https://pyodide.org">Pyodide</a>.
+      Report a problem on <a href="https://github.com/bourgeron-lab/pypedigree/issues">GitHub</a>.
+    </p>
+    <p class="muted small">For the circular layout, PDF output or batch use, install the Python
+      package: <code>pip install pypedigree</code>.</p>
+  </footer>
+</body>
+</html>

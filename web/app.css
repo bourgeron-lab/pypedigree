@@ -1,0 +1,95 @@
+:root {
+  --fg: #1d1d1f;
+  --muted: #5f6368;
+  --line: #d0d4d9;
+  --bg-soft: #f5f7f9;
+  --accent: #1f5fa8;
+  --warn-bg: #fff6e0;
+  --warn-line: #e0b84a;
+  --error-bg: #fdecea;
+  --error-line: #d9534f;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--fg);
+  line-height: 1.45;
+  /* Pedigree drawings are black on white: keep the page light in dark mode too. */
+  color-scheme: light;
+  background: white;
+}
+
+body { margin: 0 auto; max-width: 1400px; padding: 0 1.25rem 2rem; }
+a { color: var(--accent); }
+code { font-size: 0.92em; background: var(--bg-soft); padding: 0 0.2em; border-radius: 3px; }
+h1 { margin: 0; font-size: 1.7rem; }
+h2 { font-size: 1.15rem; margin: 0 0 0.6rem; }
+h3 { font-size: 1rem; margin: 1.2rem 0 0.2rem; }
+
+.top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1.2rem;
+       padding: 1rem 0 0.6rem; border-bottom: 1px solid var(--line); }
+.tagline { margin: 0; color: var(--muted); }
+.top nav { margin-left: auto; display: flex; gap: 1rem; }
+
+.privacy { background: var(--bg-soft); border-left: 4px solid var(--accent);
+           padding: 0.5rem 0.8rem; margin: 1rem 0; }
+
+main { display: grid; gap: 1.5rem;
+       grid-template-columns: minmax(18rem, 1fr) minmax(14rem, 18rem);
+       grid-template-areas: "input options" "output output"; }
+.input { grid-area: input; }
+.options { grid-area: options; }
+.output { grid-area: output; }
+@media (max-width: 760px) {
+  main { grid-template-columns: 1fr; grid-template-areas: "input" "options" "output"; }
+  .top nav { margin-left: 0; }
+}
+
+.drop { border: 2px dashed var(--line); border-radius: 6px; }
+.drop.over { border-color: var(--accent); background: var(--bg-soft); }
+#text { display: block; width: 100%; box-sizing: border-box; min-height: 13rem; resize: vertical;
+        border: 0; padding: 0.6rem; font: 0.85rem/1.4 ui-monospace, Menlo, Consolas, monospace;
+        background: transparent; tab-size: 8; }
+
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; margin-top: 0.6rem; }
+.button, button { display: inline-block; font: inherit; font-size: 0.95rem; cursor: pointer;
+                  padding: 0.35rem 0.8rem; border: 1px solid var(--accent); border-radius: 4px;
+                  background: white; color: var(--accent); }
+.button:hover, button:hover { background: var(--bg-soft); }
+input[type=file]:focus-visible + .button, .button:focus-within { outline: 2px solid var(--accent); }
+
+.examples { list-style: none; padding: 0; margin: 0.4rem 0 0; display: grid; gap: 0.4rem;
+            grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
+.examples button { width: 100%; text-align: left; border-color: var(--line); color: var(--fg); }
+.examples button strong { display: block; color: var(--accent); }
+.examples button span { font-size: 0.85rem; color: var(--muted); }
+
+#options { display: grid; gap: 0.25rem; }
+#options label { font-size: 0.9rem; margin-top: 0.4rem; }
+#options select { font: inherit; padding: 0.25rem; }
+#options fieldset { border: 1px solid var(--line); border-radius: 4px; margin-top: 0.6rem; }
+#options fieldset label { display: block; margin: 0.15rem 0; }
+#options details { margin-top: 0.8rem; }
+#style { width: 100%; box-sizing: border-box; font: 0.85rem ui-monospace, Menlo, Consolas, monospace; }
+
+.status { margin: 0 0 0.5rem; }
+.status.error { background: var(--error-bg); border-left: 4px solid var(--error-line);
+                padding: 0.5rem 0.8rem; white-space: pre-wrap; }
+.warnings { margin: 0 0 0.6rem; padding: 0; list-style: none; }
+.warnings li { background: var(--warn-bg); border-left: 4px solid var(--warn-line);
+               padding: 0.3rem 0.8rem; margin-bottom: 0.25rem; font-size: 0.9rem; }
+
+.viewer { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: white; }
+#frame { display: block; width: 100%; height: 30rem; border: 0; }
+
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden;
+                   clip: rect(0 0 0 0); white-space: nowrap; }
+
+footer { margin-top: 2rem; padding-top: 0.8rem; border-top: 1px solid var(--line); font-size: 0.9rem; }
+
+/* Help page */
+.help main { display: block; max-width: 52rem; }
+.help h2 { margin-top: 2rem; }
+.help table { border-collapse: collapse; margin: 0.6rem 0; }
+.help th, .help td { border: 1px solid var(--line); padding: 0.3rem 0.6rem; text-align: left;
+                     vertical-align: top; font-size: 0.92rem; }
+.help ol li, .help ul li { margin: 0.25rem 0; }

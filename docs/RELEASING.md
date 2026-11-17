@@ -79,7 +79,7 @@ curl -s -o /dev/null -w '%{http_code}\n' https://pypi.org/pypi/pypedigree/json
    ```bash
    uv sync --extra dev --extra pandas
    uv run pytest -q
-   uv run ruff check src/ tests/ && uv run ruff format --check src/ tests/
+   uv run ruff check src/ tests/ web/ && uv run ruff format --check src/ tests/ web/
    uv build && uvx twine check --strict dist/*
    ```
 
@@ -96,6 +96,16 @@ curl -s -o /dev/null -w '%{http_code}\n' https://pypi.org/pypi/pypedigree/json
    the metadata with `twine check --strict`, re-runs the tests from inside the
    extracted sdist, publishes to PyPI, and creates the GitHub release with
    the artifacts attached.
+
+## The web app
+
+The same tag runs `.github/workflows/pages.yml`, which publishes the web app
+(`web/`) on GitHub Pages with the wheel of that release:
+<https://bourgeron-lab.github.io/pypedigree/>. It needs, once, **Settings →
+Pages → Build and deployment → Source: GitHub Actions**. A change to `web/`
+alone can be published from **Actions → Web app → Run workflow** on `main`.
+The wheel is then built from `main`, so do it only when `src/` has no
+unreleased change; otherwise wait for the next release.
 
 ## Rehearsing without publishing
 
