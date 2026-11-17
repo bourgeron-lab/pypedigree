@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A web app, in `web/`: pypedigree runs in the browser through Pyodide, installed without its
+  dependencies (parsing, layout and SVG need none). The user pastes, drops or opens a pedigree file,
+  or picks one of eight synthetic examples. The family, bands or quadrants, the PGS scale, the
+  carrier notation, labels, legend and any style option can be chosen. The page shows the
+  interactive SVG and saves it, the same SVG without script, or a PNG made in the browser at 150,
+  300 or 600 dpi. The file never leaves the computer. A help page has a tutorial and explains how
+  to read the drawing. `web/build.py` assembles the site with the wheel of the checkout and the
+  HTML documentation; `.github/workflows/pages.yml` publishes it on GitHub Pages for each release
+  tag. `tests/test_web.py` tests the Python side, with matplotlib, numpy and click blocked.
+
 ## [0.4.6] - 2026-11-17
 
 ### Fixed

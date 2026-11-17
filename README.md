@@ -8,6 +8,8 @@
 
 Generate publication-quality pedigree (family tree) diagrams from standard pedigree files used in genetics research.
 
+**No installation needed:** the [web app](https://bourgeron-lab.github.io/pypedigree/) draws a pedigree file in your browser. Your data stay on your computer.
+
 ## Features
 
 - **Standard pedigree symbols**: squares (male), circles (female), diamonds (unknown sex), with affected/unaffected fill
@@ -31,7 +33,19 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 - **Large pedigree support**: each couple's children hang from their own stretch of sibship line, so sibships never merge, at 10 or 500 individuals; loops (consanguinity, marriages between branches) are ordered so the partners meet side by side, and drawn with a duplicate individual only where they would still tangle lines
 - **Auto-scaling figures**: figure dimensions grow with pedigree size
 - **Jupyter integration**: inline display via `_repr_png_`
+- **Web app**: the package runs in the browser through Pyodide ([web/](web/), [bourgeron-lab.github.io/pypedigree](https://bourgeron-lab.github.io/pypedigree/)): paste, drop or open a file, choose bands or quadrants, and download an interactive SVG, an SVG for print or a PNG. Nothing is uploaded
 - **PLINK interoperability**: native `.fam` parsing, `.fam` export, PLINK `.ped` support (genotype columns ignored)
+
+## Web app
+
+The page in [web/](web/) runs pypedigree in the browser with [Pyodide](https://pyodide.org): the file is read and drawn locally, never uploaded. It draws the interactive SVG, with every option of a style file, and makes the PNG from the SVG in the browser. The circular layout, PDF output and separate phenotype or annotation files need the Python package.
+
+It is published on GitHub Pages by `.github/workflows/pages.yml` for each release tag (or by hand from the Actions tab), with the wheel of that release, the synthetic examples of `tests/data` and the HTML documentation. To try a change locally:
+
+```bash
+uv run python web/build.py            # builds the wheel of this checkout, then web/_site
+python3 -m http.server -d web/_site 8000
+```
 
 ## Installation
 

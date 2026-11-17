@@ -47,3 +47,6 @@ tests/visual/golden/*.actual.png
 tests/visual/golden/*.diff.png
 !tests/visual/large_pedigrees/*.png
 !docs/pypedigree_documentation.pdf
+
+# Web app build output (web/build.py)
+web/_site/

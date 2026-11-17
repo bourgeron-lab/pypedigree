@@ -15,8 +15,8 @@ jobs:
         with:
           version: "latest"
       - run: uv sync --extra dev --extra pandas
-      - run: uv run ruff check src/ tests/
-      - run: uv run ruff format --check src/ tests/
+      - run: uv run ruff check src/ tests/ web/
+      - run: uv run ruff format --check src/ tests/ web/
       - name: Type-check (the package ships py.typed)
         run: uv run mypy
 

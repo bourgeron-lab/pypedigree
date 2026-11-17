@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pypedigree – help and tutorial</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body class="help">
+  <header class="top">
+    <h1>pypedigree</h1>
+    <p class="tagline">Help and tutorial</p>
+    <nav>
+      <a href="./">Back to the app</a>
+      <a href="docs/">Documentation</a>
+      <a href="https://github.com/bourgeron-lab/pypedigree">Source code</a>
+    </nav>
+  </header>
+
+  <main>
+    <p>This page draws a pedigree from a pedigree file, with the standard nomenclature, several
+      phenotypes per individual and polygenic scores. It runs the
+      <a href="https://pypi.org/project/pypedigree/">pypedigree</a> Python package inside your
+      browser, with <a href="https://pyodide.org">Pyodide</a>.</p>
+
+    <h2 id="privacy">Your data</h2>
+    <p>The page downloads the program once (Pyodide from cdn.jsdelivr.net, pypedigree from this
+      site). After that, everything happens on your computer: the file you open or paste is read
+      by your browser and drawn there. It is never uploaded, and nothing is stored once you close
+      the page. There is no account, no cookie and no analytics.</p>
+
+    <h2 id="tutorial">Tutorial: your first pedigree</h2>
+    <ol>
+      <li>Open the <a href="./">app</a> and wait for “Ready” under <em>3. Pedigree</em>. The first
+        visit takes a few seconds while the program downloads; later visits are faster.</li>
+      <li>Under <em>Or try an example</em>, click <strong>Phenotypes and polygenic score</strong>.
+        The file appears in the text box and its drawing below it.</li>
+      <li>Look at the drawing. Individual 001, with an arrow and a “P”, is the proband. Each
+        symbol has one band per phenotype: ASD and ADHD are coloured when present and white when
+        absent; IQ and SRS are shaded from white (lowest value in the family) to full colour
+        (highest), with the value written in the band. The bell curve beside each symbol places
+        their polygenic score within the family. The legend explains every band and pattern.</li>
+      <li>Hover over a symbol to read all its values. Click it to highlight its parents, children
+        and siblings; click the background to reset.</li>
+      <li>Under <em>2. Options</em>, choose <strong>Quadrants</strong>: each symbol is now cut in
+        four, one phenotype per quadrant, and the legend starts with a key to the quadrants.</li>
+      <li>Edit the text: change the sex of individual 004 (fifth column) from 2 to 1. The circle
+        becomes a square as you type.</li>
+      <li>Click <strong>Download PNG</strong> for a picture, or <strong>Download SVG</strong> for a
+        drawing you can zoom or edit in Inkscape or Illustrator.</li>
+      <li>Now open your own file with <strong>Open a file…</strong>, by dropping it on the text
+        box, or by pasting it.</li>
+    </ol>
+
+    <h2 id="format">The pedigree file</h2>
+    <p>One line per individual, columns separated by tabs, commas or spaces (detected
+      automatically). The six standard columns, as in PLINK <code>.ped</code> and
+      <code>.fam</code> files:</p>
+    <table>
+      <tr><th>Column</th><th>Content</th><th>Values</th></tr>
+      <tr><td>1</td><td>Family ID</td><td>any text</td></tr>
+      <tr><td>2</td><td>Individual ID, unique in the family</td><td>any text</td></tr>
+      <tr><td>3</td><td>Father’s ID</td><td>an ID, or 0 if unknown</td></tr>
+      <tr><td>4</td><td>Mother’s ID</td><td>an ID, or 0 if unknown</td></tr>
+      <tr><td>5</td><td>Sex</td><td>1 male, 2 female, 0 unknown</td></tr>
+      <tr><td>6</td><td>Affected status</td><td>1 unaffected, 2 affected, 0 unknown</td></tr>
+    </table>
+    <p>With a <strong>header line</strong>, columns are found by name, in any order, and more can
+      be added:</p>
+    <ul>
+      <li><code>dob</code> (birth date, orders siblings), <code>twins</code>
+        (<code>MZ:id</code>, <code>DZ:id</code> or <code>TW:id</code>), <code>deceased</code>
+        (1), <code>proband</code> (1), <code>consultand</code> (1).</li>
+      <li><strong>Phenotypes</strong>: any other column. A prefix chooses how it is drawn:
+        <code>b_</code> affected or not (2 affected, 1 unaffected, 0 unknown), <code>g_</code> shaded from white to
+        colour, <code>gi_</code> the reverse, <code>c_</code> one colour per category,
+        <code>o_</code> a coloured outline. Without a prefix, the column’s values decide. Missing
+        values (<code>-9</code>, <code>NA</code>, empty) are drawn grey with “NA”.</li>
+      <li><strong>Polygenic scores</strong>: columns whose name starts with <code>PGS</code>.</li>
+      <li><strong>Carriers</strong>: a <code>carrier</code> column, or one <code>cr_</code>
+        column per gene (<code>cr_CFTR</code>): 1 carrier, 2 obligate carrier (as declared; it is
+        not inferred).</li>
+      <li><strong>Annotations</strong>: <code>a_</code> columns, written below the ID.</li>
+      <li><strong>Standard notation</strong>: <code>pregnancy</code>, <code>adopted</code>,
+        <code>childless</code>, <code>art</code>, <code>gender_identity</code>,
+        <code>evaluated</code>.</li>
+    </ul>
+    <p>A parent named in a column but with no line of their own is drawn with a dashed outline,
+      and a warning says so. The full description, with every code, is in the
+      <a href="docs/#file-format">documentation</a>.</p>
+
+    <h2 id="reading">Reading the drawing</h2>
+    <table>
+      <tr><th>You see</th><th>It means</th></tr>
+      <tr><td>Square, circle, diamond</td><td>Male, female, sex unknown (or non-binary)</td></tr>
+      <tr><td>Filled symbol, band or quadrant</td><td>Affected (for that phenotype); white:
+        unaffected; grey: unknown</td></tr>
+      <tr><td>Diagonal line through the symbol</td><td>Deceased</td></tr>
+      <tr><td>Arrow with “P”</td><td>Proband (the index case); an arrow alone marks the
+        consultand</td></tr>
+      <tr><td>Horizontal line between two symbols</td><td>A couple; a <strong>double
+        line</strong> marks a consanguineous couple</td></tr>
+      <tr><td>Children hanging from one line</td><td>A sibship, in birth order when birth dates
+        are given</td></tr>
+      <tr><td>Two lines from one point</td><td>Twins; a bar between the lines: monozygotic</td></tr>
+      <tr><td>Hatched symbol or section</td><td>Carrier; wider hatching: obligate carrier
+        (NSGC 2022). Each gene has its own pattern in the legend</td></tr>
+      <tr><td>Bell curve beside a symbol</td><td>Polygenic score: the mark shows where the
+        individual stands, by default from the lowest to the highest score in the pedigree
+        (<em>Polygenic score position</em> changes this)</td></tr>
+      <tr><td>Same individual twice, joined by a dotted arc</td><td>In a pedigree with loops
+        (for example two marriages between the same two families), someone is drawn a second
+        time next to their partner, so that no lines cross. It is one person</td></tr>
+      <tr><td>Dashed outline</td><td>A parent with no line in the file, or an individual marked
+        <code>not_sampled</code></td></tr>
+    </table>
+    <p>The legend under the drawing lists every phenotype, its colours and every carrier
+      pattern used.</p>
+
+    <h2 id="options">Options</h2>
+    <ul>
+      <li><strong>Family</strong>: a file with several families draws them side by side; choose
+        one to draw it alone.</li>
+      <li><strong>Phenotypes</strong>: horizontal bands, or quadrants (up to four phenotypes;
+        autism, ADHD, intellectual disability and epilepsy take their conventional quadrant and
+        colour).</li>
+      <li><strong>Polygenic score position</strong>: min–max within the pedigree, z-score or
+        percentile.</li>
+      <li><strong>Carrier notation</strong>: the NSGC 2022 patterns, or the earlier half-filled
+        symbol and centre dot.</li>
+      <li><strong>Advanced style</strong>: any option of a pypedigree style file, as JSON (colours,
+        font size, spacing…). See the <a href="docs/#styling">style reference</a>.</li>
+    </ul>
+
+    <h2 id="saving">Saving the drawing</h2>
+    <ul>
+      <li><strong>SVG (interactive)</strong>: opens in any browser with the tooltips, highlighting
+        and zoom of the page. It can be shared or put on a web page.</li>
+      <li><strong>SVG (for print)</strong>: the same drawing without the script, for Inkscape,
+        Illustrator or a journal.</li>
+      <li><strong>PNG</strong>: a picture at 150, 300 or 600 dpi. Very large pedigrees at high
+        resolution can exceed what the browser accepts; use the SVG then.</li>
+    </ul>
+
+    <h2 id="limits">What the app does not do</h2>
+    <p>The circular layout, PDF output, a separate phenotype or annotation file, and batch use are
+      in the Python package (<code>pip install pypedigree</code>), described in the
+      <a href="docs/">documentation</a>. The app draws pedigrees; it does not edit them, store
+      them or compute risks.</p>
+
+    <h2 id="browsers">Browsers</h2>
+    <p>Any recent version of Firefox, Chrome, Edge or Safari, on a computer or a tablet. The page
+      needs WebAssembly, which these browsers all have, and an internet connection the first time
+      it loads.</p>
+
+    <h2 id="cite">Citing and support</h2>
+    <p>pypedigree is free software under the MIT licence, from the Bourgeron lab, Institut
+      Pasteur. Cite the archived software:
+      <a href="https://doi.org/10.5281/zenodo.24289471">doi:10.5281/zenodo.24289471</a> (all
+      versions). Questions, problems and suggestions:
+      <a href="https://github.com/bourgeron-lab/pypedigree/issues">GitHub issues</a>.</p>
+  </main>
+</body>
+</html>

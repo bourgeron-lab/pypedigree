@@ -35,10 +35,10 @@ uv run pytest
 uv run pytest --cov=pypedigree --cov-report=term-missing
 
 # Lint
-uv run ruff check src/ tests/
+uv run ruff check src/ tests/ web/
 
 # Format
-uv run ruff format src/ tests/
+uv run ruff format src/ tests/ web/
 ```
 
 ## Architecture
@@ -399,6 +399,8 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
 - `tests/test_proband_marker.py` — The proband's "P" clear of the label on its left: room kept by
   the layout with tight spacing or large text, none at the default style, no overlap in the PNG
+- `tests/test_web.py` — The web app: `web/pypedigree_web.py` (options, errors, warnings, without
+  matplotlib/numpy/click), every example of `web/build.py`, the site build, ids used by `app.js`
 - `tests/test_unknown_offspring.py` — A couple alone in its family: when the
   placeholder child is added, father left, "?" in PNG and SVG, no node or tooltip
 - `tests/test_quadrants.py` — Quadrant layout: assignment (known names, explicit, free
@@ -431,6 +433,35 @@ sibship line, individual lines).
 - `docs/RELEASING.md` — Release procedure and the one-time PyPI trusted-publishing setup
 - `docs/imgs/` — Reference images for visual elements
 - `docs/imgs/examples/` — Generated example images for documentation
+
+## Web app
+
+`web/` holds a static page that runs pypedigree in the browser with Pyodide
+(version pinned in `web/build.py`, `PYODIDE_VERSION`), installed with
+`micropip.install(wheel, deps=False)`: this relies on rule 1 (no matplotlib,
+numpy or click for parsing, layout and SVG).
+- `pypedigree_web.py` is the only Python the page runs: `render(text,
+  options_json)` returns JSON (interactive SVG with `id_prefix="pv-"` and
+  `responsive=True`, static SVG, families, warnings, or an error). Keep all
+  pedigree logic in the package; this file only maps form options onto
+  `PedigreeStyle` (`STYLE_CHOICES` must match the `<select>` options of
+  `index.html`).
+- `app.js` loads Pyodide and the wheel, shows the interactive SVG in a
+  sandboxed `<iframe srcdoc>` (scripts set by `innerHTML` would not run), and
+  makes the PNG from the static SVG on a canvas (its size is in CSS pixels, 96
+  per inch). Every `$("id")` it uses must exist in `index.html`.
+- `help.html`: tutorial, file format, how to read the drawing, privacy. Update it
+  with user-visible changes, as for the HTML documentation.
+- `build.py` writes `web/_site` (ignored): page files, the wheel of the
+  checkout (`uv build --wheel`, or `--wheel PATH`), `config.json` (version,
+  wheel, Pyodide, examples), the synthetic examples listed in `EXAMPLES` and
+  the HTML documentation as `docs/`.
+- `.github/workflows/pages.yml` publishes it on GitHub Pages on each `v*` tag
+  (a release created by `release.yml` cannot trigger a workflow) and on
+  `workflow_dispatch`.
+- `tests/test_web.py` checks the glue (also with matplotlib, numpy and click
+  blocked), every example, the build and the page's ids. `web/` is not in the
+  sdist; the tests skip there. CI runs ruff on `web/` too.
 
 ## PLINK Integration
 
