@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The notation images of `docs/pedigree_standard.md` (`docs/imgs/*.png`: sexes, affected,
+  deceased, proband, relationship lines, twins, and the labelled diagram of the four kinds of
+  line) are now drawn by pypedigree, from invented individuals, by
+  `docs/imgs/make_notation_images.py`. They were cropped from a published nomenclature figure.
+
 ## [0.5.2] - 2026-11-17
 
 ### Fixed
