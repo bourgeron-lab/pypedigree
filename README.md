@@ -29,7 +29,7 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 - **Separate phenotype files**: load phenotypes from `.pheno` TSV files
 - **Optional legend**: auto-generated phenotype legend with proper male/female symbols
 - **Programmatic API**: fluent `PedigreeBuilder` for constructing pedigrees from code
-- **Circular/radial layout**: founders at center, descendants on concentric rings (`--circular` flag), in the order of the hierarchical layout, so sibships never interleave; ring radius auto-expands so nodes never overlap; upright shapes, labels set radially outside them, twin connectors and duplicate arcs as in the default layout
+- **Circular/radial layout**: founders at center, descendants on concentric rings (`--circular` flag), in the order of the hierarchical layout, so sibships never interleave; ring radius auto-expands so nodes never overlap; upright shapes, labels set outside them, radially or turned aside where a line or another label would cross them, twin connectors and duplicate arcs as in the default layout
 - **Large pedigree support**: each couple's children hang from their own stretch of sibship line, so sibships never merge, at 10 or 500 individuals; loops (consanguinity, marriages between branches) are ordered so the partners meet side by side, and drawn with a duplicate individual only where they would still tangle lines
 - **Auto-scaling figures**: figure dimensions grow with pedigree size
 - **Jupyter integration**: inline display via `_repr_png_`

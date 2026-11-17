@@ -9,14 +9,16 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure, SubFigure
-from matplotlib.transforms import Bbox
+from matplotlib.text import Text
+from matplotlib.transforms import Bbox, ScaledTranslation
 
 from pypedigree import symbols
 from pypedigree.carriers import (
@@ -393,7 +395,9 @@ def _render_layout(
     outline_names = pheno_render.outline_names(names)
     pgs_names = pheno_render.pgs_names(names)
 
-    # Draw nodes on top
+    # Draw nodes on top. Circular-layout labels are placed together once the
+    # figure is drawn (`_RadialLabels`).
+    radial: list[NodeLayout] = []
     for node in layout.nodes:
         if node.is_unknown_offspring:
             # A placeholder child (couple alone in its family): a "?" where
@@ -463,7 +467,12 @@ def _render_layout(
                 )
 
         if show_labels and node.label:
-            _draw_label(ax, node, style)
+            if node.label_angle is not None:
+                radial.append(node)
+            else:
+                _draw_label(ax, node, style)
+    if radial:
+        ax.add_artist(_RadialLabels(ax, radial, style))
 
 
 # The proband arrow points at the lower-left of the shape (Bennett et al. 2008).
@@ -1181,9 +1190,6 @@ def _draw_label(ax: Axes, node: NodeLayout, style: PedigreeStyle) -> None:
     white backing that keeps a line passing behind from striking through.
     """
     half = style.shape_size / 2
-    if node.label_angle is not None:
-        _draw_radial_label(ax, node, style)
-        return
     text_kwargs: dict[str, Any] = {}
     if node.rotation == 0.0:
         y_cursor = node.y - half - style.label_offset - node.marker_depth
@@ -1230,37 +1236,165 @@ def _lines_below_label(node: NodeLayout, style: PedigreeStyle) -> list[tuple[str
     return lines
 
 
-def _draw_radial_label(ax: Axes, node: NodeLayout, style: PedigreeStyle) -> None:
-    """Draw the label and annotations of a circular-layout node, outward.
+class _RadialLabels(Artist):
+    """The labels of a circular layout, placed when the figure is drawn.
 
-    Lines reach a node of the circular layout from the centre, so the label
-    is set on the far side of the shape along the node's radial direction,
-    aligned so the text grows away from it. Annotations follow further out.
+    A label first goes radially outward from its node (`NodeLayout.label_angle`),
+    the circular layout's "below". There, the lines of the node's own
+    descendants (descent line, sibship arc) and the next ring often pass. The
+    text is in points and the geometry in layout units, so whether a label
+    fits depends on the scale of the finished figure, known only at drawing
+    time (a figure can also be resized after `render_pedigree`). Each time the
+    figure is drawn, every label therefore tries directions turning away from
+    outward (`_RADIAL_LABEL_TURNS`) and takes the first whose text touches no
+    line, shape or text of the axes, nor a label placed before it. When none
+    is free, it takes the one touching the fewest. Notes and annotations
+    follow the label, in points, away from the node.
     """
-    assert node.label_angle is not None
-    half = style.shape_size / 2
-    c, s = math.cos(node.label_angle), math.sin(node.label_angle)
-    ha = "left" if c > 0.35 else "right" if c < -0.35 else "center"
-    va = "bottom" if s > 0.35 else "top" if s < -0.35 else "center"
-    reach = _shape_boundary_radius(node.sex, half, node.rotation, node.label_angle)
-    d = reach + style.label_offset + node.marker_depth
-    lines: list[tuple[str, float, dict[str, Any]]] = [
-        (node.label, style.font_size, {"color": style.line_color})
-    ]
-    lines += [(t, style.font_size * 0.7, kw) for t, kw in _lines_below_label(node, style)]
-    for text, size, kwargs in lines:
-        ax.text(
-            node.x + d * c,
-            node.y + d * s,
-            text,
-            fontsize=size,
-            fontfamily=style.font_family,
-            ha=ha,
-            va=va,
-            bbox=_ROTATED_LABEL_BACKING,
-            **kwargs,
+
+    def __init__(self, ax: Axes, nodes: list[NodeLayout], style: PedigreeStyle) -> None:
+        super().__init__()
+        self.set_zorder(6)
+        self._ax = ax
+        self._style = style
+        half = style.shape_size / 2
+        self._groups: list[tuple[NodeLayout, float, list[Text]]] = []
+        for node in nodes:
+            assert node.label_angle is not None
+            lines: list[tuple[str, float, dict[str, Any]]] = [
+                (node.label, style.font_size, {"color": style.line_color})
+            ]
+            lines += [(t, style.font_size * 0.7, kw) for t, kw in _lines_below_label(node, style)]
+            texts = [
+                Text(
+                    text=text,
+                    fontsize=size,
+                    fontfamily=style.font_family,
+                    bbox=_ROTATED_LABEL_BACKING,
+                    **kwargs,
+                )
+                for text, size, kwargs in lines
+            ]
+            for text in texts:
+                text.set_figure(ax.figure)
+            reach = _shape_boundary_radius(node.sex, half, node.rotation, node.label_angle)
+            self._groups.append((node, reach + style.label_offset + node.marker_depth, texts))
+
+    def _set_direction(
+        self, node: NodeLayout, distance: float, texts: list[Text], a: float
+    ) -> None:
+        """Put a label and its notes at `distance` from the node, in direction `a`."""
+        c, s = math.cos(a), math.sin(a)
+        ha: Literal["left", "center", "right"] = (
+            "left" if c > 0.35 else "right" if c < -0.35 else "center"
         )
-        d += 0.25 if va == "center" and ha == "center" else 0.3
+        va: Literal["bottom", "center", "top"] = (
+            "bottom" if s > 0.35 else "top" if s < -0.35 else "center"
+        )
+        x, y = node.x + distance * c, node.y + distance * s
+        # Points away from the node: a gap from the shape that does not
+        # shrink with the scale, then each line below the previous one.
+        step = _RADIAL_LABEL_GAP_EM * self._style.font_size
+        fig = self._ax.figure
+        for text in texts:
+            offset = ScaledTranslation(step * c / 72, step * s / 72, fig.dpi_scale_trans)
+            text.set_transform(self._ax.transData + offset)
+            text.set_position((x, y))
+            text.set_horizontalalignment(ha)
+            text.set_verticalalignment(va)
+            step += float(text.get_fontsize()) * 1.25
+
+    def _place(self, renderer: Any) -> list[Bbox]:
+        """Choose a direction for every label; return their boxes (display)."""
+        segments, boxes = _label_obstacles(self._ax, renderer)
+        placed: list[Bbox] = []
+        for node, distance, texts in self._groups:
+            assert node.label_angle is not None
+            best: tuple[int, float] | None = None
+            for turn in _RADIAL_LABEL_TURNS:
+                a = node.label_angle + math.radians(turn)
+                self._set_direction(node, distance, texts, a)
+                extents = [t.get_window_extent(renderer) for t in texts]
+                hits = sum(_box_hits(e, segments, boxes + placed) for e in extents)
+                if best is None or hits < best[0]:
+                    best = (hits, a)
+                if hits == 0:
+                    break
+            assert best is not None
+            self._set_direction(node, distance, texts, best[1])
+            placed.extend(t.get_window_extent(renderer) for t in texts)
+        return placed
+
+    def draw(self, renderer: Any) -> None:
+        if not self.get_visible():
+            return
+        self._place(renderer)
+        for _node, _distance, texts in self._groups:
+            for text in texts:
+                text.draw(renderer)
+
+    def get_window_extent(self, renderer: Any = None) -> Bbox:
+        if renderer is None:
+            renderer = self._ax.figure.canvas.get_renderer()  # type: ignore[attr-defined]
+        boxes = self._place(renderer)
+        return Bbox.union(boxes) if boxes else Bbox.null()
+
+
+# Gap between a circular-layout node's shape and its label, in ems of the
+# label font, on top of `label_offset` (layout units).
+_RADIAL_LABEL_GAP_EM = 0.25
+
+# Directions a circular-layout label tries, in degrees from radially outward:
+# outward first, then turning further and further to either side. Not inward,
+# where the node's own line to its parents arrives.
+_RADIAL_LABEL_TURNS = (0, 20, -20, 40, -40, 60, -60, 90, -90, 120, -120)
+
+
+def _label_obstacles(ax: Axes, renderer: Any) -> tuple[np.ndarray, list[Bbox]]:
+    """What a circular-layout label must not touch, in display coordinates.
+
+    Lines and the outlines of patches (shapes, arcs, PGS boxes) as segments,
+    curves flattened; texts already in the axes (proband "P", band values) as
+    boxes. The radial labels themselves are not in the axes' texts.
+    """
+    polygons: list[np.ndarray] = []
+    for line in ax.lines:
+        if line.get_visible():
+            xy = np.asarray(line.get_xydata(), dtype=float)
+            polygons.append(line.get_transform().transform(xy))
+    for patch in ax.patches:
+        if patch.get_visible():
+            path = patch.get_transform().transform_path(patch.get_path())
+            polygons.extend(np.asarray(p, dtype=float) for p in path.to_polygons(closed_only=False))
+    segments = [np.hstack([p[:-1], p[1:]]) for p in polygons if len(p) >= 2]
+    boxes = [t.get_window_extent(renderer) for t in ax.texts if t.get_visible() and t.get_text()]
+    for text in ax.texts:  # annotation arrows (proband marker)
+        arrow = getattr(text, "arrow_patch", None)
+        if arrow is not None:
+            boxes.append(arrow.get_window_extent(renderer))
+    return (np.vstack(segments) if segments else np.zeros((0, 4))), boxes
+
+
+def _box_hits(box: Bbox, segments: np.ndarray, boxes: list[Bbox], pad: float = 1.0) -> int:
+    """How many segments cross `box` and how many boxes overlap it."""
+    x0, y0, x1, y1 = box.x0 - pad, box.y0 - pad, box.x1 + pad, box.y1 + pad
+    hits = sum(1 for b in boxes if b.x0 < x1 and b.x1 > x0 and b.y0 < y1 and b.y1 > y0)
+    if not len(segments):
+        return hits
+    # Liang-Barsky clipping of every segment against the box at once.
+    sx, sy = segments[:, 0], segments[:, 1]
+    dx, dy = segments[:, 2] - sx, segments[:, 3] - sy
+    t0 = np.zeros(len(segments))
+    t1 = np.ones(len(segments))
+    inside = np.ones(len(segments), dtype=bool)
+    for p, q in ((-dx, sx - x0), (dx, x1 - sx), (-dy, sy - y0), (dy, y1 - sy)):
+        parallel = p == 0
+        inside &= ~(parallel & (q < 0))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            r = np.where(parallel, 0.0, q / np.where(parallel, 1.0, p))
+        t0 = np.where(~parallel & (p < 0), np.maximum(t0, r), t0)
+        t1 = np.where(~parallel & (p > 0), np.minimum(t1, r), t1)
+    return hits + int(np.count_nonzero(inside & (t0 <= t1)))
 
 
 # A rotated node's label keeps at least this fraction of label_offset between

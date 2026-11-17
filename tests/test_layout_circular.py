@@ -31,9 +31,17 @@ from pypedigree import (
     parse_pedigree_from_string,
     render_pedigree,
 )
+from pypedigree import renderer as renderer_module
 from pypedigree.layout import _arc_waypoints, _assign_generations
 from pypedigree.models import Family, Pedigree, Sex
-from pypedigree.renderer import _render_layout, _shape_boundary_radius, _shape_lower_extent
+from pypedigree.renderer import (
+    _box_hits,
+    _label_obstacles,
+    _RadialLabels,
+    _render_layout,
+    _shape_boundary_radius,
+    _shape_lower_extent,
+)
 
 SIMPLE_TRIO = BASIC_DIR / "simple_trio.ped"
 THREE_GEN = BASIC_DIR / "three_gen.ped"
@@ -576,24 +584,95 @@ class TestShapeGeometry:
 
 
 class TestRadialLabels:
-    """Labels of the circular layout sit outside their shape, radially."""
+    """Labels of the circular layout: outward, or turned aside to stay off lines.
 
-    def test_labels_clear_their_shape_outward(self):
-        family = first_family(SYNESTHESIA)
-        style = PedigreeStyle()
-        layout = compute_layout_circular(family, style)
-        fig, ax = plt.subplots()
+    They are placed by `_RadialLabels` each time the figure is drawn, at the
+    scale of the finished figure.
+    """
+
+    @staticmethod
+    def _drawn(path, style=None, size=None):
+        style = style or PedigreeStyle()
+        fig = render_pedigree(parse_pedigree(path), style=style, circular=True, show_legend=False)
+        if size is not None:
+            fig.set_size_inches(size, size)
+        fig.canvas.draw()
+        ax = fig.axes[0]
+        (labels,) = [a for a in ax.artists if isinstance(a, _RadialLabels)]
+        return fig, ax, labels
+
+    @staticmethod
+    def _touching(ax, labels):
+        """Labels whose text touches a line, a shape, a text or an earlier label."""
+        renderer = ax.figure.canvas.get_renderer()
+        segments, boxes = _label_obstacles(ax, renderer)
+        placed, touching = [], []
+        for node, _distance, texts in labels._groups:
+            extents = [t.get_window_extent(renderer) for t in texts]
+            if sum(_box_hits(e, segments, boxes + placed) for e in extents):
+                touching.append(node.label)
+            placed += extents
+        return touching
+
+    def test_labels_clear_their_shape_and_keep_a_backing(self):
+        fig, ax, labels = self._drawn(SYNESTHESIA)
         try:
-            _render_layout(ax, layout, style, show_labels=True)
-            half = style.shape_size / 2
-            texts = {t.get_text(): t for t in ax.texts}
-            for node in layout.nodes:
-                if node.label_angle is None or not node.label:
-                    continue
-                text = texts[node.label]
-                reach = _shape_boundary_radius(node.sex, half, 0.0, node.label_angle)
-                assert math.dist(text.get_position(), (node.x, node.y)) >= reach
-                assert text.get_bbox_patch() is not None, "white backing against lines"
+            renderer = fig.canvas.get_renderer()
+            half = PedigreeStyle().shape_size / 2
+            for node, _distance, texts in labels._groups:
+                box = texts[0].get_window_extent(renderer)
+                x0, y0 = ax.transData.transform((node.x - half, node.y - half))
+                x1, y1 = ax.transData.transform((node.x + half, node.y + half))
+                assert box.x1 <= x0 or box.x0 >= x1 or box.y1 <= y0 or box.y0 >= y1, node.label
+                assert texts[0].get_bbox_patch() is not None, "white backing against lines"
+        finally:
+            plt.close(fig)
+
+    @pytest.mark.parametrize("path", [SYNESTHESIA, COMPLEX_DIR / "large_family.ped"])
+    def test_no_label_touches_anything_at_the_default_size(self, path):
+        """Labels sent outward only touch something on 15 of 53 and 4 of 5."""
+        fig, ax, labels = self._drawn(path)
+        try:
+            assert self._touching(ax, labels) == []
+        finally:
+            plt.close(fig)
+
+    def test_fewer_labels_touch_than_outward_only(self, monkeypatch):
+        path = COMPLEX_DIR / "multigenerational.ped"
+        fig, ax, labels = self._drawn(path)
+        try:
+            placed = len(self._touching(ax, labels))
+        finally:
+            plt.close(fig)
+        monkeypatch.setattr(renderer_module, "_RADIAL_LABEL_TURNS", (0,))
+        fig, ax, labels = self._drawn(path)
+        try:
+            outward = len(self._touching(ax, labels))
+        finally:
+            plt.close(fig)
+        assert placed <= 2 < outward
+
+    def test_placement_follows_a_resize_after_rendering(self):
+        """The paper's figures resize the figure after `render_pedigree`."""
+        fig, ax, labels = self._drawn(SYNESTHESIA)
+        try:
+            renderer = fig.canvas.get_renderer()
+            before = [t.get_position() for _n, _d, texts in labels._groups for t in texts[:1]]
+            fig.set_size_inches(6, 6)
+            fig.canvas.draw()
+            after = [t.get_position() for _n, _d, texts in labels._groups for t in texts[:1]]
+            assert before != after
+            assert len(self._touching(ax, labels)) < len(labels._groups)
+            assert labels.get_window_extent(renderer).width > 0
+        finally:
+            plt.close(fig)
+
+    def test_tight_bounding_box_includes_the_labels(self, tmp_path):
+        fig, ax, labels = self._drawn(SYNESTHESIA)
+        try:
+            out = tmp_path / "c.png"
+            fig.savefig(out, bbox_inches="tight", dpi=40)
+            assert out.stat().st_size > 0
         finally:
             plt.close(fig)
 

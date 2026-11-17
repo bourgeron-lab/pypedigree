@@ -135,6 +135,8 @@ src/pypedigree/
 4. **renderer.py never computes positions.** It only draws from
    pre-computed FamilyLayout objects. It supports waypoint-based
    polyline edges for curved/non-orthogonal connections (circular layout).
+   The one exception is where a circular-layout label goes around its node,
+   decided at drawing time from the text's real size (`_RadialLabels`).
 
 5. **models.py has no I/O.** It is pure data structures.
 
@@ -332,8 +334,15 @@ pypedigree INPUT.ped [OPTIONS]
 Circular layout: `compute_layout_circular` reuses `_place_hierarchically` and
 wraps its x order around the circle (`_circular_positions`), so it inherits the
 hierarchical guarantees (no interleaved sibships, loops broken with duplicates).
-Shapes stay upright; `NodeLayout.label_angle` sends the ID label radially
-outward (`_draw_radial_label`). Twin connectors hang from the sibship arc, and
+Shapes stay upright; `NodeLayout.label_angle` is the direction of the ID label,
+radially outward. The renderer places these labels in `_RadialLabels`, an
+artist that runs when the figure is drawn: text is in points and the geometry in
+layout units, so whether a label fits is only known at the final scale (a figure
+may be resized after `render_pedigree`). Each label tries `_RADIAL_LABEL_TURNS`
+(outward, then turning to either side, never inward) and takes the first whose
+text touches no line, patch outline or text of the axes, nor an earlier label
+(`_label_obstacles`, `_box_hits`); otherwise the least touching one. Notes and
+annotations follow it in points. `TestRadialLabels`. Twin connectors hang from the sibship arc, and
 duplicate arcs are emitted as in the hierarchical layout. The renderer still
 supports `NodeLayout.rotation` for API callers: rotated labels sit below the
 rotated outline, band text is never upside down, and the proband marker stays

@@ -253,8 +253,11 @@ layout = compute_layout_circular(family, style=PedigreeStyle())
 `base_radius` is expanded automatically when a ring would be too crowded for
 the shapes to fit, so nodes never overlap. Shapes stay upright (a square turned
 to face outward would read as the unknown-sex diamond), so phenotype bands are
-horizontal as in the hierarchical layout. ID labels are set radially outside
-each shape, away from the lines arriving from the centre, on a white backing.
+horizontal as in the hierarchical layout. ID labels are set outside each shape,
+away from the lines arriving from the centre, on a white backing: radially
+outward (`NodeLayout.label_angle`), or turned aside to the first direction where
+no line, shape or label is in the way. `render_pedigree` places them when the
+figure is drawn, at its final size.
 Twins hang from one point of the sibship arc, as a V (with a bar for MZ
 twins), and duplicates are joined to their original by a dotted arc.
 
