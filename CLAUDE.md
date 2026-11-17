@@ -443,8 +443,11 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 
 ## Visual Reference
 
-Reference images for every visual element are in `docs/imgs/`.
-The `diagram_informations.png` shows the labeled structure of a
+Reference images for every visual element are in `docs/imgs/`, drawn by
+pypedigree from invented individuals with
+`uv run python docs/imgs/make_notation_images.py` (fixed scale, 0.8 inch per
+layout unit, cropped to the content). Rerun it after a change to how a symbol
+or line is drawn. The `diagram_informations.png` shows the labeled structure of a
 complete pedigree diagram (relationship line, descent line,
 sibship line, individual lines).
 
@@ -456,7 +459,7 @@ sibship line, individual lines).
 - `docs/api.md` — API reference for all public functions, classes, and types
 - `docs/examples_gallery.md` — Gallery of example files with CLI commands
 - `docs/RELEASING.md` — Release procedure and the one-time PyPI trusted-publishing setup
-- `docs/imgs/` — Reference images for visual elements
+- `docs/imgs/` — Reference images for visual elements (`make_notation_images.py`)
 - `docs/imgs/examples/` — Generated example images for documentation
 
 ## Web app

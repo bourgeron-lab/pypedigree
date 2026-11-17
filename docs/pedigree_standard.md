@@ -144,6 +144,8 @@ Gestational age, karyotype, the reason for infertility and similar details go in
 
 ## Diagram representation
 
+The images in this section are drawn by pypedigree (`docs/imgs/make_notation_images.py`).
+
 ### 1. Individual
 
 **sex**: A male individual is coded in the diagram by a square, a female by a circle, and an individual with unspecified sex is a diamond.
