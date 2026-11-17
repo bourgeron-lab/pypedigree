@@ -195,7 +195,7 @@ def main(
             # Build style
             style = PedigreeStyle()
             if style_file:
-                with open(style_file) as f:
+                with open(style_file, encoding="utf-8-sig") as f:
                     overrides = json.load(f)
                 style = PedigreeStyle.from_dict(overrides)
             if dpi is not None:

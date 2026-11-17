@@ -635,6 +635,25 @@ class TestEdgeCases:
         assert fam.individuals["enfant"].mother_id == "mère"
         assert fam.individuals["enfant"].phenotype == Phenotype.AFFECTED
 
+    def test_files_are_read_as_utf8(self, tmp_path):
+        """Input is UTF-8 whatever the locale (cp1252 on Windows), with or without a BOM."""
+        text = "FID\tIID\tPAT\tMAT\tSEX\tPHENO\nFAM1\tpère\t0\t0\t1\t1\nFAM1\tzoé\tpère\t0\t2\t2\n"
+        for name, encoded in (
+            ("plain.ped", text.encode("utf-8")),
+            ("bom.ped", text.encode("utf-8-sig")),
+        ):
+            path = tmp_path / name
+            path.write_bytes(encoded)
+            fam = parse_pedigree(path).get_family("FAM1")
+            assert {"père", "zoé"} <= set(fam.individuals), name
+            assert fam.individuals["zoé"].father_id == "père"
+
+    def test_non_utf8_file_is_a_parse_error(self, tmp_path):
+        path = tmp_path / "latin1.ped"
+        path.write_bytes("FAM1\tpère\t0\t0\t1\t1\n".encode("latin-1"))
+        with pytest.raises(PedigreeParseError, match="not UTF-8"):
+            parse_pedigree(path)
+
     def test_single_individual_no_parents(self):
         """A single founder with no parents or children should parse successfully."""
         text = "FAM1\tfounder\t0\t0\t1\t1\n"
@@ -1001,6 +1020,6 @@ class TestParentWithoutRow:
         with pytest.warns(PedigreeDataWarning, match="has no row"):
             pedigree = parse_pedigree_from_string(self.TEXT)
         out = export_fam(pedigree, tmp_path / "out.fam")
-        ids = [line.split()[1] for line in out.read_text().splitlines()]
+        ids = [line.split()[1] for line in out.read_text(encoding="utf-8").splitlines()]
         assert "DUMMY_S9_F" not in ids
         assert "S9" in ids

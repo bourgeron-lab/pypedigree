@@ -23,8 +23,8 @@ uv run ruff format src/ tests/                  # format
 uv run mypy                                     # type check
 ```
 
-CI runs the same four, plus the test suite on Python 3.10–3.14 across Linux
-and macOS, and once more with every dependency at its declared minimum
+CI runs the same four, plus the test suite on Python 3.10–3.14 across Linux,
+macOS and Windows, and once more with every dependency at its declared minimum
 version. All must pass.
 
 ## The architecture matters

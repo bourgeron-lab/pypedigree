@@ -254,7 +254,7 @@ class TestCategoricalColors:
     def test_no_category_leak_between_pedigrees(self):
         """A pedigree's legend must list only its own categories."""
         first = parse_pedigree(PREFIX_MODES)
-        header = PREFIX_MODES.read_text().splitlines()[0]
+        header = PREFIX_MODES.read_text(encoding="utf-8").splitlines()[0]
         second = parse_pedigree_from_string(f"{header}\nFAM2\tp1\t0\t0\t1\t1\t100\t1\tSCZ\n")
 
         fig = render_pedigree(first)
@@ -352,7 +352,9 @@ class TestVersion:
         """pyproject.toml is the single source of the version."""
         from pathlib import Path
 
-        source = (Path(__file__).parent.parent / "src/pypedigree/__init__.py").read_text()
+        source = (Path(__file__).parent.parent / "src/pypedigree/__init__.py").read_text(
+            encoding="utf-8"
+        )
         assert '_metadata_version("pypedigree")' in source
 
     def test_version_matches_pyproject(self):
@@ -361,7 +363,7 @@ class TestVersion:
 
         import pypedigree
 
-        pyproject = (Path(__file__).parent.parent / "pyproject.toml").read_text()
+        pyproject = (Path(__file__).parent.parent / "pyproject.toml").read_text(encoding="utf-8")
         declared = re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1)
         assert pypedigree.__version__ == declared
 

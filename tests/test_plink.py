@@ -135,7 +135,7 @@ class TestExportFam:
         out_path = tmp_path / "no_phantoms.fam"
         export_fam(ped, out_path)
 
-        content = out_path.read_text()
+        content = out_path.read_text(encoding="utf-8")
         assert "_phantom_" not in content
 
     def test_export_excludes_duplicates(self, tmp_path):
@@ -144,7 +144,7 @@ class TestExportFam:
         out_path = tmp_path / "no_dups.fam"
         export_fam(ped, out_path)
 
-        content = out_path.read_text()
+        content = out_path.read_text(encoding="utf-8")
         assert "_dup_" not in content
 
     def test_multi_family_export(self, tmp_path):
@@ -161,7 +161,17 @@ class TestExportFam:
         out_path = tmp_path / "format_check.fam"
         export_fam(ped, out_path)
 
-        lines = out_path.read_text().strip().splitlines()
+        lines = out_path.read_text(encoding="utf-8").strip().splitlines()
         for line in lines:
             fields = line.split("\t")
             assert len(fields) == 6, f"Expected 6 columns, got {len(fields)}: {line}"
+
+    def test_export_is_utf8_with_unix_line_endings(self, tmp_path):
+        """The same bytes on every platform: UTF-8, LF (not CRLF on Windows)."""
+        ped = parse_pedigree(DATA_DIR / "format/unicode_ids.ped")
+        out_path = tmp_path / "unicode.fam"
+        export_fam(ped, out_path)
+
+        raw = out_path.read_bytes()
+        assert b"\r\n" not in raw
+        assert "père".encode() in raw

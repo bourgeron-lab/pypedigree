@@ -4,6 +4,8 @@
 
 Pedigree are usually stored as text file, tab-separated value id the most common, but space, multiple-spaces or commas are also possible separators. There is one row per individual.
 
+Files are read as UTF-8 on every platform (a byte order mark, as Excel's "CSV UTF-8" writes, is ignored); a file in another encoding is a parse error asking to save it as UTF-8.
+
 They are made of 6 columns:
 
 - the **family_id** or **fid**: the family unique identifier

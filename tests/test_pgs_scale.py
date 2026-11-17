@@ -139,5 +139,5 @@ class TestRendering:
         args = [str(ped), "--interactive", "--pgs-scale", "zscore", "-o", str(out)]
         result = CliRunner().invoke(main, args)
         assert result.exit_code == 0, result.output
-        assert 'class="pgs-tail"' in out.read_text()
+        assert 'class="pgs-tail"' in out.read_text(encoding="utf-8")
         assert PedigreeStyle.from_dict({"pgs_scale": "percentile"}).pgs_scale == "percentile"

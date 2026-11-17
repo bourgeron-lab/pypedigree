@@ -91,5 +91,5 @@ class TestDrawing:
 
     def test_fam_export_keeps_them(self, tmp_path):
         out = export_fam(parse_pedigree_from_string(TEXT), tmp_path / "out.fam")
-        ids = {line.split()[1] for line in out.read_text().splitlines()}
+        ids = {line.split()[1] for line in out.read_text(encoding="utf-8").splitlines()}
         assert ids >= INFERRED

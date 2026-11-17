@@ -216,7 +216,7 @@ render_pedigree(pedigree, output="family.png")
 
 ### Pedigree File (.ped)
 
-Tab, comma, or space-separated with 6+ columns:
+Tab, comma, or space-separated with 6+ columns, in UTF-8 (a byte order mark is ignored):
 
 | Column | Name | Description |
 |--------|------|-------------|
