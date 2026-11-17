@@ -10,15 +10,24 @@ All pedigrees here are synthetic.
 
 from __future__ import annotations
 
+import re
+
 import matplotlib.pyplot as plt
 import pytest
 
 from pypedigree import PedigreeStyle, compute_layout, parse_pedigree_from_string, render_pedigree
 from pypedigree.svg_renderer import render_interactive_svg
-from pypedigree.symbols import marker_clearance, marker_points
+from pypedigree.symbols import (
+    MARKER_ARROW_EM,
+    MARKER_LETTER_GAP_EM,
+    UNITS_PER_POINT,
+    marker_clearance,
+    marker_points,
+)
 
 TIGHT = PedigreeStyle(sibling_gap=1.0, couple_gap=1.0, font_size=18)
 HEADER = "FID\tID\tFather\tMother\tSex\tProband\tConsultand\n"
+TRIO = HEADER + "F\t1\t0\t0\t1\t0\t0\nF\t2\t0\t0\t2\t0\t0\nF\t3\t1\t2\t1\t1\t0\n"
 
 
 def _sibship(proband: str = "13", consultand: str = "") -> str:
@@ -97,13 +106,106 @@ class TestDrawing:
             plt.close(fig)
 
     def test_both_renderers_place_the_p_alike(self):
-        """The SVG (y down) mirrors the PNG's marker through `marker_points`."""
-        (sx, sy), (px, py) = marker_points(1.0, 2.0, 0.4)
-        (sx2, sy2), (px2, py2) = marker_points(1.0, -2.0, 0.4, up=-1.0)
-        assert (sx, px) == (sx2, px2)
-        assert (sy, py) == (-sy2, -py2)
+        """Same offsets from the tip, in points in the PNG and in layout units
+        (`UNITS_PER_POINT` per point) in the SVG, whose y points down."""
+        sx, sy = marker_points(1.0, 2.0, 8.0)
+        sx2, sy2 = marker_points(1.0, -2.0, 8.0, up=-1.0)
+        assert (sx, sy) == (sx2, -sy2) == (1.0 - 8 * MARKER_ARROW_EM, 2.0 - 8 * MARKER_ARROW_EM)
+
+        fig = render_pedigree(parse_pedigree_from_string(_sibship()), style=TIGHT)
+        try:
+            (p,) = [t for t in fig.axes[0].texts if t.get_text() == "P"]
+            (arrow,) = [t for t in fig.axes[0].texts if t.get_text() == "" and t.arrow_patch]
+            em = TIGHT.font_size
+            start = (-MARKER_ARROW_EM * em, -MARKER_ARROW_EM * em)
+            assert arrow.xyann == pytest.approx(start)
+            assert p.xyann == pytest.approx((start[0] - MARKER_LETTER_GAP_EM * em, start[1]))
+            assert (p.get_ha(), p.get_va()) == ("right", "center")
+        finally:
+            plt.close(fig)
+
         svg = render_interactive_svg(parse_pedigree_from_string(_sibship()), style=TIGHT)
-        assert svg.count(">P</text>") == 1
+        (px, py) = re.findall(
+            r'<text x="([-\d.]+)" y="([-\d.]+)"[^>]*text-anchor="end"[^>]*>P</text>', svg
+        )[0]
+        (line,) = re.findall(
+            r'<line x1="([-\d.]+)" y1="([-\d.]+)" x2="([-\d.]+)" y2="([-\d.]+)"[^>]*'
+            r'marker-end="url\(#arrowhead\)"',
+            svg,
+        )
+        x1, y1, x2, y2 = map(float, line)
+        size = TIGHT.font_size * UNITS_PER_POINT
+        assert (x2 - x1, y1 - y2) == pytest.approx((MARKER_ARROW_EM * size,) * 2, abs=2e-3)
+        assert float(px) == pytest.approx(x1 - MARKER_LETTER_GAP_EM * size, abs=2e-3)
+
+    @pytest.mark.parametrize("figsize", [(10, 8), (4, 3), (2.5, 2), (1.2, 1.0)])
+    def test_p_never_covers_its_arrow(self, figsize):
+        """0.4.6 put the "P" a fixed distance in layout units from the arrow: with
+        text large against the symbols (a pedigree drawn small, as in a
+        journal figure), the letter covered the arrow."""
+        fig, ax = plt.subplots(figsize=figsize)
+        try:
+            render_pedigree(parse_pedigree_from_string(TRIO), style=PedigreeStyle(), ax=ax)
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            (p,) = [t for t in ax.texts if t.get_text() == "P"]
+            (arrow,) = [t for t in ax.texts if t.get_text() == "" and t.arrow_patch]
+            letter = p.get_window_extent(renderer)
+            line = arrow.arrow_patch.get_window_extent(renderer)
+            assert letter.x1 < line.x0
+        finally:
+            plt.close(fig)
+
+
+class TestPgsCaption:
+    """The "PGS" caption under a curve met the proband marker (0.4.6)."""
+
+    PED = (
+        "FID\tID\tFather\tMother\tSex\tProband\tConsultand\tPGS\n"
+        "F\t1\t0\t0\t1\t0\t0\t0.1\n"
+        "F\t2\t0\t0\t2\t0\t1\t-0.3\n"
+        "F\t3\t1\t2\t1\t1\t0\t0.8\n"
+        "F\t4\t1\t2\t2\t0\t0\t-0.5\n"
+    )
+
+    def _nodes(self):
+        family = parse_pedigree_from_string(self.PED).families["F"]
+        return {n.individual_id: n for n in compute_layout(family, PedigreeStyle()).nodes}
+
+    @staticmethod
+    def _owner(nodes, x, y):
+        """The individual whose curve the caption at (x, y) belongs to: the
+        nearest symbol on its right in the same generation. (The renderers
+        widen the gaps for PGS curves, so positions differ from
+        `compute_layout`'s by a fraction of a unit.)"""
+        (sid,) = [s for s, n in nodes.items() if 0 < n.x - x < 1.0 and abs(n.y - y) < 1.0]
+        return sid
+
+    def test_png_caption_above_the_curve_of_marked_individuals(self):
+        nodes = self._nodes()
+        fig = render_pedigree(parse_pedigree_from_string(self.PED), show_legend=False)
+        try:
+            captions = [t for t in fig.axes[0].texts if t.get_text() == "PGS"]
+            assert len(captions) == 4
+            for caption in captions:
+                x, y = caption.get_position()
+                sid = self._owner(nodes, x, y)
+                marked = sid in ("2", "3")
+                assert (y > nodes[sid].y) is marked, sid
+                assert caption.get_va() == ("bottom" if marked else "top")
+        finally:
+            plt.close(fig)
+
+    def test_svg_caption_above_the_curve_of_marked_individuals(self):
+        nodes = self._nodes()
+        svg = render_interactive_svg(parse_pedigree_from_string(self.PED), show_legend=False)
+        captions = re.findall(r'<text x="([-\d.]+)" y="([-\d.]+)"[^>]*>PGS</text>', svg)
+        assert len(captions) == 4
+        for x, y in captions:
+            # The SVG's y is the layout's, negated (pointing down): above the
+            # node means a smaller y.
+            sid = self._owner(nodes, float(x), -float(y))
+            assert (float(y) < -nodes[sid].y) is (sid in ("2", "3")), sid
 
     def test_circular_layout_still_draws_the_marker(self):
         fig = render_pedigree(parse_pedigree_from_string(_sibship()), style=TIGHT, circular=True)

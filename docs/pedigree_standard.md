@@ -168,7 +168,7 @@ Gestational age, karyotype, the reason for infertility and similar details go in
 
 :::image type="content" source="imgs/deceased_unspecified_sex.png" alt-text="deceased person of unspecified sex":::
 
-**proband**: the proband (the family member at the origin of the medical consultations) is marked by a small diagonal arrow pointing up-right at the bottom left corner of the shape, with a "P". The marker sits level with the labels, so with tight spacing or large text the individual on the left is moved just far enough that the "P" does not run into their label.
+**proband**: the proband (the family member at the origin of the medical consultations) is marked by a small diagonal arrow pointing up-right at the bottom left corner of the shape, with a "P" to the left of the arrow. The arrow and the "P" are sized from the label font, so they keep their shape at any scale. The marker sits level with the labels, so with tight spacing or large text the individual on the left is moved just far enough that the "P" does not run into their label. The "PGS" caption of a proband's curve is written above the curve rather than below it.
 
 :::image type="content" source="imgs/male_proband.png" alt-text="male proband":::
 

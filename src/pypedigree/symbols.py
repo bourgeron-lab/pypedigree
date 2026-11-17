@@ -72,12 +72,16 @@ UNKNOWN_OFFSPRING_FONT_SCALE = 2.0
 # Gap between the end of the descent line and the top of the "?".
 UNKNOWN_OFFSPRING_GAP = 0.06
 
-# Proband and consultand marker: an arrow from this far out, relative to half
-# the shape size (in x and in y), to the symbol's lower left corner. The
-# proband's "P" is centred this much further left and lower.
-MARKER_ARROW = 0.5
-MARKER_LETTER_DX = 0.3
-MARKER_LETTER_DY = 0.1
+# Proband and consultand marker, in ems of the label font: an arrow from this
+# far out (in x and in y) to the symbol's lower left corner, and the
+# proband's "P" ending this far to the left of the arrow's start, level with
+# it. In text units, not layout units, so that the arrow keeps its length
+# and the letter its place at any scale: drawn small, as in a journal figure,
+# an arrow in layout units shrank to its head and the "P" covered it (0.4.6).
+# At the default font (8 pt) the arrow is 11.2 pt, as long as a large
+# pedigree's was.
+MARKER_ARROW_EM = 1.4
+MARKER_LETTER_GAP_EM = 0.2
 
 # Layout units per typographic point in the interactive SVG. The PNG draws a
 # large pedigree at 0.8 inch (57.6 pt) per unit and a small one larger, so
@@ -193,24 +197,25 @@ def termination_stroke(
     return (x - w * 1.1, y - up * half * 0.95), (x + w * 0.8, y + up * half * 0.75)
 
 
-def marker_points(
-    tip_x: float, tip_y: float, half: float, up: float = 1.0
-) -> tuple[tuple[float, float], tuple[float, float]]:
-    """Start of the proband or consultand arrow, and centre of the "P".
+def marker_points(tip_x: float, tip_y: float, em: float, up: float = 1.0) -> tuple[float, float]:
+    """Start of the proband or consultand arrow, in the units of ``em``.
+
+    The SVG passes the font size in layout units (`UNITS_PER_POINT` per
+    point); the PNG draws the same offsets in points from the tip. The
+    proband's "P" is level with this point, its right edge
+    `MARKER_LETTER_GAP_EM` ems further left.
 
     Args:
         tip_x: X of the point the arrow ends at, the symbol's lower left
             corner (or the outline's point in that direction).
         tip_y: Y of that point.
-        half: Half the shape size, which scales the marker.
+        em: The label font size, in the units of ``tip_x`` and ``tip_y``.
         up: +1 with the y axis pointing up (PNG), -1 pointing down (SVG).
 
     Returns:
-        ((x, y) where the arrow starts, (x, y) of the centre of the "P").
+        (x, y) where the arrow starts.
     """
-    sx = tip_x - half * MARKER_ARROW
-    sy = tip_y - up * half * MARKER_ARROW
-    return (sx, sy), (sx - half * MARKER_LETTER_DX, sy - up * half * MARKER_LETTER_DY)
+    return tip_x - em * MARKER_ARROW_EM, tip_y - up * em * MARKER_ARROW_EM
 
 
 def marker_clearance(half: float, font_size: float, label_chars: int, letter: bool) -> float:
@@ -229,9 +234,9 @@ def marker_clearance(half: float, font_size: float, label_chars: int, letter: bo
             alone (a consultand).
     """
     em = font_size * UNITS_PER_POINT
-    reach = half * (1 + MARKER_ARROW)
+    reach = half + em * MARKER_ARROW_EM
     if letter:
-        reach += half * MARKER_LETTER_DX + em * _MARKER_LETTER_EM / 2
+        reach += em * (MARKER_LETTER_GAP_EM + _MARKER_LETTER_EM)
     return reach + em * (_MARKER_PAD_EM + _LABEL_CHAR_EM * label_chars / 2)
 
 

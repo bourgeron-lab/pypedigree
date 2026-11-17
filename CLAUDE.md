@@ -114,7 +114,15 @@ src/pypedigree/
    the sibling gap are listed. It is applied while packing, not after: as a
    left margin on the contour (`_Block.add(..., margin)`) and as a wider
    couple gap when they are the partner on the right. At the default style it
-   is never needed, so nothing moves. `tests/test_proband_marker.py`.
+   is never needed, so nothing moves. The marker itself is sized in ems of the
+   label font, never in layout units (`symbols.MARKER_ARROW_EM`,
+   `MARKER_LETTER_GAP_EM`): the PNG draws the arrow and the right-aligned "P"
+   as offsets in points from the tip (`annotate(..., textcoords="offset
+   points")`), the SVG with `symbols.marker_points(tip, font_size * _PT)`. In
+   layout units the arrow shrank to its head and the "P" covered it when a
+   pedigree was drawn small (0.4.6). A curve's "PGS" caption goes above the curve
+   for a proband or consultand, whose marker takes the place below
+   (`phenotypes.pgs_caption_above`). `tests/test_proband_marker.py`.
 
    A family of exactly two founders, a man and a woman, with no union
    (parents whose child is missing) gets a placeholder child from

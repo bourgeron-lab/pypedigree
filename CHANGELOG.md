@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-11-17
+
 ### Added
 
 - A web app, in `web/`: pypedigree runs in the browser through Pyodide, installed without its
@@ -18,6 +20,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to read the drawing. `web/build.py` assembles the site with the wheel of the checkout and the
   HTML documentation; `.github/workflows/pages.yml` publishes it on GitHub Pages for each release
   tag. `tests/test_web.py` tests the Python side, with matplotlib, numpy and click blocked.
+
+### Fixed
+
+- Drawn small, as in a journal figure (text large against the symbols), the proband's arrow
+  shrank to its head and the "P" covered it. The arrow and the "P" are now sized from the label
+  font (the arrow spans 1.4 em in x and in y; the "P" ends 0.2 em left of the arrow's start),
+  in the PNG and the SVG, so the marker keeps its shape at any scale. At the default font a
+  large pedigree's arrow is as long as before; a small pedigree drawn large gets a shorter
+  arrow, in proportion to its text.
+- With PGS curves, the "PGS" caption under the proband's (or consultand's) curve ran into the
+  arrow and the "P". It is now written above that curve.
 
 ## [0.4.6] - 2026-11-17
 
