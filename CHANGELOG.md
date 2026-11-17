@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-17
+
+### Changed
+
+- **Phenotypes are drawn in quadrants by default.** `phenotype_layout` has a new value,
+  `"auto"`, which is the default (and `--phenotype-layout auto` on the command line). It cuts
+  each symbol in four, one quadrant per phenotype column or `cr_` carrier source, as
+  `"quadrants"` does, up to four sources. Beyond four, it draws horizontal bands without a
+  warning; `"quadrants"` still warns when it falls back. Figures with one to four phenotype
+  columns therefore change. To keep the previous figures, set `"phenotype_layout": "bands"` in
+  the style or pass `--phenotype-layout bands`. Pedigrees with no phenotype column, or with
+  carrier sources only, are drawn as before. The web app offers the same three choices, with
+  "auto" first.
+
 ## [0.4.7] - 2026-11-17
 
 ### Added

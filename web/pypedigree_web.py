@@ -24,7 +24,7 @@ from pypedigree.svg_renderer import render_interactive_svg, render_svg
 #: Form options that map one to one onto `PedigreeStyle` fields, with the
 #: values the page may send.
 STYLE_CHOICES: dict[str, tuple[str, ...]] = {
-    "phenotype_layout": ("bands", "quadrants"),
+    "phenotype_layout": ("auto", "quadrants", "bands"),
     "pgs_scale": ("minmax", "zscore", "percentile"),
     "carrier_notation": ("nsgc2022", "legacy"),
 }

@@ -119,10 +119,12 @@ class PedigreeStyle:
     # Show YES/NO text labels inside binary phenotype bands (default: color only)
     show_phenotype_labels: bool = False
 
-    # How phenotypes divide a symbol: "bands" (horizontal stripes, one per
-    # column) or "quadrants" (the symbol cut in four, one quadrant per
-    # column, up to four columns). See `phenotype_quadrants`.
-    phenotype_layout: str = "bands"
+    # How phenotypes divide a symbol: "quadrants" (the symbol cut in four,
+    # one quadrant per column, up to four), "bands" (horizontal stripes, one
+    # per column), or "auto" (the default: quadrants up to four phenotype and
+    # carrier sources, bands beyond, without a warning). See
+    # `phenotype_quadrants`.
+    phenotype_layout: str = "auto"
 
     # Quadrant of a column in the "quadrants" layout: column name ->
     # "top-left", "top-right", "bottom-left" or "bottom-right". Columns not

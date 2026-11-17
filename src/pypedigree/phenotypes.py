@@ -479,7 +479,7 @@ def all_bands_na(node: _HasPhenotypes, band_names: Sequence[str]) -> bool:
 
 # --- Quadrants ----------------------------------------------------------------
 
-PHENOTYPE_LAYOUTS = ("bands", "quadrants")
+PHENOTYPE_LAYOUTS = ("auto", "quadrants", "bands")
 QUADRANT_POSITIONS = ("top-left", "top-right", "bottom-left", "bottom-right")
 # Conventional quadrant of the known phenotypes (see config.known_phenotype).
 KNOWN_PHENOTYPE_QUADRANTS = {
@@ -499,7 +499,7 @@ def check_phenotype_layout(style: PedigreeStyle) -> None:
     """Reject an unknown layout or quadrant name before anything is drawn.
 
     Raises:
-        PedigreeError: If `phenotype_layout` is not "bands" or "quadrants",
+        PedigreeError: If `phenotype_layout` is not "auto", "quadrants" or "bands",
             or `phenotype_quadrants` names an unknown quadrant or puts two
             columns in the same one.
     """
@@ -521,7 +521,7 @@ def check_phenotype_layout(style: PedigreeStyle) -> None:
 
 
 def assign_quadrants(columns: Sequence[str], style: PedigreeStyle) -> dict[str, str]:
-    """The quadrant of each column, for the "quadrants" layout.
+    """The quadrant of each column, for the "quadrants" and "auto" layouts.
 
     A column listed in `style.phenotype_quadrants` takes that quadrant; a
     known phenotype its conventional one (autism top left, ADHD top right,
@@ -534,12 +534,15 @@ def assign_quadrants(columns: Sequence[str], style: PedigreeStyle) -> dict[str, 
 
     Returns:
         Column → quadrant, in the order of `columns`; empty with the
-        "bands" layout, without columns, or with more than four (a
-        `PedigreeStyleWarning` says so, and the figure uses bands).
+        "bands" layout, without columns, or with more than four: the figure
+        then uses bands, silently with "auto" (the default), with a
+        `PedigreeStyleWarning` when "quadrants" was asked for.
     """
-    if style.phenotype_layout != "quadrants" or not columns:
+    if style.phenotype_layout == "bands" or not columns:
         return {}
     if len(columns) > len(QUADRANT_POSITIONS):
+        if style.phenotype_layout == "auto":
+            return {}
         warnings.warn(
             f"phenotype_layout 'quadrants' holds at most {len(QUADRANT_POSITIONS)} "
             f"columns and this figure has {len(columns)} ({', '.join(columns)}): "
