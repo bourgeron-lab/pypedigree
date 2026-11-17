@@ -42,7 +42,7 @@ When a **header row is present**, the parser uses **smart column mapping** to de
 Phenotype types:
 
 - **Binary phenotypes**: values use standard pedigree encoding — `2`=affected (color band), `1`=unaffected (white band), `0`=unknown (grey band), `-9`=no data (grey band with "NA" text, the grey of `0` told apart by the text; `--no-na-labels` or the `show_na_labels` style option removes the text). When all bands for an individual are NA (`-9`), a single centered "NA" is shown instead of repeating per band.
-- **Quadrant layout**: with `--phenotype-layout quadrants` (style `phenotype_layout: "quadrants"`), each symbol is cut in four and each phenotype column, or `cr_` carrier source, fills one quadrant instead of a horizontal band, up to four columns (more fall back to bands with a warning). The same codes apply: color, white, grey, grey with "NA".
+- **Quadrant layout**: with `--phenotype-layout quadrants` (style `phenotype_layout: "quadrants"`), each symbol is cut in four and each phenotype column, or `cr_` carrier source, fills one quadrant instead of a horizontal band, up to four columns (more fall back to bands with a warning; carrier sources alone, with no phenotype column, are drawn as with bands). The same codes apply: color, white, grey, grey with "NA".
 - **Conventional phenotypes**: columns named for autism (`Autism`, `ASD`, `TSA`), intellectual disability (`ID`, `DI`, `Intellectual disability`), ADHD (`ADHD`, `TDAH`) or epilepsy (`Epilepsy`, `Épilepsie`), whatever their prefix and case, are drawn blue, red, yellow and purple, and take the top-left, bottom-left, top-right and bottom-right quadrants. A color in `phenotype_colors` or a quadrant in `phenotype_quadrants` overrides them.
 - **Continuous phenotypes**: numeric values > 2 — rendered as color gradients (min→white, max→full color).
 - **Missing values**: empty, `.`, `NA`, `NaN` — treated as `-9` (no data).
@@ -168,7 +168,7 @@ Gestational age, karyotype, the reason for infertility and similar details go in
 
 :::image type="content" source="imgs/deceased_unspecified_sex.png" alt-text="deceased person of unspecified sex":::
 
-**proband**: the proband (the family member at the origin of the medical consultations) is marker by a small diagonal arrow pointing up-right at the bottom left corner of the shape.
+**proband**: the proband (the family member at the origin of the medical consultations) is marked by a small diagonal arrow pointing up-right at the bottom left corner of the shape, with a "P". The marker sits level with the labels, so with tight spacing or large text the individual on the left is moved just far enough that the "P" does not run into their label.
 
 :::image type="content" source="imgs/male_proband.png" alt-text="male proband":::
 

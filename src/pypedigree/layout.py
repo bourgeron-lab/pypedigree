@@ -209,9 +209,10 @@ class _Block:
         self.lo: dict[int, float] = {}
         self.hi: dict[int, float] = {}
 
-    def add(self, sid: str, x: float, gen: int) -> None:
+    def add(self, sid: str, x: float, gen: int, margin: float = 0.0) -> None:
+        """Put ``sid`` at ``x``; ``margin`` is extra room kept on their left."""
         self.xs[sid] = x
-        self.lo[gen] = min(self.lo.get(gen, x), x)
+        self.lo[gen] = min(self.lo.get(gen, x - margin), x - margin)
         self.hi[gen] = max(self.hi.get(gen, x), x)
 
     def place(self, other: _Block, gap: float, target: float | None = None) -> float:
@@ -285,6 +286,36 @@ class _HierarchicalPlacer:
         # duplicate if the stretched lines overlap another sibship.
         self.loops: dict[int, list[tuple[int, str]]] = {}
         self._lines: dict[str, frozenset[str]] = {}
+        self.marker_room = self._marker_room()
+
+    def _marker_room(self) -> dict[str, float]:
+        """Distance each proband or consultand needs to their left neighbour.
+
+        Their marker sits at the lower left of the symbol, level with the
+        labels; with tight spacing or large text it would run into the
+        label on the left (`symbols.marker_clearance`, for the longest
+        label of the generation). Only those who need more than the
+        sibling gap are listed.
+        """
+        style = self.style
+        longest: dict[int, int] = {}
+        for sid, g in self.gen.items():
+            label = _get_node_label(sid, self.family.individuals[sid], style)
+            longest[g] = max(longest.get(g, 0), len(label))
+        room: dict[str, float] = {}
+        for sid, g in self.gen.items():
+            ind = self.family.individuals[sid]
+            if ind.is_proband or ind.notation.is_consultand:
+                need = symbols.marker_clearance(
+                    style.shape_size / 2, style.font_size, longest[g], ind.is_proband
+                )
+                if need > style.sibling_gap:
+                    room[sid] = need
+        return room
+
+    def _margin(self, sid: str) -> float:
+        """Room beyond the sibling gap kept on the left of ``sid``."""
+        return max(0.0, self.marker_room.get(sid, 0.0) - self.style.sibling_gap)
 
     def _line(self, sid: str) -> frozenset[str]:
         """``sid`` and all their descendants."""
@@ -482,6 +513,10 @@ class _HierarchicalPlacer:
 
         block = _Block()
         gap, cg = style.sibling_gap, style.couple_gap
+        # The partner on the right of each couple keeps room for their
+        # proband marker from the one on the left.
+        cg_l = max(cg, self.marker_room.get(sid, 0.0)) if left is not None else cg
+        cg_r = max(cg, self.marker_room.get(right[0], 0.0)) if right is not None else cg
         c_left = c_right = None
         if left is not None:
             group, center = self._children_group(left[1])
@@ -490,26 +525,26 @@ class _HierarchicalPlacer:
         if right is not None:
             group, center = self._children_group(right[1])
             if center is not None:
-                target = None if c_left is None else c_left + cg - center
+                target = None if c_left is None else c_left + max(cg_l, cg_r) - center
                 c_right = center + block.place(group, gap, target)
 
         if c_left is not None and c_right is not None:
             x = (c_left + c_right) / 2
             x_left, x_right = 2 * c_left - x, 2 * c_right - x
         elif c_left is not None:
-            x = c_left + cg / 2
-            x_left, x_right = c_left - cg / 2, x + cg
+            x = c_left + cg_l / 2
+            x_left, x_right = c_left - cg_l / 2, x + cg_r
         elif c_right is not None:
-            x = c_right - cg / 2
-            x_left, x_right = x - cg, c_right + cg / 2
+            x = c_right - cg_r / 2
+            x_left, x_right = x - cg_l, c_right + cg_r / 2
         else:
             x = 0.0
-            x_left, x_right = -cg, cg
-        block.add(sid, x, gen)
+            x_left, x_right = -cg_l, cg_r
+        block.add(sid, x, gen, self._margin(sid))
         if left is not None:
-            block.add(left[0], x_left, gen)
+            block.add(left[0], x_left, gen, self._margin(left[0]))
         if right is not None:
-            block.add(right[0], x_right, gen)
+            block.add(right[0], x_right, gen, self._margin(right[0]))
 
         # Partnerships whose partner is drawn elsewhere: their children
         # still descend from this individual, so keep them underneath.

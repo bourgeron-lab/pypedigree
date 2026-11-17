@@ -295,6 +295,44 @@ class TestLegend:
         assert 'clipPath id="legend-key-square"' in svg
         assert 'clipPath id="legend-key-circle"' in svg
 
+    @pytest.mark.parametrize(
+        "text",
+        [
+            # The structural carrier column (carrier.ped).
+            None,
+            # Two carrier sources and no phenotype column.
+            "FID\tIID\tFather\tMother\tSex\tcr_HEXA\tcr_CFTR\n"
+            "F\ta\t0\t0\t1\t1\t0\n"
+            "F\tb\t0\t0\t2\t2\t1\n",
+        ],
+        ids=["carrier-column", "cr-columns"],
+    )
+    def test_carriers_alone_are_not_cut_in_quadrants(self, text):
+        """With no phenotype column, the symbol and the legend stay as with bands.
+
+        0.4.4 hatched the whole symbol but put a quadrant key in the legend.
+        """
+        if text is None:
+            pedigree = parse_pedigree(str(TEST_DATA_DIR / "phenotype" / "carrier.ped"))
+        else:
+            pedigree = parse_pedigree_from_string(text)
+        assert render_interactive_svg(pedigree, style=QUADRANTS) == render_interactive_svg(
+            pedigree, style=PedigreeStyle()
+        )
+        quadrants = render_pedigree(pedigree, style=QUADRANTS)
+        bands = render_pedigree(pedigree, style=PedigreeStyle())
+        try:
+            for fig in (quadrants, bands):
+                fig.canvas.draw()
+            assert quadrants.get_size_inches().tolist() == bands.get_size_inches().tolist()
+            assert len(quadrants.axes[1].patches) == len(bands.axes[1].patches)
+            assert [t.get_text() for t in quadrants.axes[1].texts] == [
+                t.get_text() for t in bands.axes[1].texts
+            ]
+        finally:
+            plt.close(quadrants)
+            plt.close(bands)
+
     def _fig(self):
         return render_pedigree(parse_pedigree_from_string(TRIO), style=QUADRANTS)
 

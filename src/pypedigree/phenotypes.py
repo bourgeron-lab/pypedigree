@@ -568,7 +568,15 @@ def with_quadrants(
     carriers: CarrierScheme,
     style: PedigreeStyle,
 ) -> PhenotypeRender:
-    """`render` with its quadrant assignment, once the carrier sources are known."""
+    """`render` with its quadrant assignment, once the carrier sources are known.
+
+    With no phenotype column, nothing is divided into quadrants: both
+    renderers then draw the affection status and the carrier sections on
+    the whole symbol, as with bands, so the legend has no quadrant key
+    either.
+    """
+    if not band_names:
+        return replace(render, quadrants={})
     return replace(render, quadrants=assign_quadrants([*band_names, *carriers.keys], style))
 
 

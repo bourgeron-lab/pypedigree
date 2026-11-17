@@ -72,6 +72,26 @@ UNKNOWN_OFFSPRING_FONT_SCALE = 2.0
 # Gap between the end of the descent line and the top of the "?".
 UNKNOWN_OFFSPRING_GAP = 0.06
 
+# Proband and consultand marker: an arrow from this far out, relative to half
+# the shape size (in x and in y), to the symbol's lower left corner. The
+# proband's "P" is centred this much further left and lower.
+MARKER_ARROW = 0.5
+MARKER_LETTER_DX = 0.3
+MARKER_LETTER_DY = 0.1
+
+# Layout units per typographic point in the interactive SVG. The PNG draws a
+# large pedigree at 0.8 inch (57.6 pt) per unit and a small one larger, so
+# text never takes more room there: layout decisions that depend on the size
+# of text convert it with this.
+UNITS_PER_POINT = 0.02
+
+# Text widths, in ems, for the room the proband marker needs: the bold "P"
+# (0.73 in DejaVu Sans Bold), one character of a label (digits are 0.64),
+# and the space kept between the "P" and the neighbour's label.
+_MARKER_LETTER_EM = 0.8
+_LABEL_CHAR_EM = 0.65
+_MARKER_PAD_EM = 0.3
+
 _GENDER_SHAPE = {Gender.MAN: Sex.MALE, Gender.WOMAN: Sex.FEMALE, Gender.NONBINARY: Sex.UNKNOWN}
 _ASSIGNED_AT_BIRTH = {Sex.MALE: "AMAB", Sex.FEMALE: "AFAB"}
 _PREGNANCY_LOSSES = frozenset({Pregnancy.MISCARRIAGE, Pregnancy.TERMINATION, Pregnancy.ECTOPIC})
@@ -171,6 +191,48 @@ def termination_stroke(
     """The line struck through a termination's triangle, lower left to upper right."""
     w = half * TRIANGLE_HALF_WIDTH
     return (x - w * 1.1, y - up * half * 0.95), (x + w * 0.8, y + up * half * 0.75)
+
+
+def marker_points(
+    tip_x: float, tip_y: float, half: float, up: float = 1.0
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Start of the proband or consultand arrow, and centre of the "P".
+
+    Args:
+        tip_x: X of the point the arrow ends at, the symbol's lower left
+            corner (or the outline's point in that direction).
+        tip_y: Y of that point.
+        half: Half the shape size, which scales the marker.
+        up: +1 with the y axis pointing up (PNG), -1 pointing down (SVG).
+
+    Returns:
+        ((x, y) where the arrow starts, (x, y) of the centre of the "P").
+    """
+    sx = tip_x - half * MARKER_ARROW
+    sy = tip_y - up * half * MARKER_ARROW
+    return (sx, sy), (sx - half * MARKER_LETTER_DX, sy - up * half * MARKER_LETTER_DY)
+
+
+def marker_clearance(half: float, font_size: float, label_chars: int, letter: bool) -> float:
+    """Distance to the left neighbour that keeps the marker off their label.
+
+    The marker sits at the lower left of the symbol, level with the labels,
+    so with tight spacing or large text the "P" would run into the label of
+    the individual on the left. The layout keeps a proband's or a
+    consultand's left neighbour at least this far, centre to centre.
+
+    Args:
+        half: Half the shape size.
+        font_size: Label and marker font size, in points.
+        label_chars: Length of the longest label the neighbour may have.
+        letter: Whether the marker has a "P" (a proband) or is an arrow
+            alone (a consultand).
+    """
+    em = font_size * UNITS_PER_POINT
+    reach = half * (1 + MARKER_ARROW)
+    if letter:
+        reach += half * MARKER_LETTER_DX + em * _MARKER_LETTER_EM / 2
+    return reach + em * (_MARKER_PAD_EM + _LABEL_CHAR_EM * label_chars / 2)
 
 
 def shape_half_width(sex: Sex, half: float) -> float:
