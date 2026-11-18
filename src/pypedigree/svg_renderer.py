@@ -234,7 +234,7 @@ def _render(
     cursor = 0.0
     titled = len(families) > 1
     for index, family in enumerate(families):
-        layout = _flip_vertical(compute_layout(family, style))
+        layout = _flip_vertical(compute_layout(family, style, labels=show_labels))
         x0, y0, x1, y1 = _family_extent(layout, ctx)
         if index > 0:
             # Side by side, left to right, like render_pedigree's subplots.
@@ -391,6 +391,14 @@ def _family_extent(layout: FamilyLayout, ctx: _SvgContext) -> _Extent:
             for n in layout.nodes
         )
         y1 = max(y1, label_bottom)
+        # A label wider than its symbol reaches beyond it on both sides.
+        for n in layout.nodes:
+            if n.label and n.label_angle is None:
+                half_label = (
+                    symbols.label_width(n.label, n.notes + n.annotations, style.font_size) / 2
+                )
+                x0 = min(x0, n.x - half_label)
+                x1 = max(x1, n.x + half_label)
     return (x0, y0, x1, y1)
 
 

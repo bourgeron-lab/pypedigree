@@ -112,9 +112,24 @@ src/pypedigree/
    longest label of the generation, text converted with
    `symbols.UNITS_PER_POINT`, the SVG's scale); only those needing more than
    the sibling gap are listed. It is applied while packing, not after: as a
-   left margin on the contour (`_Block.add(..., margin)`) and as a wider
-   couple gap when they are the partner on the right. At the default style it
-   is never needed, so nothing moves. The marker itself is sized in ems of the
+   left margin on the contour (`_Block.add(sid, x, gen, left, right)`, via
+   `_HierarchicalPlacer._add`) and as a wider couple gap when they are the
+   partner on the right (`_couple_gap`). At the default style it is never
+   needed, so nothing moves.
+
+   Labels get room the same way (#41). `_label_reach` gives each node half
+   its widest line of text (`symbols.label_width`: ID, then notes and
+   annotations at `SMALL_TEXT_SCALE`; character widths of DejaVu Sans in
+   `symbols._CHAR_EM`, checked against the font by `tests/test_label_spacing.py`,
+   converted with `UNITS_PER_POINT`) plus half of `LABEL_GAP_EM`, listing only
+   those reaching beyond half the sibling gap. `_add` puts the excess on both
+   sides of the contour (the left side takes the larger of it and the marker
+   margin) and `_couple_gap` widens a couple to the sum of both reaches. Labels
+   that fit change nothing: at 8 pt no fixture moves (IDs up to ~13
+   characters). `compute_layout(..., labels=show_labels)`; the circular layout
+   calls `_place_hierarchically(..., labels=False)` and is unchanged. The SVG's
+   `_family_extent` also widens the `viewBox` by labels wider than their symbol.
+   `min_node_distance` is deprecated: the layout never used it. The marker itself is sized in ems of the
    label font, never in layout units (`symbols.MARKER_ARROW_EM`,
    `MARKER_LETTER_GAP_EM`): the PNG draws the arrow and the right-aligned "P"
    as offsets in points from the tip (`annotate(..., textcoords="offset

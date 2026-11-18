@@ -105,6 +105,8 @@ class PedigreeStyle:
     generation_gap: float = 2.0
     sibling_gap: float = 1.5
     couple_gap: float = 1.5
+    # Not used by the layout: `sibling_gap` and `couple_gap` set the spacing.
+    # Kept so existing styles still load; to be removed in 1.0.
     min_node_distance: float = 1.2
 
     # Carrier notation: "nsgc2022" divides the symbol into patterned sections
