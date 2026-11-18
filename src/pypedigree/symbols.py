@@ -21,6 +21,7 @@ pregnancies and assisted reproduction (Bennett et al., J Genet Couns
 from __future__ import annotations
 
 import math
+import unicodedata
 
 from pypedigree.models import (
     Childlessness,
@@ -95,6 +96,119 @@ UNITS_PER_POINT = 0.02
 _MARKER_LETTER_EM = 0.8
 _LABEL_CHAR_EM = 0.65
 _MARKER_PAD_EM = 0.3
+
+# Advance widths of DejaVu Sans, matplotlib's default font, in ems, for the
+# printable ASCII characters (read from the font file; `tests/test_symbols.py`
+# checks them against it). A label's width is the sum of its characters'.
+# Other characters: an accented letter counts as its base letter, a wide
+# (CJK) character as 1 em, anything else as `_OTHER_CHAR_EM`.
+_CHAR_EM: dict[str, float] = {
+    ch: em
+    for chars, em in (
+        ("'", 0.275),
+        ("ijl", 0.278),
+        ("IJ", 0.295),
+        (" ,.", 0.318),
+        ("/:;\\|", 0.337),
+        ("f", 0.352),
+        ("-", 0.361),
+        ("()[]", 0.39),
+        ("t", 0.392),
+        ("!", 0.401),
+        ("r", 0.411),
+        ('"', 0.46),
+        ("*_`", 0.5),
+        ("s", 0.521),
+        ("z", 0.525),
+        ("?", 0.531),
+        ("c", 0.55),
+        ("L", 0.557),
+        ("F", 0.575),
+        ("k", 0.579),
+        ("vxy", 0.592),
+        ("P", 0.603),
+        ("TY", 0.611),
+        ("o", 0.612),
+        ("a", 0.613),
+        ("e", 0.615),
+        ("E", 0.632),
+        ("hnu", 0.634),
+        ("Sbdgpq", 0.635),
+        ("0123456789${}", 0.636),
+        ("K", 0.656),
+        ("AV", 0.684),
+        ("XZ", 0.685),
+        ("B", 0.686),
+        ("R", 0.695),
+        ("C", 0.698),
+        ("U", 0.732),
+        ("N", 0.748),
+        ("H", 0.752),
+        ("D", 0.77),
+        ("G", 0.775),
+        ("&", 0.78),
+        ("OQ", 0.787),
+        ("w", 0.818),
+        ("#+<=>^~", 0.838),
+        ("M", 0.863),
+        ("%", 0.95),
+        ("m", 0.974),
+        ("W", 0.989),
+        ("@", 1.0),
+    )
+    for ch in chars
+}
+_OTHER_CHAR_EM = 0.7
+_WIDE_CHAR_EM = 1.0
+
+# Space kept between the labels of two neighbours, in ems.
+LABEL_GAP_EM = 0.5
+
+# Notation notes and annotations are drawn below the ID label at this
+# fraction of the label's font size.
+SMALL_TEXT_SCALE = 0.7
+
+
+def text_width(text: str, font_size: float) -> float:
+    """Width of one line of text, in layout units.
+
+    Measured in DejaVu Sans and converted with `UNITS_PER_POINT`, the scale
+    of the interactive SVG, where text takes the most room.
+
+    Args:
+        text: The line of text.
+        font_size: Font size, in points.
+    """
+    em = 0.0
+    for ch in text:
+        width = _CHAR_EM.get(ch)
+        if width is None:
+            base = unicodedata.normalize("NFD", ch)[:1]
+            if base in _CHAR_EM:
+                width = _CHAR_EM[base]
+            elif unicodedata.east_asian_width(ch) in ("W", "F"):
+                width = _WIDE_CHAR_EM
+            else:
+                width = _OTHER_CHAR_EM
+        em += width
+    return em * font_size * UNITS_PER_POINT
+
+
+def label_width(label: str, below: list[str], font_size: float) -> float:
+    """Width of the text drawn under a symbol, in layout units.
+
+    Args:
+        label: The ID label (empty when there is none: nothing is drawn below).
+        below: Notation notes and annotations, one line each, drawn below the
+            label in smaller type.
+        font_size: The label's font size, in points.
+    """
+    if not label:
+        return 0.0
+    widths = [text_width(label, font_size)]
+    widths += [text_width(line, font_size * SMALL_TEXT_SCALE) for line in below]
+    return max(widths)
+
 
 _GENDER_SHAPE = {Gender.MAN: Sex.MALE, Gender.WOMAN: Sex.FEMALE, Gender.NONBINARY: Sex.UNKNOWN}
 _ASSIGNED_AT_BIRTH = {Sex.MALE: "AMAB", Sex.FEMALE: "AFAB"}

@@ -36,12 +36,17 @@ from pypedigree.models import (
 )
 
 
-def compute_layout(family: Family, style: PedigreeStyle | None = None) -> FamilyLayout:
+def compute_layout(
+    family: Family, style: PedigreeStyle | None = None, *, labels: bool = True
+) -> FamilyLayout:
     """Compute the complete layout for a family.
 
     Args:
         family: The family to lay out.
         style: Visual style parameters. Uses defaults if None.
+        labels: Whether labels will be drawn. Neighbours are then kept far
+            enough apart that their labels (ID, notes and annotations) do
+            not run into each other.
 
     Returns:
         FamilyLayout with all positions and connections computed.
@@ -56,7 +61,7 @@ def compute_layout(family: Family, style: PedigreeStyle | None = None) -> Family
     # Steps 1-2: Assign generations and horizontal positions. Loops whose
     # drawing would make sibship lines overlap are broken by drawing one
     # partner twice, so the family laid out may hold extra duplicate nodes.
-    family, generations, x_positions = _place_hierarchically(family, style)
+    family, generations, x_positions = _place_hierarchically(family, style, labels)
 
     # Step 3: Increase generation gap for what sits below the symbols:
     # notes, annotations and childlessness markers.
@@ -209,11 +214,11 @@ class _Block:
         self.lo: dict[int, float] = {}
         self.hi: dict[int, float] = {}
 
-    def add(self, sid: str, x: float, gen: int, margin: float = 0.0) -> None:
-        """Put ``sid`` at ``x``; ``margin`` is extra room kept on their left."""
+    def add(self, sid: str, x: float, gen: int, left: float = 0.0, right: float = 0.0) -> None:
+        """Put ``sid`` at ``x``, keeping extra room on their left and right."""
         self.xs[sid] = x
-        self.lo[gen] = min(self.lo.get(gen, x - margin), x - margin)
-        self.hi[gen] = max(self.hi.get(gen, x), x)
+        self.lo[gen] = min(self.lo.get(gen, x - left), x - left)
+        self.hi[gen] = max(self.hi.get(gen, x + right), x + right)
 
     def place(self, other: _Block, gap: float, target: float | None = None) -> float:
         """Merge ``other`` to the right of this block and return its offset.
@@ -259,7 +264,13 @@ class _HierarchicalPlacer:
     sibship line of their parents stretches to reach them.
     """
 
-    def __init__(self, family: Family, generations: dict[str, int], style: PedigreeStyle) -> None:
+    def __init__(
+        self,
+        family: Family,
+        generations: dict[str, int],
+        style: PedigreeStyle,
+        labels: bool = True,
+    ) -> None:
         self.family = family
         self.gen = generations
         self.style = style
@@ -287,6 +298,7 @@ class _HierarchicalPlacer:
         self.loops: dict[int, list[tuple[int, str]]] = {}
         self._lines: dict[str, frozenset[str]] = {}
         self.marker_room = self._marker_room()
+        self.label_reach = self._label_reach() if labels else {}
 
     def _marker_room(self) -> dict[str, float]:
         """Distance each proband or consultand needs to their left neighbour.
@@ -313,9 +325,46 @@ class _HierarchicalPlacer:
                     room[sid] = need
         return room
 
-    def _margin(self, sid: str) -> float:
-        """Room beyond the sibling gap kept on the left of ``sid``."""
-        return max(0.0, self.marker_room.get(sid, 0.0) - self.style.sibling_gap)
+    def _label_reach(self) -> dict[str, float]:
+        """How far each label reaches from its symbol's centre, on each side.
+
+        Half the widest line drawn under the symbol (ID, notes, annotations;
+        `symbols.label_width`) plus half the space kept between two labels.
+        Only labels that reach beyond half the sibling gap are listed: the
+        others fit whatever the neighbour.
+        """
+        style = self.style
+        pad = symbols.LABEL_GAP_EM * style.font_size * symbols.UNITS_PER_POINT
+        reach: dict[str, float] = {}
+        for sid in self.gen:
+            ind = self.family.individuals[sid]
+            label = _get_node_label(sid, ind, style)
+            below = symbols.notes(ind) + [v for v in ind.annotations.values() if v]
+            half = (symbols.label_width(label, below, style.font_size) + pad) / 2
+            if half > style.sibling_gap / 2:
+                reach[sid] = half
+        return reach
+
+    def _label_room(self, sid: str) -> float:
+        """Room beyond half the sibling gap that the label of ``sid`` needs."""
+        return max(0.0, self.label_reach.get(sid, 0.0) - self.style.sibling_gap / 2)
+
+    def _couple_gap(self, left: str, right: str) -> float:
+        """Distance between partners: the couple gap, or more for marker or labels."""
+        reach = self.label_reach
+        labels = reach.get(left, 0.0) + reach.get(right, 0.0)
+        return max(self.style.couple_gap, self.marker_room.get(right, 0.0), labels)
+
+    def _add(self, block: _Block, sid: str, x: float, gen: int) -> None:
+        """Put ``sid`` in ``block``, with the room their marker and label need.
+
+        Blocks keep the sibling gap between their contours, so the room on
+        each side adds to it: two neighbours with long labels end up at
+        least the sum of their labels' reaches apart.
+        """
+        label = self._label_room(sid)
+        marker = max(0.0, self.marker_room.get(sid, 0.0) - self.style.sibling_gap)
+        block.add(sid, x, gen, max(marker, label), label)
 
     def _line(self, sid: str) -> frozenset[str]:
         """``sid`` and all their descendants."""
@@ -514,9 +563,9 @@ class _HierarchicalPlacer:
         block = _Block()
         gap, cg = style.sibling_gap, style.couple_gap
         # The partner on the right of each couple keeps room for their
-        # proband marker from the one on the left.
-        cg_l = max(cg, self.marker_room.get(sid, 0.0)) if left is not None else cg
-        cg_r = max(cg, self.marker_room.get(right[0], 0.0)) if right is not None else cg
+        # proband marker from the one on the left, and both for their labels.
+        cg_l = self._couple_gap(left[0], sid) if left is not None else cg
+        cg_r = self._couple_gap(sid, right[0]) if right is not None else cg
         c_left = c_right = None
         if left is not None:
             group, center = self._children_group(left[1])
@@ -540,11 +589,11 @@ class _HierarchicalPlacer:
         else:
             x = 0.0
             x_left, x_right = -cg_l, cg_r
-        block.add(sid, x, gen, self._margin(sid))
+        self._add(block, sid, x, gen)
         if left is not None:
-            block.add(left[0], x_left, gen, self._margin(left[0]))
+            self._add(block, left[0], x_left, gen)
         if right is not None:
-            block.add(right[0], x_right, gen, self._margin(right[0]))
+            self._add(block, right[0], x_right, gen)
 
         # Partnerships whose partner is drawn elsewhere: their children
         # still descend from this individual, so keep them underneath.
@@ -629,7 +678,7 @@ _MAX_LOOP_BREAKING_PASSES = 40
 
 
 def _place_hierarchically(
-    family: Family, style: PedigreeStyle
+    family: Family, style: PedigreeStyle, labels: bool = True
 ) -> tuple[Family, dict[str, int], dict[str, float]]:
     """Assign generations and x positions, breaking loops that tangle lines.
 
@@ -646,7 +695,7 @@ def _place_hierarchically(
     """
     for attempt in range(_MAX_LOOP_BREAKING_PASSES):
         generations = _assign_generations(family)
-        placer = _HierarchicalPlacer(family, generations, style)
+        placer = _HierarchicalPlacer(family, generations, style, labels)
         x_positions = placer.run()
         thorough = attempt >= _MAX_LOOP_BREAKING_PASSES // 2
         to_duplicate = placer.loops_to_break(x_positions, thorough)
@@ -1402,7 +1451,7 @@ def compute_layout_circular(
 
     # Steps 1-2: Generations and left-to-right order, from the hierarchical
     # placement (the family may gain duplicate nodes there).
-    family, generations, x_positions = _place_hierarchically(family, style)
+    family, generations, x_positions = _place_hierarchically(family, style, labels=False)
 
     # Step 3: Angles and ring radii
     angles, radii = _circular_positions(family, generations, x_positions, style)

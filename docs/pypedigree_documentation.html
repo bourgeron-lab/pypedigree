@@ -649,8 +649,8 @@ svg_str = render_interactive_svg(ped, output=<span class="string">"interactive.s
 
 <h3>Layout (advanced)</h3>
 
-<h4><code>compute_layout(family, style)</code></h4>
-<p>Compute layout coordinates without rendering. Returns a <code>FamilyLayout</code> with node positions and edge geometry.</p>
+<h4><code>compute_layout(family, style, *, labels=True)</code></h4>
+<p>Compute layout coordinates without rendering. Returns a <code>FamilyLayout</code> with node positions and edge geometry. With <code>labels=True</code> (what the renderers pass when labels are shown), neighbours whose labels would overlap are moved apart by the room the labels need: long IDs, a large <code>font_size</code> or long annotations no longer run into each other.</p>
 
 <pre><code><span class="keyword">from</span> pypedigree <span class="keyword">import</span> compute_layout, PedigreeStyle
 
@@ -1238,9 +1238,9 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>font_family</code></td><td>str</td><td>"sans-serif"</td><td>Font family for all text</td></tr>
     <tr><td><code>label_offset</code></td><td>float</td><td>0.15</td><td>Distance below shape for label</td></tr>
     <tr><td><code>generation_gap</code></td><td>float</td><td>2.0</td><td>Vertical spacing between generations</td></tr>
-    <tr><td><code>sibling_gap</code></td><td>float</td><td>1.5</td><td>Horizontal spacing between siblings</td></tr>
-    <tr><td><code>couple_gap</code></td><td>float</td><td>1.5</td><td>Horizontal spacing between partners</td></tr>
-    <tr><td><code>min_node_distance</code></td><td>float</td><td>1.2</td><td>Minimum horizontal distance between any two nodes</td></tr>
+    <tr><td><code>sibling_gap</code></td><td>float</td><td>1.5</td><td>Horizontal spacing between siblings (more where long labels need it)</td></tr>
+    <tr><td><code>couple_gap</code></td><td>float</td><td>1.5</td><td>Horizontal spacing between partners (more where long labels need it)</td></tr>
+    <tr><td><code>min_node_distance</code></td><td>float</td><td>1.2</td><td>Deprecated, no effect: <code>sibling_gap</code> and <code>couple_gap</code> set the spacing. To be removed in 1.0</td></tr>
     <tr><td><code>phenotype_colors</code></td><td>dict</td><td>{}</td><td>Phenotype name &rarr; hex color mapping</td></tr>
     <tr><td><code>dpi</code></td><td>int</td><td>150</td><td>Output resolution</td></tr>
     <tr><td><code>fig_width</code></td><td>float</td><td>10.0</td><td>Default figure width (inches)</td></tr>
@@ -1350,14 +1350,14 @@ export_fam(ped, "output.fam")  # Ready for PLINK/KING</code></pre>
 <ol>
   <li><strong>Couple alone in its family</strong> &mdash; A family holding only two parents, a man and a woman, with no child in the file, is drawn as their couple, father on the left, with a descent line to a &ldquo;?&rdquo;. The pedigree itself is not changed.</li>
   <li><strong>Assign generations</strong> &mdash; BFS from founders, children one generation below parents. Partners aligned to same generation, then propagated until every child sits below both parents. A duplicate node stands on the generation of the individual it repeats. Uses a parent&rarr;child adjacency index.</li>
-  <li><strong>Compute horizontal positions</strong> &mdash; Each union's descendants form a block. Sibling blocks are packed left to right against each other's contours, generation by generation, and every couple is centred over its children. A married twin's partner stands on the outer side of the twin group, so no spouse is drawn between twins.</li>
+  <li><strong>Compute horizontal positions</strong> &mdash; Each union's descendants form a block. Sibling blocks are packed left to right against each other's contours, generation by generation, and every couple is centred over its children. A married twin's partner stands on the outer side of the twin group, so no spouse is drawn between twins. Where two neighbours' labels would overlap (long IDs, a large <code>font_size</code>, long annotations), those two are moved apart by the room their labels need, measured with the character widths of DejaVu Sans at the SVG's scale; labels that fit change nothing.</li>
   <li><strong>Break tangled loops</strong> &mdash; When both partners descend from people in the pedigree (consanguinity, marriages between branches), they are drawn side by side and the second partner's sibship line stretches to reach them. Siblings are ordered so that the two branches of a loop meet, which keeps that line clear in most pedigrees; when both branches come from the same sibship (cousins marrying), those two siblings are kept together, before any sibling who marries into a family placed later. Where it would still overlap another sibship, the partner is drawn twice instead: among their siblings, and as a duplicate next to their partner, joined by a dotted arc, as the nomenclature allows.</li>
   <li><strong>Build geometry</strong> &mdash; Compute node positions, connection edges (relationship, descent, sibship, individual lines), twin connectors, and duplicate arcs. Every line is horizontal or vertical, as the standard nomenclature requires: a single child that is not centred under its parents (possible only in a loop) hangs from a short sibship-level segment rather than a diagonal.</li>
 </ol>
 
 <div class="callout callout-info">
   <strong>Guarantees</strong>
-  Nodes on a row stay at least <code>sibling_gap</code> apart (<code>couple_gap</code> between partners), and the sibship lines of two different couples never overlap, so every child can be traced to its parents. The test suite checks both on every fixture and on generated pedigrees of up to 200 individuals, with and without loops. The same rules apply at every size.
+  Nodes on a row stay at least <code>sibling_gap</code> apart (<code>couple_gap</code> between partners), and further when their labels need it, and the sibship lines of two different couples never overlap, so every child can be traced to its parents. The test suite checks both on every fixture and on generated pedigrees of up to 200 individuals, with and without loops. The same rules apply at every size.
 </div>
 
 <h3>Performance</h3>

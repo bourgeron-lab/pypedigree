@@ -26,6 +26,7 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 - **Interactive SVG**: the same figure as the PNG (phenotype bands, legend, PGS curves, annotations, carrier notation) plus tooltips, click-to-highlight relatives and zoom/pan for browser viewing
 - **Multiple output formats**: PNG, SVG, PDF, interactive SVG
 - **Customizable styling**: JSON-based style overrides for colors, sizes, fonts
+- **Long IDs**: symbols are spaced by their labels' width, so long IDs or a large font do not make labels run into each other; short labels keep the usual spacing
 - **Separate phenotype files**: load phenotypes from `.pheno` TSV files
 - **Optional legend**: auto-generated phenotype legend with proper male/female symbols
 - **Programmatic API**: fluent `PedigreeBuilder` for constructing pedigrees from code

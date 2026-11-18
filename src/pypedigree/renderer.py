@@ -264,7 +264,7 @@ def render_family(
     if style is None:
         style = PedigreeStyle()
 
-    layout = compute_layout(family, style)
+    layout = compute_layout(family, style, labels=show_labels)
 
     if ax is None:
         fig_w, fig_h = _auto_figsize(layout, style)

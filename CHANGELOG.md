@@ -7,12 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Symbols are spaced by their labels' width, so long IDs do not run into each other (#41).
+  Each label (ID, notes and annotations, these in their smaller type) is measured with the
+  character widths of DejaVu Sans, at the scale of the SVG, where text takes the most room;
+  where two neighbours' labels would overlap, those two are moved apart, by the room they
+  need and no more (partners, siblings and neighbouring branches alike). Labels that fit
+  change nothing: at the default 8 pt, IDs up to about 13 characters keep the usual gaps,
+  and no gallery or test image moves. With `show_labels=False` (`--no-labels`) labels take
+  no room. `compute_layout` takes `labels=True`; the circular layout is unchanged.
+
 ### Fixed
+
+- The SVG's `viewBox` now includes labels wider than their symbol, so the outermost labels
+  are no longer cut at the edge.
 
 - `PedigreeBuilder`: a child given only a father or only a mother was drawn alone, joined to
   no one. The builder now gives it an unlabelled phantom for the other parent, as the parser
   has done since 0.4.4, so the child hangs from the couple (#40). `build()` and the parser
   now share one function for phantom parents.
+
+### Deprecated
+
+- `PedigreeStyle.min_node_distance` was never used by the layout (`sibling_gap` and
+  `couple_gap` set the spacing). It is still accepted, and documented as having no effect;
+  it will be removed in 1.0.
 
 ## [0.5.3] - 2026-11-17
 

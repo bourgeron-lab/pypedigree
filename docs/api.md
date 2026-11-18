@@ -214,7 +214,7 @@ build_notation(pregnancy="SAB", adopted="in")
 
 ## Layout
 
-### `compute_layout(family, style=None)`
+### `compute_layout(family, style=None, *, labels=True)`
 
 Compute (x, y) coordinates for all individuals and connection geometry. No matplotlib dependency.
 
@@ -224,7 +224,7 @@ from pypedigree import compute_layout, PedigreeStyle
 layout = compute_layout(family, style=PedigreeStyle())
 ```
 
-**Args**: `family` — `Family` object. `style` — `PedigreeStyle` (optional, defaults used if None).
+**Args**: `family` — `Family` object. `style` — `PedigreeStyle` (optional, defaults used if None). `labels` — whether labels will be drawn: neighbours are then kept far enough apart for their labels (the renderers pass `show_labels`).
 
 **Returns**: `FamilyLayout` with `.nodes`, `.edges`, `.twin_connectors`, `.duplicate_arcs`.
 
@@ -232,7 +232,7 @@ layout = compute_layout(family, style=PedigreeStyle())
 
 0. **Couple alone in its family** — A family holding only two parents, a man and a woman, both founders, with no child in the file (a trio whose child is missing, say) is drawn as their couple, father on the left, with a descent line to a "?" instead of two unrelated symbols. The pedigree itself is not changed. `with_unknown_offspring(family)` (in `pypedigree.layout`) returns a copy with a placeholder child (`is_unknown_offspring=True`) and the couple's union, or the family itself.
 1. **Assign generations** — BFS from founders using a parent→child index, then partners are aligned and children propagated until every child sits below both parents. A duplicate node stands on the generation of the individual it repeats.
-2. **Compute horizontal positions** — Each union's descendants form a block. Sibling blocks are packed left to right against each other's contours, generation by generation, and every couple is centred over its children. Nodes on a row stay at least `sibling_gap` apart (`couple_gap` between partners), and the children of one union occupy a stretch of their row that no other sibship enters.
+2. **Compute horizontal positions** — Each union's descendants form a block. Sibling blocks are packed left to right against each other's contours, generation by generation, and every couple is centred over its children. Nodes on a row stay at least `sibling_gap` apart (`couple_gap` between partners), and the children of one union occupy a stretch of their row that no other sibship enters. Where two neighbours' labels would overlap at that distance (long IDs, a large `font_size`, long annotations), those two are moved apart by the room their labels need: each label is measured with the character widths of DejaVu Sans at the SVG's scale, the widest of its lines counting (ID, then notes and annotations at 70 % of the size), with half an em between labels.
 3. **Break tangled loops** — A loop partner (both partners descend from people in the pedigree) is drawn next to their partner, with their parents' sibship line stretched to reach them. Step 2 orders siblings so the two branches of a loop meet: each ancestor on one side is placed last among their siblings, each on the other side first. When both branches descend from the same sibship (cousins marrying), those two siblings are kept together, before any sibling who marries into a family placed later. Where the stretched line would still overlap another sibship, the partner is drawn twice instead: among their siblings, and as a duplicate next to their partner, joined by a dotted arc. One loop is broken per group of overlapping lines, then steps 1-2 are repeated, so no loop is broken that another break made unnecessary. The input family is never modified; the duplicates appear as extra nodes with `is_duplicate=True`.
 4. **Build geometry** — Nodes, edges, twin connectors, duplicate arcs. Every edge is horizontal or vertical: a single child that is not centred under its parents (possible only in a loop) hangs from a short sibship-level segment rather than a diagonal. Sibship lines of different unions never overlap. Duplicate arcs bow by at most 0.4 generation gaps.
 
@@ -636,9 +636,9 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `font_family` | `"sans-serif"` | Label font family |
 | `label_offset` | `0.15` | Vertical offset for labels below shapes |
 | `generation_gap` | `2.0` | Vertical distance between generations |
-| `sibling_gap` | `1.5` | Horizontal distance between siblings |
-| `couple_gap` | `1.5` | Horizontal distance between partners |
-| `min_node_distance` | `1.2` | Minimum distance between any two nodes |
+| `sibling_gap` | `1.5` | Horizontal distance between siblings (more where long labels need it) |
+| `couple_gap` | `1.5` | Horizontal distance between partners (more where long labels need it) |
+| `min_node_distance` | `1.2` | Deprecated, no effect: `sibling_gap` and `couple_gap` set the spacing. To be removed in 1.0 |
 | `radial_gap` | `2.5` | Distance between concentric rings in circular layout |
 | `base_radius` | `3.0` | Radius of the innermost ring in circular layout |
 | `phenotype_colors` | `{}` | Map of phenotype name to hex color (e.g. `{"IQ": "#3498db"}`) |
