@@ -65,11 +65,15 @@ class TestResolveStyle:
 
     def test_user_colors_win(self):
         """User colors are kept; a known phenotype left out gets its own color,
-        any other column none (the renderer's fallback grey)."""
+        any other column a palette color (it was the fallback grey before 0.6.1)."""
         style = PedigreeStyle()
         style.phenotype_colors = {"IQ": "#123456"}
         resolved = resolve_style(style, ["IQ", "epilepsy", "SRS"])
-        assert resolved.phenotype_colors == {"IQ": "#123456", "epilepsy": "#5e287e"}
+        assert resolved.phenotype_colors == {
+            "IQ": "#123456",
+            "epilepsy": "#5e287e",
+            "SRS": "#e67e22",  # third column: the palette's third entry
+        }
 
     def test_user_color_beats_the_conventional_one(self):
         style = PedigreeStyle(phenotype_colors={"ASD": "#000000"})
@@ -140,6 +144,76 @@ class TestKnownPhenotypeColors:
         resolved = resolve_style(style, ["IQ"])
         resolved.gradient_range["IQ"][0] = 0
         assert style.gradient_range["IQ"] == [40, 160]
+
+
+class TestPaletteContrast:
+    """No two columns get colors that look alike (several o_ columns, say)."""
+
+    @staticmethod
+    def _assert_distinct(colors: dict[str, str]) -> None:
+        from pypedigree.config import _alike
+
+        values = list(colors.values())
+        for i, a in enumerate(values):
+            for b in values[i + 1 :]:
+                assert not _alike(a, b), (a, b, colors)
+
+    def test_known_phenotypes_and_two_outlines(self):
+        """The four known phenotypes left green and teal: the second is now brown."""
+        names = ["Autism", "ADHD", "ID", "Epilepsy", "WGS", "Array"]
+        colors = resolve_style(None, names).phenotype_colors
+        assert colors["WGS"] == "#2ecc71"  # as before
+        assert colors["Array"] == "#8c564b"  # was teal, next to the green
+        self._assert_distinct(colors)
+
+    def test_known_phenotypes_and_three_more(self):
+        names = ["Autism", "ADHD", "ID", "Epilepsy", "WGS", "Array", "WES"]
+        self._assert_distinct(resolve_style(None, names).phenotype_colors)
+
+    def test_without_known_phenotypes_the_palette_order_is_kept(self):
+        """Figures with no known phenotype and no chosen color do not change."""
+        from pypedigree.config import DEFAULT_PHENOTYPE_PALETTE
+
+        names = [f"P{i}" for i in range(8)]
+        colors = resolve_style(None, names).phenotype_colors
+        assert list(colors.values()) == DEFAULT_PHENOTYPE_PALETTE
+
+    def test_past_eight_columns_no_color_repeats(self):
+        names = [f"P{i}" for i in range(11)]
+        values = list(resolve_style(None, names).phenotype_colors.values())
+        assert len(set(values)) == len(values)
+
+    def test_unset_columns_get_a_color_when_the_user_set_some(self):
+        """No more fallback grey: the other columns take palette colors."""
+        style = PedigreeStyle(phenotype_colors={"WGS": "#000000"})
+        colors = resolve_style(style, ["WGS", "WES", "Array"]).phenotype_colors
+        assert colors["WGS"] == "#000000"
+        assert set(colors) == {"WGS", "WES", "Array"}
+        self._assert_distinct(colors)
+
+    def test_a_chosen_color_is_not_repeated(self):
+        """A column whose palette entry is the user's color, or looks like it, moves."""
+        style = PedigreeStyle(phenotype_colors={"A": "#1abc9c"})  # teal
+        names = ["A", "B", "C", "D"]  # D's entry is the green
+        colors = resolve_style(style, names).phenotype_colors
+        assert colors["D"] != "#2ecc71"
+        self._assert_distinct(colors)
+
+    def test_named_and_invalid_user_colors(self):
+        """Colors given by name are compared too; an invalid one is left to the check."""
+        style = PedigreeStyle(phenotype_colors={"A": "red", "B": "not-a-color"})
+        colors = resolve_style(style, ["A", "B", "C"]).phenotype_colors
+        assert colors["B"] == "not-a-color"
+        assert colors["C"] not in ("#e74c3c",)  # the palette red, too close to "red"
+
+    def test_alike(self):
+        from pypedigree.config import _alike
+
+        assert _alike("#e74c3c", "#d34436")  # palette red, intellectual disability red
+        assert _alike("#2ecc71", "#1abc9c")  # green, teal
+        assert _alike("#ABCDEF", "#abcdef")
+        assert not _alike("#e74c3c", "#e67e22")  # red, orange
+        assert not _alike("#2ecc71", "#8c564b")  # green, brown
 
 
 class TestApplyPgsSpacing:

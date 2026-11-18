@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, field, fields, replace
 from difflib import get_close_matches
 from typing import Any
 
+from pypedigree.colors import parse_rgb
 from pypedigree.errors import PedigreeStyleWarning
 
 DEFAULT_PHENOTYPE_PALETTE = [
@@ -25,6 +26,27 @@ DEFAULT_PHENOTYPE_PALETTE = [
     "#f1c40f",  # yellow
     "#e91e63",  # pink
 ]
+
+# More colors, used once the palette runs short: when known phenotypes and
+# the colors the user chose leave too few distinct ones, or past eight
+# columns. Chosen far from the palette and from the known phenotypes' colors.
+EXTRA_PHENOTYPE_COLORS = [
+    "#8c564b",  # brown
+    "#e377c2",  # light magenta
+    "#bcbd22",  # olive
+]
+
+# Palette pairs too alike to tell apart in a thin border or a small band,
+# although their hues differ (perceptual distance alone does not catch them:
+# red and orange are as far apart as green and teal).
+_ALIKE_PAIRS = {
+    frozenset({"#2ecc71", "#1abc9c"}),  # green, teal
+    frozenset({"#f1c40f", "#bcbd22"}),  # yellow, olive
+    frozenset({"#9b59b6", "#e377c2"}),  # purple, light magenta
+}
+# Below this CIE76 distance two colors pass for one (the palette's red is
+# 6.6 from intellectual disability's red, the blue 17.9 from autism's).
+_MIN_COLOR_DISTANCE = 20.0
 
 # Phenotypes with a conventional color, recognised by name whatever the
 # column prefix or case: autism blue, intellectual disability red, ADHD
@@ -250,7 +272,6 @@ def resolve_style(
 
     all_names = list(phenotype_names or [])
     names = [n for n in all_names if not is_pgs_column(n)]
-    user_set_colors = bool(resolved.phenotype_colors)
 
     # Conventional colors for known phenotypes (autism, ID, ADHD, epilepsy),
     # unless the user chose one.
@@ -258,18 +279,66 @@ def resolve_style(
     for name, key in known.items():
         resolved.phenotype_colors.setdefault(name, KNOWN_PHENOTYPE_COLORS[key])
 
-    # Auto-assign the other band colors from the palette when the user set
-    # none, skipping the entries that look like a known phenotype's color.
-    if names and not user_set_colors:
-        taken = {c for key in known.values() for c in _PALETTE_LOOKALIKES[key]}
-        palette = [c for c in DEFAULT_PHENOTYPE_PALETTE if c not in taken]
-        # Indexed by position among all columns, as before known phenotypes
-        # existed, so a figure without one keeps its colors.
-        for i, name in enumerate(all_names):
-            if name in names and name not in known:
-                resolved.phenotype_colors[name] = palette[i % len(palette)]
+    # Auto-assign the other columns' colors from the palette, skipping the
+    # entries that look like a known phenotype's color. Each column first
+    # gets the palette entry at its position among all columns, as before
+    # known phenotypes existed, so a figure without one keeps its colors.
+    taken = {c for key in known.values() for c in _PALETTE_LOOKALIKES[key]}
+    palette = [c for c in DEFAULT_PHENOTYPE_PALETTE if c not in taken]
+    spare = [c for c in DEFAULT_PHENOTYPE_PALETTE + EXTRA_PHENOTYPE_COLORS if c not in taken]
+    # When some colors are already fixed (known phenotypes, or chosen by the
+    # user), a column whose entry repeats one of them, or looks like one, takes
+    # the first spare color that does not: two columns must not look alike.
+    # Without them the palette's order is kept as it was, so such figures do
+    # not change; past eight columns the spare colors come before the palette
+    # starts over.
+    in_use = [resolved.phenotype_colors[n] for n in names if n in resolved.phenotype_colors]
+    deconflict = bool(in_use)
+    for i, name in enumerate(all_names):
+        if name not in names or name in resolved.phenotype_colors:
+            continue
+        color = palette[i % len(palette)] if palette else spare[i % len(spare)]
+        if deconflict or i >= len(palette):
+            clash = any(_alike(color, used) for used in in_use)
+            if clash:
+                # Failing a color unlike all, one not already used.
+                distinct = [c for c in spare if not any(_alike(c, u) for u in in_use)]
+                unused = [c for c in spare if c.lower() not in {u.lower() for u in in_use}]
+                color = (distinct or unused or [color])[0]
+        resolved.phenotype_colors[name] = color
+        in_use.append(color)
 
     return resolved
+
+
+def _alike(a: str, b: str) -> bool:
+    """Whether two colors would be taken for one another in a figure."""
+    if a.lower() == b.lower() or frozenset({a.lower(), b.lower()}) in _ALIKE_PAIRS:
+        return True
+    try:
+        return _lab_distance(parse_rgb(a), parse_rgb(b)) < _MIN_COLOR_DISTANCE
+    except ValueError:  # an invalid user color is reported by `check_colors`
+        return False
+
+
+def _lab_distance(a: tuple[float, float, float], b: tuple[float, float, float]) -> float:
+    """CIE76 distance between two sRGB colors (D65 white)."""
+
+    def lab(rgb: tuple[float, float, float]) -> tuple[float, float, float]:
+        lin = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in rgb]
+        r, g, b_ = lin
+        x = (0.4124 * r + 0.3576 * g + 0.1805 * b_) / 0.95047
+        y = 0.2126 * r + 0.7152 * g + 0.0722 * b_
+        z = (0.0193 * r + 0.1192 * g + 0.9505 * b_) / 1.08883
+
+        def f(t: float) -> float:
+            return t ** (1 / 3) if t > 0.008856 else 7.787 * t + 16 / 116
+
+        fx, fy, fz = f(x), f(y), f(z)
+        return (116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz))
+
+    la, lb = lab(a), lab(b)
+    return float(sum((p - q) ** 2 for p, q in zip(la, lb, strict=True)) ** 0.5)
 
 
 def apply_pgs_spacing(

@@ -295,6 +295,12 @@ Multi-phenotype support:
   legend) are drawn even with no other phenotype column. `tests/test_pgs_scale.py`
 - PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve. Multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) show colored markers on a single curve. Marker colors via `pgs_colors` style option. `couple_gap` and `sibling_gap` auto-increase when PGS present.
 - Colors from `phenotype_colors` in style JSON, or auto-assigned from palette
+  (`config.resolve_style`): by position among all columns, lookalikes of known
+  phenotypes skipped; when any color is fixed (known phenotype or user's), a
+  color equal or `_alike` (CIE76 < 20, or an `_ALIKE_PAIRS` pair such as green
+  and teal) to one in use is replaced by the first distinct one of the palette +
+  `EXTRA_PHENOTYPE_COLORS`. With none fixed the palette order is kept exactly (no
+  figure changes). Columns are never left grey since 0.6.1.
 - Comma decimal separator: parser accepts `0,712` as `0.712` (European locale)
 - Gradient band values always displayed regardless of intensity
 - AUTO mode (no prefix) is resolved **once per column** from all of its values:

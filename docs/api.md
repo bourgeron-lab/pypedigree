@@ -658,9 +658,11 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 
 **Methods**: `PedigreeStyle.from_dict(d)` — create from dictionary. `style.to_dict()` — convert to dictionary.
 
-### `DEFAULT_PHENOTYPE_PALETTE`
+### `DEFAULT_PHENOTYPE_PALETTE` and `EXTRA_PHENOTYPE_COLORS`
 
-List of 8 default hex colors used to auto-assign phenotype band colors when no `phenotype_colors` are specified: red, blue, orange, green, purple, teal, yellow, pink.
+In `pypedigree.config`. `DEFAULT_PHENOTYPE_PALETTE`: the 8 hex colors given to columns without one in `phenotype_colors`, by their position among the columns: red, blue, orange, green, purple, teal, yellow, pink. `EXTRA_PHENOTYPE_COLORS`: brown, light magenta and olive, used when the palette runs short.
+
+When some colors are fixed (a known phenotype's, or one in `phenotype_colors`), a column whose palette color repeats one of them, or looks like one, takes the next color that does not, from the palette then the extra colors. Colors look alike when their CIE76 distance is below 20 or they are green and teal, yellow and olive, or purple and light magenta. A figure with no known phenotype and no chosen color keeps the palette's order; past eight columns the extra colors come before it repeats.
 
 ### `KNOWN_PHENOTYPE_COLORS` and `known_phenotype(name)`
 
@@ -709,7 +711,9 @@ column also forces gradient.
 ### `resolve_style(style, phenotype_names=None)`
 
 Fill in the pedigree-dependent parts of a style: phenotype columns with no
-explicit color get one from `DEFAULT_PHENOTYPE_PALETTE`. Bands are only drawn
+explicit color get one from `DEFAULT_PHENOTYPE_PALETTE`, even when other
+columns have one (they were grey before 0.6.1), never one that looks like a
+color already in the figure. Bands are only drawn
 when `phenotype_colors` is populated, so this is what makes a multi-phenotype
 figure render. `render_pedigree()`, the CLI and `PedigreeBuilder` all call it,
 which is why they produce identical figures.
