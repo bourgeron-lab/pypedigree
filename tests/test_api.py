@@ -220,6 +220,68 @@ class TestPedigreeBuilderPhantoms:
         assert fam.individuals["phantom_m"].is_phantom is True
         assert fam.individuals["phantom_m"].sex == Sex.FEMALE
 
+    @pytest.mark.parametrize(
+        ("parent", "role", "phantom_id", "phantom_sex"),
+        [
+            ("A", "father", "_phantom_mother_C", Sex.FEMALE),
+            ("B", "mother", "_phantom_father_C", Sex.MALE),
+        ],
+    )
+    def test_one_declared_parent_gets_a_phantom_partner(
+        self, parent, role, phantom_id, phantom_sex
+    ):
+        """A child with one parent hangs from that parent and a phantom (#40)."""
+        b = PedigreeBuilder(family_id="F1")
+        b.add_individual("A", sex="male", phenotype="affected")
+        b.add_individual("B", sex="female", phenotype="unaffected")
+        b.add_individual("C", sex="female", phenotype="unaffected", **{role: parent})
+
+        fam = b.build().get_family("F1")
+        phantom = fam.individuals[phantom_id]
+        assert phantom.is_phantom is True
+        assert phantom.sex == phantom_sex
+        child = fam.individuals["C"]
+        assert {child.father_id, child.mother_id} == {parent, phantom_id}
+        assert [(set(u.partner_ids), u.children_ids) for u in fam.unions] == [
+            ({parent, phantom_id}, ["C"])
+        ]
+
+    def test_one_declared_parent_matches_the_parser(self):
+        """The builder and the parser give the same family (#40)."""
+        from pypedigree import parse_pedigree_from_string
+
+        b = PedigreeBuilder(family_id="F1")
+        b.add_individual("A", sex="male", phenotype="affected")
+        b.add_individual("C", sex="female", phenotype="unaffected", father="A")
+        built = b.build().get_family("F1")
+
+        text = "FID\tIID\tFather\tMother\tSex\tPhenotype\nF1\tA\t0\t0\t1\t2\nF1\tC\tA\t0\t2\t1\n"
+        parsed = parse_pedigree_from_string(text).get_family("F1")
+
+        def summary(fam):
+            people = {
+                (i.sample_id, i.father_id, i.mother_id, i.sex, i.is_phantom)
+                for i in fam.individuals.values()
+            }
+            unions = [(u.partner_ids, u.children_ids) for u in fam.unions]
+            return people, unions
+
+        assert summary(built) == summary(parsed)
+
+    def test_one_declared_parent_is_drawn_connected(self):
+        """The child gets a line of descent from the couple (#40)."""
+        from pypedigree import compute_layout
+        from pypedigree.config import resolve_style
+        from pypedigree.models import EdgeType
+
+        b = PedigreeBuilder(family_id="F1")
+        b.add_individual("A", sex="male", phenotype="affected")
+        b.add_individual("C", sex="female", phenotype="unaffected", father="A")
+        layout = compute_layout(b.build().get_family("F1"), resolve_style(None))
+
+        assert any(e.edge_type == EdgeType.RELATIONSHIP for e in layout.edges)
+        assert any(e.edge_type == EdgeType.INDIVIDUAL for e in layout.edges)
+
 
 class TestPedigreeBuilderRender:
     """Test rendering via builder."""

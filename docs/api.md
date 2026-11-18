@@ -346,7 +346,7 @@ Explicitly add a union. Only needed for childless couples or consanguineous/brok
 ### `set_style(style)` / `build()` / `render(output=None, ...)` / `render_interactive_svg(output=None, ...)` / `render_svg(output=None, ...)`
 
 - `set_style(style)` — Set custom `PedigreeStyle`.
-- `build()` — Build a `Pedigree` object. Auto-infers unions and phantom parents.
+- `build()` — Build a `Pedigree` object. Auto-infers unions and phantom parents, as the parser does: a parent named but not added becomes a phantom with that ID, and a child with only one parent gets an unlabelled phantom for the other.
 - `render(output, *, style, show_labels, show_legend, circular=False)` — Build and render as matplotlib Figure. Auto-assigns phenotype colors. Pass `circular=True` for radial layout.
 - `render_interactive_svg(output, *, style, show_labels, show_legend, id_prefix, responsive)` — Build and render as interactive SVG string with tooltips and click highlighting.
 - `render_svg(output, *, style, show_labels, show_legend, id_prefix, responsive)` — Build and render as a static SVG string (no script, no tooltip), for print or host pages.

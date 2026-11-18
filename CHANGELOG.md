@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `PedigreeBuilder`: a child given only a father or only a mother was drawn alone, joined to
+  no one. The builder now gives it an unlabelled phantom for the other parent, as the parser
+  has done since 0.4.4, so the child hangs from the couple (#40). `build()` and the parser
+  now share one function for phantom parents.
+
 ## [0.5.3] - 2026-11-17
 
 ### Fixed
