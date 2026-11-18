@@ -66,7 +66,11 @@ class TestTextWidth:
         from matplotlib import font_manager, ft2font
 
         font = ft2font.FT2Font(font_manager.findfont("DejaVu Sans"))
-        flags = getattr(ft2font, "LoadFlags", ft2font).NO_SCALE
+        # matplotlib 3.10 moved the flag into an enum; 3.7 to 3.9 have the constant.
+        if hasattr(ft2font, "LoadFlags"):
+            flags = ft2font.LoadFlags.NO_SCALE
+        else:
+            flags = ft2font.LOAD_NO_SCALE
         for code in range(32, 127):
             glyph = font.load_char(code, flags=flags)
             assert symbols._CHAR_EM[chr(code)] == pytest.approx(
