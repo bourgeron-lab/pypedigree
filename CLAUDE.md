@@ -231,7 +231,7 @@ Standard 6-column format (TSV/CSV/space-separated):
 
 Parent IDs with no row become phantoms keeping that ID (`_create_phantom_parents`,
 which returns one warning message per missing parent); a child with one parent given
-gets a `_phantom_*` parent with no label. Same behaviour as `PedigreeBuilder`.
+gets a `_phantom_*` parent with no label. `PedigreeBuilder.build()` calls the same function.
 
 Extended format adds:
 - Column 7: date_of_birth (YYYYMMDD, YYYYMM, or YYYY)

@@ -1189,7 +1189,7 @@ def _check_cycles(family: Family) -> None:
 def _create_phantom_parents(family: Family) -> list[str]:
     """Create phantom (dashed) parents where a child's parent has no row.
 
-    Two cases, as in `PedigreeBuilder`:
+    Two cases (`PedigreeBuilder.build` uses this function too):
 
     - A parent named in the father or mother column but with no row of
       their own becomes a phantom with that ID (and the sex of the role),

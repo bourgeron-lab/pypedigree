@@ -44,6 +44,7 @@ from pypedigree.models import (
     Union,
 )
 from pypedigree.parser import (
+    _create_phantom_parents,
     _strip_display_prefix,
     build_data_attributes,
     build_notation,
@@ -434,29 +435,10 @@ class PedigreeBuilder:
             )
             families[fid].individuals[data["sample_id"]] = ind
 
-        # Infer phantom parents for individuals with one known parent
+        # Phantom parents, as the parser makes them: a named parent that was
+        # not added, and the missing second parent of a child with one parent
         for fam in families.values():
-            phantoms_to_add: list[Individual] = []
-            for ind in list(fam.individuals.values()):
-                if ind.father_id and ind.father_id not in fam.individuals:
-                    phantom = Individual(
-                        sample_id=ind.father_id,
-                        family_id=fam.family_id,
-                        sex=Sex.MALE,
-                        is_phantom=True,
-                    )
-                    phantoms_to_add.append(phantom)
-                if ind.mother_id and ind.mother_id not in fam.individuals:
-                    phantom = Individual(
-                        sample_id=ind.mother_id,
-                        family_id=fam.family_id,
-                        sex=Sex.FEMALE,
-                        is_phantom=True,
-                    )
-                    phantoms_to_add.append(phantom)
-            for p in phantoms_to_add:
-                if p.sample_id not in fam.individuals:
-                    fam.individuals[p.sample_id] = p
+            _create_phantom_parents(fam)
 
         self._apply_twins(families)
 

@@ -740,7 +740,7 @@ so this is only needed for <strong>childless couples</strong> or to set consangu
 <p>Set a custom <code>PedigreeStyle</code> for rendering.</p>
 
 <h3><code>build() &rarr; Pedigree</code></h3>
-<p>Build a <code>Pedigree</code> object from added individuals. Auto-infers unions and creates phantom parents.</p>
+<p>Build a <code>Pedigree</code> object from added individuals. Auto-infers unions and creates phantom parents, as the parser does: a parent named but not added becomes a phantom with that ID, and a child with only one parent gets an unlabelled phantom for the other.</p>
 
 <h3><code>render(output=None, ...) &rarr; Figure</code></h3>
 <p>Build and render in one step. Auto-assigns phenotype colors if not set.</p>
