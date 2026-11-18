@@ -830,8 +830,11 @@ style.phenotype_colors = {
 fig = render_pedigree(ped, style=style)</code></pre>
 
 <h4>Auto-assigned</h4>
-<p>When no <code>phenotype_colors</code> are set, colors are assigned from the default
-palette. This happens for every entry point &mdash; the CLI, <code>render_pedigree()</code>
+<p>Columns without a color in <code>phenotype_colors</code> get one from the default
+palette, by their position among the columns, also when other columns have one. A color
+that repeats one already in the figure (a known phenotype's, or one you chose), or looks
+like it, is replaced by the next distinct one, from the palette then brown, light magenta
+and olive: two outlines or bands never look alike. This happens for every entry point &mdash; the CLI, <code>render_pedigree()</code>
 and <code>PedigreeBuilder</code> &mdash; via <code>resolve_style()</code>, so all three
 produce the same figure for the same input.</p>
 
@@ -875,7 +878,7 @@ the same individual stay visually distinct. The legend lists exactly the values 
 in the rendered pedigree.</p>
 
 <h3>Default Color Palette</h3>
-<p>When colors are auto-assigned, the following 8-color palette is used:</p>
+<p>When colors are auto-assigned, the following 8-color palette is used, then three extra colors when it runs short (brown <code>#8c564b</code>, light magenta <code>#e377c2</code>, olive <code>#bcbd22</code>):</p>
 <table>
   <tr>
     <td style="background:#e74c3c;color:white;text-align:center;width:12%">#e74c3c</td>

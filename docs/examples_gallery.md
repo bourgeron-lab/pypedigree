@@ -133,7 +133,7 @@ Where `style.json` maps phenotype names to colors:
 {"phenotype_colors": {"epilepsy": "#e74c3c", "IQ": "#3498db", "SRS": "#e67e22"}}
 ```
 
-Colors are auto-assigned from a default palette if no `phenotype_colors` are provided. Autism (`ASD`, `TSA`), intellectual disability (`ID`, `DI`), ADHD (`TDAH`) and epilepsy columns get conventional colors instead: blue, red, yellow and purple; the palette then skips its own blue, red, orange/yellow and purple for the other columns.
+Colors are auto-assigned from a default palette if no `phenotype_colors` are provided. Autism (`ASD`, `TSA`), intellectual disability (`ID`, `DI`), ADHD (`TDAH`) and epilepsy columns get conventional colors instead: blue, red, yellow and purple; the palette then skips its own blue, red, orange/yellow and purple for the other columns, and no two columns get colors that look alike (green and teal, say): the next distinct color is taken, brown, light magenta or olive when the palette runs short.
 
 ---
 

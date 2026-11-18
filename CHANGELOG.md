@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Columns without a color in `phenotype_colors` now get one from the palette even when other
+  columns have one. They were drawn grey (`#999999`), so two such columns, two `o_` outlines
+  say, could not be told apart.
+
+### Fixed
+
+- Two columns no longer get colors that look alike. With the four known phenotypes (autism,
+  intellectual disability, ADHD, epilepsy) in a figure, the palette had only green and teal
+  left for the other columns: a second `o_` outline was teal next to the first one's green,
+  and a third repeated the green. When some colors are fixed (known phenotypes, or chosen by
+  the user), a column whose palette color repeats one of them or looks like one takes the
+  next color that does not, from the palette and three new colors (`EXTRA_PHENOTYPE_COLORS`:
+  brown, light magenta, olive); past eight columns these come before the palette repeats.
+  Figures with no known phenotype and no chosen color keep their colors, so the gallery and
+  test images are unchanged.
+
 ## [0.6.0] - 2026-11-18
 
 ### Added
