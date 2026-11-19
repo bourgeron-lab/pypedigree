@@ -70,7 +70,7 @@ Column name prefixes control how phenotype columns are rendered:
 | `a_` | Annotation | Text displayed below the ID label (italic grey), not a phenotype band |
 | *(none)* | Auto | Auto-detect from data (default) |
 
-The prefix is stripped from the display name (e.g. `b_ASD` is shown as `ASD`).
+The prefix is stripped from the display name (e.g. `b_ASD` is shown as `ASD`), and underscores are shown as spaces (`b_intellectual_disability` as "intellectual disability"). The style option `phenotype_labels` gives any column another name, e.g. `{"SRS": "SRS T-score"}`.
 
 ### Style JSON options for gradients
 

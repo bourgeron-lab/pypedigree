@@ -99,15 +99,19 @@ class TestPgsLegendDescription:
         text = pgs_legend_description(["PGS"])
         assert text == "PGS distribution (vertical) with individual score"
 
-    def test_prefixed_columns_list_their_traits(self):
-        text = pgs_legend_description(["PGS_autism", "PGS_IQ"])
-        assert text == "PGS distribution (autism, IQ)"
+    def test_named_columns_are_keyed(self):
+        """The scores follow in the row's key, each after a dash of its color (#56)."""
+        assert pgs_legend_description(["PGS_autism", "PGS_IQ"]) == "PGS distribution:"
+        assert pgs_legend_description(["PGSautism"]) == "PGS distribution:"
 
-    def test_unprefixed_name_is_kept_whole(self):
-        assert pgs_legend_description(["PGSautism"]) == "PGS distribution (PGSautism)"
+    def test_key_names_the_traits(self):
+        from pypedigree.phenotypes import pgs_trait_name
 
-    def test_single_prefixed_column_still_lists_its_trait(self):
-        assert pgs_legend_description(["PGS_ADHD"]) == "PGS distribution (ADHD)"
+        style = PedigreeStyle(phenotype_labels={"PGS_IQ": "intelligence"})
+        assert pgs_trait_name("PGS_autism", style) == "autism"
+        assert pgs_trait_name("PGS_IQ", style) == "intelligence"
+        assert pgs_trait_name("PGSautism", style) == "PGSautism"
+        assert pgs_trait_name("PGS_school_years", style) == "school years"
 
 
 class TestLegendPhysicalSize:

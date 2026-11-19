@@ -100,7 +100,7 @@ class TestRender:
         """#50: the family is drawn with its bands, PGS curves and legend."""
         for key in ("svg", "static_svg"):
             svg = _render(family="F")[key]
-            assert "PGS distribution (x)" in svg
+            assert "PGS distribution:" in svg
             assert svg.count('class="pgs"') >= 3
 
     def test_options_reach_the_drawing(self):

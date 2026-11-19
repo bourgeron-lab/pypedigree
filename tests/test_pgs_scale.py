@@ -104,9 +104,10 @@ class TestText:
         assert pgs_value_text(raw, scale) == expected
 
     def test_legend_caption_names_the_scale(self):
-        assert pgs_legend_description(["PGS_autism"], "zscore").endswith("z-score, ±2 SD marked")
+        caption = pgs_legend_description(["PGS_autism"], "zscore")
+        assert caption == "PGS distribution, z-score, ±2 SD marked:"
         assert "percentile" in pgs_legend_description(["PGS_autism"], "percentile")
-        assert pgs_legend_description(["PGS_autism"]) == "PGS distribution (autism)"
+        assert pgs_legend_description(["PGS_autism"]) == "PGS distribution:"
 
 
 class TestRendering:
@@ -126,11 +127,11 @@ class TestRendering:
         svg = render_interactive_svg(parse_pedigree_from_string(TRIO), style=ZSCORE)
         assert svg.count('<g class="pgs">') == 3
         assert svg.count('class="pgs-tail"') == 6
-        assert "PGS_autism: z = +2.50, 99th percentile" in svg
+        assert "PGS autism: z = +2.50, 99th percentile" in svg
         assert "z-score, ±2 SD marked" in svg
         minmax = render_interactive_svg(parse_pedigree_from_string(TRIO))
         assert 'class="pgs-tail"' not in minmax
-        assert re.search(r"PGS_autism: 2\.5\b", minmax)
+        assert re.search(r"PGS autism: 2\.5\b", minmax)
 
     def test_cli_and_style_json(self, tmp_path):
         ped = tmp_path / "trio.ped"

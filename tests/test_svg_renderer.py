@@ -262,7 +262,7 @@ class TestSvgPhenotypes:
         svg = self._svg()
         assert "IQ: 84" in svg
         assert "Dx: ASD" in svg
-        assert "PGS_x" in svg
+        assert "PGS x: " in svg  # underscores shown as spaces (#56)
 
     def test_bands_match_the_matplotlib_decisions(self) -> None:
         """Every band is filled with the color `band_cell` gives the PNG renderer."""

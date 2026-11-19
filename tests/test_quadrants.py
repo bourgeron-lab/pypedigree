@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 import warnings
+from dataclasses import replace
 
 import matplotlib.pyplot as plt
 import pytest
@@ -293,7 +294,12 @@ class TestLegend:
             ("bottom-left", "ID", COLORS["ID"]),
             ("bottom-right", "Epilepsy", COLORS["Epilepsy"]),
         }
-        # The key is two rows tall, then one row per column.
+        # The key is two rows tall, then one shared row for the binary
+        # columns, whose colors the key gives (compact legend, #56).
+        assert legend_slot_count(rows) == 2 + 1
+        assert rows[1].kind == "binary_shared"
+        full = replace(style, legend="full")
+        rows = legend_rows(names, full, render, pedigree.phenotype_display_modes, CarrierScheme())
         assert legend_slot_count(rows) == 2 + 4
 
     def test_png_and_svg_legends_name_the_quadrants(self):

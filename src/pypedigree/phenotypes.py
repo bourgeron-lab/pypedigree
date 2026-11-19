@@ -368,6 +368,44 @@ def resolve_phenotype_render(
     return PhenotypeRender(effective_modes, categorical_colors)
 
 
+# --- Names shown (#56) --------------------------------------------------------
+
+LEGEND_MODES = ("auto", "compact", "full")
+
+
+def display_name(name: str, style: PedigreeStyle) -> str:
+    """The name a column is shown with: its `phenotype_labels` entry, or its
+    name with underscores as spaces."""
+    label = style.phenotype_labels.get(name)
+    return label if label is not None else name.replace("_", " ")
+
+
+def pgs_trait_name(name: str, style: PedigreeStyle) -> str:
+    """A PGS column's name in the legend's key: its label, or its name
+    without "PGS_" ("PGS_autism" -> "autism")."""
+    label = style.phenotype_labels.get(name)
+    if label is not None:
+        return label
+    trait = name[4:] if name.upper().startswith("PGS_") else name
+    return trait.replace("_", " ")
+
+
+def check_legend(style: PedigreeStyle) -> None:
+    """Reject an unknown ``legend`` or an invalid ``phenotype_labels``.
+
+    Raises:
+        PedigreeError: If ``style.legend`` is not one of `LEGEND_MODES`, or
+            a label is not a string.
+    """
+    if style.legend not in LEGEND_MODES:
+        raise PedigreeError(
+            f"Unknown legend {style.legend!r}: expected one of {', '.join(LEGEND_MODES)}"
+        )
+    bad = [k for k, v in style.phenotype_labels.items() if not isinstance(v, str)]
+    if bad:
+        raise PedigreeError(f"phenotype_labels must map names to text; not for {bad!r}")
+
+
 # --- Bands -------------------------------------------------------------------
 
 
@@ -461,7 +499,8 @@ def band_cell(
         if raw_val is not None:
             # Gradient values are always written, shortened or smaller when
             # they do not fit (`fit_text`).
-            return BandCell(color, f"{name}: {raw_val:g}", False, f"{raw_val:g}")
+            shown = display_name(name, style)
+            return BandCell(color, f"{shown}: {raw_val:g}", False, f"{raw_val:g}")
     return BandCell(color, text, False)
 
 
@@ -1016,6 +1055,10 @@ LEG_KEY_SLOTS = 2  # rows taken by the quadrant key
 LEG_KEY_SIDE = 1.5  # height of the key's square and circle, in vertical units
 LEG_KEY_GAP = 0.12  # between the key's symbols and their labels
 LEG_CHAR_WIDTH_EM = 0.55  # average glyph width, to make room for labels
+LEG_SHARED_BINARY_LABEL = "Phenotypes in the key (their colors)"
+LEG_KEY_DASH_EM = 1.4  # length of a PGS score's dash in the legend's key, in ems
+LEG_KEY_GAP_EM = 0.3  # between a dash and its score's name
+LEG_KEY_SPACE_EM = 0.9  # between one score's name and the next dash
 
 
 @dataclass(frozen=True)
@@ -1142,11 +1185,13 @@ class LegendRow:
     """One row of the legend panel.
 
     Attributes:
-        kind: "binary", "gradient", "categorical", "outline", "pgs",
-            "legacy_carrier" (half-fill / dot) or "carrier" (patterned).
+        kind: "binary", "binary_shared" (the binary columns of the quadrant
+            key, compact legend), "gradient", "categorical", "outline",
+            "pgs", "legacy_carrier" (half-fill / dot) or "carrier" (patterned).
         label: Row text.
         color: Swatch color ("binary", "outline").
-        colors: Gradient bar, left to right ("gradient").
+        colors: Gradient bar, left to right ("gradient"); the columns'
+            colors, side by side in the "affected" swatch ("binary_shared").
         low: Caption under the left end of a gradient bar.
         high: Caption under the right end of a gradient bar.
         categories: Category value → color ("categorical").
@@ -1154,6 +1199,8 @@ class LegendRow:
         pattern: Carrier pattern name ("carrier").
         obligate: Obligate-carrier row ("carrier", "legacy_carrier").
         quadrants: Cells of the quadrant key ("quadrants"), one per column.
+        key: The PGS scores' names and colors, written after the label
+            ("pgs", #56).
     """
 
     kind: str
@@ -1167,6 +1214,7 @@ class LegendRow:
     pattern: str = ""
     obligate: bool = False
     quadrants: tuple[QuadrantKeyCell, ...] = ()
+    key: tuple[tuple[str, str], ...] = ()
 
     @property
     def slots(self) -> int:
@@ -1248,18 +1296,58 @@ def quadrant_key_geometry(row: LegendRow, m: LegendMetrics, y_center: float) -> 
     )
 
 
+@dataclass(frozen=True)
+class LegendKeyItem:
+    """One score of the PGS row's key: a dash of its color, then its name.
+
+    Positions are in legend units (see `LEG_UNIT_X_EM`).
+    """
+
+    dash_x0: float
+    dash_x1: float
+    text_x: float
+    name: str
+    color: str
+
+
+def legend_key_items(row: LegendRow, label_x: float, m: LegendMetrics) -> list[LegendKeyItem]:
+    """Where the PGS row's key goes, after its label written from ``label_x`` (#56).
+
+    Text is measured in DejaVu Sans at the row's size (`symbols.text_width`),
+    so both renderers set the dashes and names at the same places.
+    """
+
+    def units(points: float) -> float:
+        return points / 72 / m.unit_x
+
+    em = units(m.fs)
+    x = label_x + units(symbols.text_width(row.label, m.fs) / symbols.UNITS_PER_POINT)
+    items = []
+    for name, color in row.key:
+        x += LEG_KEY_SPACE_EM * em
+        dash_x1 = x + LEG_KEY_DASH_EM * em
+        text_x = dash_x1 + LEG_KEY_GAP_EM * em
+        items.append(LegendKeyItem(x, dash_x1, text_x, name, color))
+        x = text_x + units(symbols.text_width(name, m.fs) / symbols.UNITS_PER_POINT)
+    return items
+
+
 def pgs_legend_description(pgs_names: Sequence[str], scale: str = "minmax") -> str:
-    """Caption of the PGS row, from its column names and the scale."""
+    """Caption of the PGS row, from its column names and the scale.
+
+    A single column named "PGS" is described in words; otherwise the caption
+    ends with a colon, and the row's key (`LegendRow.key`) follows it: each
+    score's name after a dash of its color (#56).
+    """
     if len(pgs_names) == 1 and pgs_names[0].upper() == "PGS":
-        caption = "PGS distribution (vertical) with individual score"
+        caption, keyed = "PGS distribution (vertical) with individual score", False
     else:
-        traits = [n[4:] if n.upper().startswith("PGS_") else n for n in pgs_names]
-        caption = f"PGS distribution ({', '.join(traits)})"
+        caption, keyed = "PGS distribution", True
     if scale == "zscore":
-        return f"{caption}: z-score, \u00b12 SD marked"
-    if scale == "percentile":
-        return f"{caption}: population percentile, \u00b12 SD marked"
-    return caption
+        caption += ", z-score, \u00b12 SD marked"
+    elif scale == "percentile":
+        caption += ", population percentile, \u00b12 SD marked"
+    return f"{caption}:" if keyed else caption
 
 
 def legend_rows(
@@ -1280,6 +1368,7 @@ def legend_rows(
     rows: list[LegendRow] = []
     names = list(phenotype_names)
     steps = [g / (GRADIENT_STEPS - 1) for g in range(GRADIENT_STEPS)]
+    binary_in_key: list[tuple[int, str]] = []  # binary rows of key columns
 
     for name in render.band_names(names):
         color = style.phenotype_colors.get(name, FALLBACK_COLOR)
@@ -1289,7 +1378,7 @@ def legend_rows(
             rows.append(
                 LegendRow(
                     "gradient",
-                    name,
+                    display_name(name, style),
                     colors=tuple(diverging_color_at(conf, t) for t in steps),
                     low=str(conf.get("min", 0)),
                     high=str(conf.get("max", 100)),
@@ -1301,7 +1390,7 @@ def legend_rows(
             rows.append(
                 LegendRow(
                     "gradient",
-                    name,
+                    display_name(name, style),
                     colors=tuple(blend_with_white(rgb, 1.0 - t if inverted else t) for t in steps),
                     low="Low",
                     high="High",
@@ -1309,27 +1398,52 @@ def legend_rows(
             )
         elif effective == "categorical":
             rows.append(
-                LegendRow("categorical", name, categories=render.categorical_colors.get(name, {}))
+                LegendRow(
+                    "categorical",
+                    display_name(name, style),
+                    categories=render.categorical_colors.get(name, {}),
+                )
             )
         else:
-            rows.append(LegendRow("binary", name, color=color))
+            if name in render.quadrants:
+                binary_in_key.append((len(rows), color))
+            rows.append(LegendRow("binary", display_name(name, style), color=color))
+
+    # Compact legend (#56): with quadrants, the key already says which color
+    # is which column, so two or more binary columns share one row.
+    compact = style.legend == "compact" or (style.legend == "auto" and bool(render.quadrants))
+    if compact and len(binary_in_key) >= 2:
+        first = binary_in_key[0][0]
+        shared = LegendRow(
+            "binary_shared",
+            LEG_SHARED_BINARY_LABEL,
+            colors=tuple(to_rgb(c) for _i, c in binary_in_key),
+        )
+        merged = {i for i, _c in binary_in_key}
+        rows = [r for i, r in enumerate(rows) if i not in merged]
+        rows.insert(first, shared)
 
     for name in render.outline_names(names):
         rows.append(
             LegendRow(
                 "outline",
-                f"Outline: {name} (colored border when affected)",
+                f"Outline: {display_name(name, style)} (colored border when affected)",
                 color=style.phenotype_colors.get(name, FALLBACK_COLOR),
             )
         )
 
     pgs_names = render.pgs_names(names)
     if pgs_names:
+        colors = {n: style.pgs_colors.get(n, DEFAULT_PGS_COLOR) for n in pgs_names}
+        plain = len(pgs_names) == 1 and pgs_names[0].upper() == "PGS"
         rows.append(
             LegendRow(
                 "pgs",
                 pgs_legend_description(pgs_names, style.pgs_scale),
-                pgs={n: style.pgs_colors.get(n, DEFAULT_PGS_COLOR) for n in pgs_names},
+                pgs=colors,
+                key=()
+                if plain
+                else tuple((pgs_trait_name(n, style), colors[n]) for n in pgs_names),
             )
         )
 
@@ -1352,7 +1466,7 @@ def legend_rows(
             rows.append(
                 LegendRow(
                     "carrier",
-                    carriers.label(key, obligate),
+                    carriers.label(key, obligate, display_name(key, style)),
                     pattern=carriers.pattern(key),
                     obligate=obligate,
                 )
@@ -1365,15 +1479,22 @@ def legend_rows(
             if name in carriers.keys:
                 cells.append(
                     QuadrantKeyCell(
-                        position, carriers.label(name, False), "white", carriers.pattern(name)
+                        position,
+                        carriers.label(name, False, display_name(name, style)),
+                        "white",
+                        carriers.pattern(name),
                     )
                 )
             elif render.effective(name) == "categorical":
-                cells.append(QuadrantKeyCell(position, name, LEG_CATEGORY_COLOR))
+                cells.append(
+                    QuadrantKeyCell(position, display_name(name, style), LEG_CATEGORY_COLOR)
+                )
             else:
                 cells.append(
                     QuadrantKeyCell(
-                        position, name, style.phenotype_colors.get(name, FALLBACK_COLOR)
+                        position,
+                        display_name(name, style),
+                        style.phenotype_colors.get(name, FALLBACK_COLOR),
                     )
                 )
         rows.insert(0, LegendRow("quadrants", "", quadrants=tuple(cells)))

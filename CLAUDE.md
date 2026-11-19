@@ -231,7 +231,11 @@ src/pypedigree/
     Each row type has its own drawing function; the quadrant key row is two
     rows tall (`LegendRow.slots`, `legend_slot_count()`, `legend_row_centers()`),
     is drawn before the Affected/Unaffected/Unknown captions, and takes its
-    layout from `quadrant_key_geometry()`. Legend geometry constants
+    layout from `quadrant_key_geometry()`. With `legend` "compact" (the "auto"
+    default with quadrants) two or more binary columns of the key become one
+    `binary_shared` row (first swatch striped with their colors, #56). The PGS
+    row's `key` (score name, color) is placed by `legend_key_items()`: a dash
+    then the name, measured with `symbols.text_width`, after the label. Legend geometry constants
     (`LEG_*`) are not user-tunable style. `TestLegendPhysicalSize` checks it.
 
 14. **Every text size comes from `PedigreeStyle.text_size(scale)`** (#51): `font_size`
@@ -362,6 +366,10 @@ Additional PedigreeStyle fields:
 - `min_font_size: float | None` — smallest size of any text in points (None = no minimum, #51)
 - `band_text: str` — "auto" (fit, default), "name_value", "value" or "none" (#55)
 - `show_pgs_values: bool` — write PGS values beside their markers (#54)
+- `phenotype_labels: dict[str, str]` — names shown for columns (#56); everything shown goes through
+  `phenotypes.display_name()` (label, else `_` as spaces) or `pgs_trait_name()` (the PGS key), never
+  the raw column name: legend, quadrant key, band text, SVG tooltips, `carriers.label(..., shown)`
+- `legend: str` — "auto" (compact with quadrants), "compact" or "full" (#56); `check_legend()`
 Warnings and errors:
 - `PedigreeWarning` (base), `PedigreeStyleWarning`, `PedigreeDataWarning`
 - Unknown keys in a style JSON warn with a suggested spelling (they are still ignored)
@@ -497,6 +505,8 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_layout_circular.py` — Circular layout: ring geometry, spacing,
   rotation, edge composition, arc waypoints, rendering across 15 fixtures
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
+- `tests/test_legend_labels.py` — Names shown (`phenotype_labels`, `_` as spaces), compact legend
+  with quadrants, the PGS key (#56)
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
 - `tests/test_proband_marker.py` — The proband's "P" clear of the label on its left: room kept by
   the layout with tight spacing or large text, none at the default style, no overlap in the PNG
