@@ -665,6 +665,7 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `carrier_notation` | `"nsgc2022"` | `"nsgc2022"`: the symbol is divided into patterned sections, one per carrier result, defined in the legend (Bennett et al., J Genet Couns 2022). `"legacy"`: half-filled shape for carriers, center dot for obligate carriers. Any other value raises `PedigreeError` |
 | `carrier_dot_radius` | `0.08` | Radius of the obligate carrier center dot (legacy notation) |
 | `font_size` | `8.0` | Label font size, in points. The legend panel is sized from it (text, swatches and row height), so raise it to keep a figure legible once scaled down for print |
+| `min_font_size` | `None` | Smallest size of any text, in points (e.g. `6`, a common journal rule). The secondary text is drawn at fractions of `font_size` (notes and annotations 0.7, band text 0.75, quadrant text 0.65, "PGS" caption 0.6, legend 0.85 and less); each is raised to this minimum. The layout measures the lines below labels at that size and the legend grows with its text. `None`: no minimum. CLI: `--min-font-size` |
 | `font_family` | `"sans-serif"` | Label font family |
 | `label_offset` | `0.15` | Vertical offset for labels below shapes |
 | `generation_gap` | `2.0` | Vertical distance between generations |
@@ -689,6 +690,8 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `margin` | `0.5` | Margin around the diagram |
 
 **Methods**: `PedigreeStyle.from_dict(d)` — create from dictionary. `style.to_dict()` — convert to dictionary.
+
+`PedigreeStyle.text_size(scale=1.0)` returns the size in points of a text drawn at `scale` times `font_size`, never below `min_font_size`: `PedigreeStyle(font_size=6, min_font_size=6).text_size(0.6)` is `6.0`. Both renderers and the layout take every text size from it.
 
 ### `DEFAULT_PHENOTYPE_PALETTE` and `EXTRA_PHENOTYPE_COLORS`
 

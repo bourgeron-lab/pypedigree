@@ -319,7 +319,7 @@ class _HierarchicalPlacer:
             ind = self.family.individuals[sid]
             if ind.is_proband or ind.notation.is_consultand:
                 need = symbols.marker_clearance(
-                    style.shape_size / 2, style.font_size, longest[g], ind.is_proband
+                    style.shape_size / 2, style.text_size(), longest[g], ind.is_proband
                 )
                 if need > style.sibling_gap:
                     room[sid] = need
@@ -334,13 +334,14 @@ class _HierarchicalPlacer:
         others fit whatever the neighbour.
         """
         style = self.style
-        pad = symbols.LABEL_GAP_EM * style.font_size * symbols.UNITS_PER_POINT
+        size, small = style.text_size(), style.text_size(symbols.SMALL_TEXT_SCALE)
+        pad = symbols.LABEL_GAP_EM * size * symbols.UNITS_PER_POINT
         reach: dict[str, float] = {}
         for sid in self.gen:
             ind = self.family.individuals[sid]
             label = _get_node_label(sid, ind, style)
             below = symbols.notes(ind) + [v for v in ind.annotations.values() if v]
-            half = (symbols.label_width(label, below, style.font_size) + pad) / 2
+            half = (symbols.label_width(label, below, size, small) + pad) / 2
             if half > style.sibling_gap / 2:
                 reach[sid] = half
         return reach

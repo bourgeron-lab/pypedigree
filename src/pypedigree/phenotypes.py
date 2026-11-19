@@ -648,6 +648,22 @@ def check_pgs_scale(style: PedigreeStyle) -> None:
         )
 
 
+def check_min_font_size(style: PedigreeStyle) -> None:
+    """Reject a ``min_font_size`` that is not a positive number, before drawing.
+
+    Raises:
+        PedigreeError: If ``style.min_font_size`` is set and not a number
+            above zero.
+    """
+    value = style.min_font_size
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not value > 0:
+        raise PedigreeError(
+            f"min_font_size must be a number of points above zero, or None; got {value!r}"
+        )
+
+
 def pgs_zscore(raw: float, scale: str) -> float:
     """The z-score a PGS value stands for, on the "zscore" or "percentile" scale."""
     if scale == "percentile":
@@ -736,6 +752,7 @@ LEG_BINARY_HEADER_H = 0.5  # Affected / Unaffected / Unknown captions
 LEG_ROW_H = 1.2  # one phenotype or carrier row
 LEG_PAD = 0.8  # room below the last row for its captions
 LEG_REFERENCE_FONT = 8.0  # font size the marker sizes below are tuned for
+LEG_TEXT_SCALE = 0.85  # legend row text, as a fraction of the legend's font
 LEG_SWATCH_EDGE = "#cccccc"
 LEG_CAPTION_COLOR = "#999999"
 LEG_CATEGORY_COLOR = "#666666"
@@ -750,8 +767,8 @@ class LegendMetrics:
     """Derived geometry of the legend panel.
 
     Lengths are in legend units (see `LEG_UNIT_X_EM`); font and marker sizes
-    are in points. All of them scale with `style.font_size`, nothing with
-    the figure.
+    are in points. All of them scale with the legend's font (`font`), never
+    with the figure.
 
     Attributes:
         n_rows: Number of phenotype/carrier rows (at least 1).
@@ -768,6 +785,10 @@ class LegendMetrics:
         marker_size: Size of plot-marker icons.
         unit_x: One horizontal legend unit, in inches.
         unit_y: One vertical legend unit, in inches.
+        font: The font size the legend is built on: `style.font_size`, or
+            more so that its row text reaches `style.min_font_size`.
+        title_fs: Size of the "Legend" title.
+        min_fs: `style.min_font_size`, or 0.
     """
 
     n_rows: int
@@ -784,6 +805,13 @@ class LegendMetrics:
     marker_size: float
     unit_x: float
     unit_y: float
+    font: float = 8.0
+    title_fs: float = 7.8
+    min_fs: float = 0.0
+
+    def caption_fs(self, size_factor: float = 1.0) -> float:
+        """Size of a caption at ``size_factor`` times `label_fs`, never below `min_fs`."""
+        return max(self.label_fs * size_factor, self.min_fs)
 
     def row_center(self, index: int, y_top: float) -> float:
         """Vertical centre of row `index`, counting down from `y_top`."""
@@ -824,25 +852,32 @@ def legend_metrics(
     icon_right = max(1.3, LEG_X0 + sw_w, 1.2)
     icon_text_x = icon_right + 0.3
 
-    fs = style.font_size * 0.85
-    em = style.font_size / 72  # inches
+    # With a minimum text size the whole legend grows until its row text
+    # reaches it (#51); its smaller captions are then raised to it too.
+    min_fs = style.min_font_size or 0.0
+    font = max(style.font_size, min_fs / LEG_TEXT_SCALE)
+    fs = font * LEG_TEXT_SCALE
+    em = font / 72  # inches
     header_h = LEG_HEADER_H + (LEG_BINARY_HEADER_H if binary_headers else 0.0)
 
     return LegendMetrics(
         n_rows=n_rows,
         row_h=row_h,
         total_h=header_h + n_rows * row_h + LEG_PAD,
-        scale=style.font_size / LEG_REFERENCE_FONT,
+        scale=font / LEG_REFERENCE_FONT,
         sw_h=sw_h,
         sw_w=sw_w,
         sw_gap=sw_gap,
         text_x=text_x,
         icon_text_x=icon_text_x,
         fs=fs,
-        label_fs=fs * 0.75,
-        marker_size=style.font_size,
+        label_fs=max(fs * 0.75, min_fs),
+        marker_size=font,
         unit_x=LEG_UNIT_X_EM * em,
         unit_y=LEG_UNIT_Y_EM * em,
+        font=font,
+        title_fs=max(fs + 1, font * 0.7),
+        min_fs=min_fs,
     )
 
 

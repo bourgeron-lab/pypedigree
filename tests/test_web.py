@@ -78,6 +78,19 @@ class TestRender:
         assert out["families"] == ["F", "G"]
         assert out["individuals"] == 1
 
+    def test_min_font_size(self):
+        """#51: the form's "Smallest text" raises every text of the drawing."""
+        svg = _render(min_font_size="6")["static_svg"]
+        sizes = [float(v) for v in re.findall(r'<text [^>]*font-size="([0-9.]+)"', svg)]
+        assert min(sizes) >= 6 * 0.02 - 1e-9
+        assert _render(min_font_size="")["ok"] is True
+
+    @pytest.mark.parametrize("bad", ["six", "0"])
+    def test_bad_min_font_size(self, bad):
+        out = _render(min_font_size=bad)
+        assert out["ok"] is False
+        assert "smallest text" in out["error"].lower() or "min_font_size" in out["error"]
+
     def test_one_family_keeps_the_columns(self):
         """#50: the family is drawn with its bands, PGS curves and legend."""
         for key in ("svg", "static_svg"):
@@ -228,7 +241,14 @@ class TestSite:
         html = (WEB / "index.html").read_text(encoding="utf-8")
         names = set(re.findall(r'name="([^"]+)"', html))
         assert set(web.STYLE_CHOICES) <= names
-        assert {"family", "show_labels", "show_legend", "show_na_labels", "style"} <= names
+        assert {
+            "family",
+            "show_labels",
+            "show_legend",
+            "show_na_labels",
+            "min_font_size",
+            "style",
+        } <= names
         for name, allowed in web.STYLE_CHOICES.items():
             select = re.search(rf'<select id="{name}".*?</select>', html, re.S)
             assert select is not None, name

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `min_font_size` style option, `--min-font-size PT` on the command line and "Smallest text" in
+  the web app: no text is drawn smaller than this many points (#51). Notes, annotations, the
+  text in bands and quadrants, "NA", the "PGS" captions and the legend are drawn at fractions of
+  `font_size` (down to about half of it in the legend), so a figure meeting a journal's 6 pt
+  rule needed much larger ID labels; with `min_font_size: 6` it meets it whatever `font_size`
+  is. The layout measures the lines below a label at the size they are drawn, and the legend
+  grows with its text. Without the option nothing changes.
+- `PedigreeStyle.text_size(scale)`: the size of a text drawn at `scale` times `font_size`, never
+  below `min_font_size`; both renderers take every text size from it.
+
 ## [0.6.2] - 2026-11-19
 
 ### Added

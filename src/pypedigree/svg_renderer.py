@@ -79,6 +79,7 @@ from pypedigree.phenotypes import (
     active_pgs,
     all_bands_na,
     band_cell,
+    check_min_font_size,
     check_pgs_scale,
     check_phenotype_layout,
     legend_metrics,
@@ -211,6 +212,7 @@ def _render(
     render = resolve_phenotype_render(scope, names, modes, style)
     check_phenotype_layout(style)
     check_pgs_scale(style)
+    check_min_font_size(style)
     render = with_quadrants(render, render.band_names(names), carriers, style)
     # Bands need colors; PGS curves need none (see renderer._render_layout).
     banded = bool(
@@ -251,7 +253,7 @@ def _render(
             layout = _map_layout(layout, shift)
             x0, x1 = x0 + dx, x1 + dx
         if titled:
-            title_fs = (style.font_size + 2) * _PT
+            title_fs = (style.text_size() + 2) * _PT
             parts.append(
                 _svg_text(
                     (x0 + x1) / 2,
@@ -391,7 +393,7 @@ def _family_extent(layout: FamilyLayout, ctx: _SvgContext) -> _Extent:
             + half
             + style.label_offset
             + n.marker_depth
-            + style.font_size * _PT * 1.2
+            + style.text_size() * _PT * 1.2
             + (len(n.notes) + len(n.annotations)) * _ANNOTATION_STEP
             for n in layout.nodes
         )
@@ -400,7 +402,13 @@ def _family_extent(layout: FamilyLayout, ctx: _SvgContext) -> _Extent:
         for n in layout.nodes:
             if n.label and n.label_angle is None:
                 half_label = (
-                    symbols.label_width(n.label, n.notes + n.annotations, style.font_size) / 2
+                    symbols.label_width(
+                        n.label,
+                        n.notes + n.annotations,
+                        style.text_size(),
+                        style.text_size(symbols.SMALL_TEXT_SCALE),
+                    )
+                    / 2
                 )
                 x0 = min(x0, n.x - half_label)
                 x1 = max(x1, n.x + half_label)
@@ -476,7 +484,7 @@ def _render_family_svg(
                     qx,
                     qy,
                     symbols.UNKNOWN_OFFSPRING_TEXT,
-                    style.font_size * symbols.UNKNOWN_OFFSPRING_FONT_SCALE * _PT,
+                    style.text_size(symbols.UNKNOWN_OFFSPRING_FONT_SCALE) * _PT,
                     style,
                     color=style.outline_color,
                     baseline="hanging",
@@ -840,7 +848,7 @@ def _svg_node(
             tip_x, tip_y = symbols.triangle_points(node.x, node.y, half, up=-1.0)[1]
         else:
             tip_x, tip_y = node.x - half, node.y + half
-        size = style.font_size * _PT
+        size = style.text_size() * _PT
         ax, ay = symbols.marker_points(tip_x, tip_y, size, up=-1.0)
         if node.is_proband:
             parts.append(
@@ -918,7 +926,7 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
             )
     if node.notation.is_evaluated:
         ex, ey = symbols.evaluation_mark_position(node.x, node.y, half, node.sex, triangle, up=-1.0)
-        size = style.font_size * symbols.EVALUATION_MARK_FONT_SCALE * _PT
+        size = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE) * _PT
         out.append(
             _svg_text(
                 ex,
@@ -939,7 +947,7 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
             carriers.legacy and (node.is_carrier or node.is_obligate_carrier)
         )
         color = style.line_color
-        size = style.font_size * _PT
+        size = style.text_size() * _PT
         if banded:
             x, y = symbols.letter_position(node.x, node.y, half, node.sex, True, up=-1.0)
             out.append(
@@ -1016,7 +1024,7 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
     clip = f"bands-{uid}"
     clip_attr = f'clip-path="url(#{clip})"'
     sep = f'stroke="{SEPARATOR_COLOR}" stroke-width="{0.5 * _PT:.3f}" {clip_attr}'
-    band_fs = style.font_size * 0.75 * _PT
+    band_fs = style.text_size(symbols.BAND_TEXT_SCALE) * _PT
 
     def separator(y: float) -> str:
         return f'<line x1="{left:.3f}" y1="{y:.3f}" x2="{left + width:.3f}" y2="{y:.3f}" {sep}/>'
@@ -1082,7 +1090,7 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
                 cx,
                 cy,
                 "NA",
-                style.font_size * 0.85 * _PT,
+                style.text_size(symbols.NA_TEXT_SCALE) * _PT,
                 style,
                 color=NA_TEXT_COLOR,
                 weight="bold",
@@ -1114,7 +1122,7 @@ def _svg_quadrants(node: NodeLayout, ctx: _SvgContext, clip_attr: str) -> tuple[
     columns = [n for n in ctx.render.quadrants if n not in carriers.keys]
     has_carriers = any(n in carriers.keys for n in ctx.render.quadrants)
     all_na = not has_carriers and all_bands_na(node, columns)
-    fs = style.font_size * QUADRANT_FONT_SCALE * _PT
+    fs = style.text_size(QUADRANT_FONT_SCALE) * _PT
     out: list[str] = []
     for name, position in ctx.render.quadrants.items():
         x, y, w, h = quadrant_box(position, cx, cy, half, up=-1.0)
@@ -1217,7 +1225,7 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
             left + box_w / 2,
             bottom - box_h - half * 0.15 if above else bottom + half * 0.15,
             "PGS",
-            style.font_size * 0.6 * _PT,
+            style.text_size(symbols.PGS_CAPTION_SCALE) * _PT,
             style,
             baseline="auto" if above else "hanging",
             color="#666666",
@@ -1239,7 +1247,7 @@ def _svg_labels(node: NodeLayout, style: PedigreeStyle) -> str:
             node.x,
             y,
             node.label,
-            style.font_size * _PT,
+            style.text_size() * _PT,
             style,
             baseline="hanging",
             color=style.line_color,
@@ -1252,7 +1260,7 @@ def _svg_labels(node: NodeLayout, style: PedigreeStyle) -> str:
                 node.x,
                 y,
                 text,
-                style.font_size * 0.7 * _PT,
+                style.text_size(symbols.SMALL_TEXT_SCALE) * _PT,
                 style,
                 baseline="hanging",
                 color=style.line_color,
@@ -1266,7 +1274,7 @@ def _svg_labels(node: NodeLayout, style: PedigreeStyle) -> str:
                 node.x,
                 y,
                 text,
-                style.font_size * 0.7 * _PT,
+                style.text_size(symbols.SMALL_TEXT_SCALE) * _PT,
                 style,
                 baseline="hanging",
                 color="#666666",
@@ -1356,10 +1364,9 @@ def _svg_legend(
     """
     binary_headers = any(r.kind == "binary" for r in rows)
     m = legend_metrics(legend_slot_count(rows), style, binary_headers=binary_headers)
-    ux = LEG_UNIT_X_EM * style.font_size * _PT
-    uy = LEG_UNIT_Y_EM * style.font_size * _PT
+    ux = LEG_UNIT_X_EM * m.font * _PT
+    uy = LEG_UNIT_Y_EM * m.font * _PT
     fs = m.fs * _PT
-    label_fs = m.label_fs * _PT
     body: list[str] = []
     right = LEG_X0 + 4.0  # rightmost content, in legend units
 
@@ -1398,7 +1405,7 @@ def _svg_legend(
 
     def caption(u: float, v: float, s: str, anchor: str = "start", **kw: Any) -> None:
         kw.setdefault("color", LEG_CAPTION_COLOR)
-        size = label_fs * kw.pop("size_factor", 1.0)
+        size = m.caption_fs(kw.pop("size_factor", 1.0)) * _PT
         text(u, v, s, size, anchor, baseline="hanging", **kw)
 
     # Header: title and sex symbols.
@@ -1407,7 +1414,7 @@ def _svg_legend(
         LEG_X0,
         v,
         "Legend",
-        max(m.fs + 1, style.font_size * 0.7) * _PT,
+        m.title_fs * _PT,
         baseline="hanging",
         weight="bold",
     )

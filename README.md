@@ -28,6 +28,7 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 - **One file per family**: `--output-dir figures/` (or `render_families()`) draws each family of a cohort into its own file, with the colors and legend of the whole file
 - **Customizable styling**: JSON-based style overrides for colors, sizes, fonts
 - **Long IDs**: symbols are spaced by their labels' width, so long IDs or a large font do not make labels run into each other; short labels keep the usual spacing
+- **Journal-ready text sizes**: `--min-font-size 6` (style `min_font_size`) raises every text, notes, annotations, values in the symbols, "PGS" captions and legend, to at least 6 pt, whatever the label size
 - **Separate phenotype files**: load phenotypes from `.pheno` TSV files
 - **Optional legend**: auto-generated phenotype legend with proper male/female symbols
 - **Programmatic API**: fluent `PedigreeBuilder` for constructing pedigrees from code
@@ -380,6 +381,7 @@ Options:
   --annotations PATH             Separate TSV file with annotation text (displayed below IDs)
   --outline-color COLOR          Shape outline color (e.g. 'grey', '#888888')
   --carrier-notation [nsgc2022|legacy]  Carrier notation (default: nsgc2022)
+  --min-font-size PT             Smallest size of any text, in points (e.g. 6 for journals)
   --no-labels                    Hide sample ID labels
   --no-legend                    Hide the phenotype legend
   --show-phenotype-labels        Show YES/NO text labels inside binary phenotype bands

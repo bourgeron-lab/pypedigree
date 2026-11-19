@@ -45,8 +45,9 @@ def render(text: str, options_json: str = "{}") -> str:
             separated, with or without a header).
         options_json: JSON object with any of: ``family`` (an ID, or empty
             for all), ``phenotype_layout``, ``pgs_scale``,
-            ``carrier_notation``, ``show_labels``, ``show_legend``,
-            ``show_na_labels`` and ``style`` (a JSON object of
+            ``carrier_notation``, ``min_font_size`` (points, or empty for
+            none), ``show_labels``, ``show_legend``, ``show_na_labels`` and
+            ``style`` (a JSON object of
             `PedigreeStyle` fields, as in a ``--style`` file).
 
     Returns:
@@ -118,6 +119,14 @@ def _style(options: dict[str, Any]) -> PedigreeStyle:
         setattr(style, name, value)
     if "show_na_labels" in options:
         style.show_na_labels = bool(options["show_na_labels"])
+    size = options.get("min_font_size")
+    if size not in (None, ""):
+        try:
+            style.min_font_size = float(size)
+        except (TypeError, ValueError):
+            raise ValueError(
+                f"The smallest text size must be a number of points, not '{size}'."
+            ) from None
     return style
 
 

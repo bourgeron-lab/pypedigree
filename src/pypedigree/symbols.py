@@ -168,6 +168,12 @@ LABEL_GAP_EM = 0.5
 # fraction of the label's font size.
 SMALL_TEXT_SCALE = 0.7
 
+# Other secondary text, as fractions of `font_size` (drawn at
+# `PedigreeStyle.text_size(scale)`, never below `min_font_size`, #51).
+PGS_CAPTION_SCALE = 0.6  # "PGS" under or above a curve
+BAND_TEXT_SCALE = 0.75  # text inside a phenotype band
+NA_TEXT_SCALE = 0.85  # the single "NA" of a symbol with no data at all
+
 
 def text_width(text: str, font_size: float) -> float:
     """Width of one line of text, in layout units.
@@ -194,7 +200,9 @@ def text_width(text: str, font_size: float) -> float:
     return em * font_size * UNITS_PER_POINT
 
 
-def label_width(label: str, below: list[str], font_size: float) -> float:
+def label_width(
+    label: str, below: list[str], font_size: float, below_size: float | None = None
+) -> float:
     """Width of the text drawn under a symbol, in layout units.
 
     Args:
@@ -202,11 +210,16 @@ def label_width(label: str, below: list[str], font_size: float) -> float:
         below: Notation notes and annotations, one line each, drawn below the
             label in smaller type.
         font_size: The label's font size, in points.
+        below_size: The size of the lines below, in points (default:
+            `SMALL_TEXT_SCALE` times ``font_size``; the renderers pass
+            `PedigreeStyle.text_size(SMALL_TEXT_SCALE)`).
     """
     if not label:
         return 0.0
+    if below_size is None:
+        below_size = font_size * SMALL_TEXT_SCALE
     widths = [text_width(label, font_size)]
-    widths += [text_width(line, font_size * SMALL_TEXT_SCALE) for line in below]
+    widths += [text_width(line, below_size) for line in below]
     return max(widths)
 
 

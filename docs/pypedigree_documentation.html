@@ -512,6 +512,7 @@ child      2         105   62</code></pre>
     <tr><td><code>--annotations PATH</code></td><td>Separate TSV file with annotation text (displayed below individual IDs)</td><td>None</td></tr>
     <tr><td><code>--outline-color COLOR</code></td><td>Shape outline color (e.g. <code>grey</code>, <code>#888</code>)</td><td>black</td></tr>
     <tr><td><code>--carrier-notation [nsgc2022|legacy]</code></td><td>Carrier notation: patterned sections (NSGC 2022) or half-fill and center dot</td><td>nsgc2022</td></tr>
+    <tr><td><code>--min-font-size PT</code></td><td>Smallest size of any text, in points (style <code>min_font_size</code>; e.g. 6 for journals)</td><td>None</td></tr>
     <tr><td><code>--no-labels</code></td><td>Hide sample ID labels under shapes</td><td>Off</td></tr>
     <tr><td><code>--no-legend</code></td><td>Hide phenotype legend</td><td>Off</td></tr>
     <tr><td><code>--show-phenotype-labels</code></td><td>Show YES/NO text inside binary phenotype bands (hidden by default)</td><td>Off</td></tr>
@@ -1257,6 +1258,7 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>double_line_gap</code></td><td>float</td><td>0.06</td><td>Gap between consanguinity double lines</td></tr>
     <tr><td><code>broken_gap_size</code></td><td>float</td><td>0.15</td><td>Gap size in broken relationship lines</td></tr>
     <tr><td><code>font_size</code></td><td>float</td><td>8.0</td><td>Label and text font size, in points. The legend panel is sized from it (text, swatches and row height), so raise it to keep a figure legible once scaled down for print</td></tr>
+    <tr><td><code>min_font_size</code></td><td>float | None</td><td>None</td><td>Smallest size of any text, in points (e.g. 6, a common journal rule). Notes, annotations, band and quadrant text, &ldquo;NA&rdquo;, &ldquo;PGS&rdquo; captions and the legend, drawn at fractions of <code>font_size</code>, are raised to it; the layout and the legend make room. <code>PedigreeStyle.text_size(scale)</code> gives the size of any text</td></tr>
     <tr><td><code>font_family</code></td><td>str</td><td>"sans-serif"</td><td>Font family for all text</td></tr>
     <tr><td><code>label_offset</code></td><td>float</td><td>0.15</td><td>Distance below shape for label</td></tr>
     <tr><td><code>generation_gap</code></td><td>float</td><td>2.0</td><td>Vertical spacing between generations</td></tr>
