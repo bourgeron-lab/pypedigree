@@ -190,6 +190,19 @@ class PedigreeStyle:
     # percentile, or the value on "minmax". The layout makes room for them.
     show_pgs_values: bool = False
 
+    # Names shown for columns (#56): column name (after its prefix) -> text,
+    # e.g. {"SRS": "SRS T-score", "PGS_IQ": "IQ"}, in the legend, the quadrant
+    # key, band text and tooltips. Columns not listed show their name with
+    # underscores as spaces ("intellectual_disability" -> "intellectual
+    # disability"); a PGS column, without its "PGS_" in the legend.
+    phenotype_labels: dict[str, str] = field(default_factory=dict)
+
+    # Legend layout (#56): "auto" (compact with the quadrant layout, full with
+    # bands), "compact" (with quadrants, one shared Affected / Unaffected /
+    # Unknown row for the binary columns, whose colors the quadrant key
+    # gives) or "full" (one row per column).
+    legend: str = "auto"
+
     # PGS curve colors (PGS column name -> hex color, e.g. {"PGS_autism": "#3498db"})
     pgs_colors: dict[str, str] = field(default_factory=dict)
 
@@ -306,6 +319,7 @@ def resolve_style(
     resolved.phenotype_colors = dict(resolved.phenotype_colors)
     resolved.pgs_colors = dict(resolved.pgs_colors)
     resolved.phenotype_quadrants = dict(resolved.phenotype_quadrants)
+    resolved.phenotype_labels = dict(resolved.phenotype_labels)
     resolved.gradient_range = {k: list(v) for k, v in resolved.gradient_range.items()}
     resolved.gradient_diverging = {k: dict(v) for k, v in resolved.gradient_diverging.items()}
 

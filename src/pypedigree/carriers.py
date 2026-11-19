@@ -111,10 +111,10 @@ class CarrierScheme:
                 out.append(CarrierMark(key, self.pattern(key), state == OBLIGATE_CARRIER))
         return out
 
-    def label(self, key: str, obligate: bool) -> str:
-        """Legend text of a carrier source."""
+    def label(self, key: str, obligate: bool, shown: str | None = None) -> str:
+        """Legend text of a carrier source (``shown``: the name to write for it)."""
         kind = "Obligate carrier" if obligate else "Carrier"
-        return kind if key == LEGACY_CARRIER_KEY else f"{kind}: {key}"
+        return kind if key == LEGACY_CARRIER_KEY else f"{kind}: {shown or key}"
 
 
 def carrier_state(who: _HasCarrierData, key: str) -> int | None:

@@ -86,10 +86,12 @@ from pypedigree.phenotypes import (
     band_room,
     cell_texts,
     check_band_text,
+    check_legend,
     check_min_font_size,
     check_pgs_scale,
     check_phenotype_layout,
     fit_text,
+    legend_key_items,
     legend_metrics,
     legend_row_centers,
     legend_rows,
@@ -181,6 +183,7 @@ def render_pedigree(
     check_pgs_scale(style)
     check_min_font_size(style)
     check_band_text(style)
+    check_legend(style)
     pheno_render = with_quadrants(
         pheno_render, pheno_render.band_names(pheno_names or []), carriers, style
     )
@@ -2301,6 +2304,23 @@ def _draw_legend_binary_row(ax: Axes, y_center: float, color_hex: str, m: Legend
         _legend_swatch(ax, m.swatch_x(i), y_center, m.sw_w, m.sw_h, fill)
 
 
+def _draw_legend_shared_binary_row(
+    ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics
+) -> None:
+    """Affected / unaffected / unknown swatches for the binary columns of the key.
+
+    The "affected" swatch is cut into one stripe per column, in its color.
+    """
+    width = m.sw_w / len(row.colors)
+    for k, color in enumerate(row.colors):
+        _legend_swatch(
+            ax, m.swatch_x(0) + k * width, y_center, width, m.sw_h, color, edgecolor="none"
+        )
+    _legend_swatch(ax, m.swatch_x(0), y_center, m.sw_w, m.sw_h, "none")
+    for i, fill in ((1, "white"), (2, UNKNOWN_FILL)):
+        _legend_swatch(ax, m.swatch_x(i), y_center, m.sw_w, m.sw_h, fill)
+
+
 def _draw_legend_outline_row(
     ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics, style: PedigreeStyle
 ) -> None:
@@ -2340,6 +2360,16 @@ def _draw_legend_pgs_row(
         )
 
     _legend_row_label(ax, y_center, row.label, m.icon_text_x, m, style)
+    # The key: each score's name after a dash of its color (#56).
+    for item in legend_key_items(row, m.icon_text_x, m):
+        ax.plot(
+            [item.dash_x0, item.dash_x1],
+            [y_center, y_center],
+            color=item.color,
+            linewidth=1.0,
+            linestyle="--",
+        )
+        _legend_row_label(ax, y_center, item.name, item.text_x, m, style)
 
 
 def _draw_legend_carrier_row(
@@ -2502,7 +2532,7 @@ def _draw_legend(
     if not rows:
         return
 
-    binary_headers = any(r.kind == "binary" for r in rows)
+    binary_headers = any(r.kind in ("binary", "binary_shared") for r in rows)
     m = legend_metrics(legend_slot_count(rows), style, binary_headers=binary_headers)
     ax = _add_legend_axes(fig, m)
     y_top = _draw_legend_header(ax, m, style)
@@ -2525,6 +2555,8 @@ def _draw_legend(
             _draw_legend_categorical_row(ax, y_center, dict(row.categories), m, style)
         elif row.kind == "binary":
             _draw_legend_binary_row(ax, y_center, row.color, m)
+        elif row.kind == "binary_shared":
+            _draw_legend_shared_binary_row(ax, y_center, row, m)
         elif row.kind == "outline":
             _draw_legend_outline_row(ax, y_center, row, m, style)
         elif row.kind == "pgs":
@@ -2535,7 +2567,7 @@ def _draw_legend(
             _draw_legend_hatch_row(
                 ax, y_center, _hatch(row.pattern, row.obligate), row.label, m, style
             )
-        if row.kind in ("gradient", "categorical", "binary"):
+        if row.kind in ("gradient", "categorical", "binary", "binary_shared"):
             # Colors are self-explanatory, so the row label is just the name.
             _legend_row_label(ax, y_center, row.label, m.text_x, m, style)
 

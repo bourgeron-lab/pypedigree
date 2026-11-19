@@ -87,10 +87,13 @@ from pypedigree.phenotypes import (
     band_room,
     cell_texts,
     check_band_text,
+    check_legend,
     check_min_font_size,
     check_pgs_scale,
     check_phenotype_layout,
+    display_name,
     fit_text,
+    legend_key_items,
     legend_metrics,
     legend_row_centers,
     legend_rows,
@@ -232,6 +235,7 @@ def _render(
     check_pgs_scale(style)
     check_min_font_size(style)
     check_band_text(style)
+    check_legend(style)
     render = with_quadrants(render, render.band_names(names), carriers, style)
     # Bands need colors; PGS curves need none (see renderer._render_layout).
     banded = bool(
@@ -756,7 +760,7 @@ _ROLE_LABELS = {"D": "Gamete donor", "S": "Surrogate"}
 
 
 def _tooltip(
-    node: NodeLayout, ind: Individual | None, carriers: CarrierScheme, pgs_scale: str = "minmax"
+    node: NodeLayout, ind: Individual | None, carriers: CarrierScheme, style: PedigreeStyle
 ) -> str:
     """Text of a node's tooltip, lines separated by " | "."""
     lines = [f"ID: {node.individual_id}"]
@@ -778,7 +782,8 @@ def _tooltip(
     for key in carriers.keys:
         state = carrier_state(node, key)
         if key != LEGACY_CARRIER_KEY and state in (CARRIER, OBLIGATE_CARRIER):
-            lines.append(carriers.label(key, state == OBLIGATE_CARRIER))
+            shown = display_name(key, style)
+            lines.append(carriers.label(key, state == OBLIGATE_CARRIER, shown))
 
     if notation.pregnancy is not None:
         lines.append(_PREGNANCY_LABELS[notation.pregnancy.value])
@@ -803,14 +808,15 @@ def _tooltip(
             continue
         category = categorical.get(name)
         value = raw.get(name)
+        shown = display_name(name, style)
         if category is not None:
-            lines.append(f"{name}: {category}")
+            lines.append(f"{shown}: {category}")
         elif value is not None and math.isnan(value):
-            lines.append(f"{name}: NA")
+            lines.append(f"{shown}: NA")
         elif value is not None and is_pgs_column(name):
-            lines.append(f"{name}: {pgs_value_text(value, pgs_scale)}")
+            lines.append(f"{shown}: {pgs_value_text(value, style.pgs_scale)}")
         elif value is not None:
-            lines.append(f"{name}: {value:g}")
+            lines.append(f"{shown}: {value:g}")
     return " | ".join(lines)
 
 
@@ -903,9 +909,7 @@ def _svg_node(
     if ctx.show_labels and node.label:
         parts.append(_svg_labels(node, style))
 
-    parts.append(
-        f"<title>{html.escape(_tooltip(node, ind, ctx.carriers, style.pgs_scale))}</title>"
-    )
+    parts.append(f"<title>{html.escape(_tooltip(node, ind, ctx.carriers, style))}</title>")
     parts.append("</g>")
     return "\n".join(p for p in parts if p)
 
@@ -1430,7 +1434,7 @@ def _svg_legend(
     Returns:
         The SVG group and its bounding box.
     """
-    binary_headers = any(r.kind == "binary" for r in rows)
+    binary_headers = any(r.kind in ("binary", "binary_shared") for r in rows)
     m = legend_metrics(legend_slot_count(rows), style, binary_headers=binary_headers)
     ux = LEG_UNIT_X_EM * m.font * _PT
     uy = LEG_UNIT_Y_EM * m.font * _PT
@@ -1563,6 +1567,14 @@ def _svg_legend(
         elif row.kind == "binary":
             for k, fill in enumerate((row.color, "white", UNKNOWN_FILL)):
                 swatch(m.swatch_x(k), vc, m.sw_w, m.sw_h, fill)
+        elif row.kind == "binary_shared":
+            # The "affected" swatch cut into one stripe per column of the key.
+            stripe = m.sw_w / len(row.colors)
+            for k, rgb in enumerate(row.colors):
+                swatch(m.swatch_x(0) + k * stripe, vc, stripe, m.sw_h, to_hex(rgb), stroke="none")
+            swatch(m.swatch_x(0), vc, m.sw_w, m.sw_h, "none")
+            for k, fill in ((1, "white"), (2, UNKNOWN_FILL)):
+                swatch(m.swatch_x(k), vc, m.sw_w, m.sw_h, fill)
         elif row.kind == "outline":
             swatch(LEG_X0, vc, m.sw_w, m.sw_h, "white", stroke=row.color, width_pt=2.5)
         elif row.kind == "pgs":
@@ -1606,8 +1618,17 @@ def _svg_legend(
             swatch(LEG_X0, vc, m.sw_w, m.sw_h, "white", stroke=style.fill_color)
             swatch(LEG_X0, vc, m.sw_w, m.sw_h, f"url(#{pid})", stroke="none")
 
-        label_u = m.text_x if row.kind in ("gradient", "categorical", "binary") else m.icon_text_x
+        swatch_rows = ("gradient", "categorical", "binary", "binary_shared")
+        label_u = m.text_x if row.kind in swatch_rows else m.icon_text_x
         text(label_u, vc, row.label, fs, baseline="central")
+        # The PGS key: each score's name after a dash of its color (#56).
+        for item in legend_key_items(row, label_u, m):
+            body.append(
+                f'<line x1="{X(item.dash_x0):.3f}" y1="{Y(vc):.3f}" x2="{X(item.dash_x1):.3f}" '
+                f'y2="{Y(vc):.3f}" stroke="{html.escape(item.color)}" '
+                f'stroke-width="{_PT:.3f}" stroke-dasharray="0.06 0.03"/>'
+            )
+            text(item.text_x, vc, item.name, fs, baseline="central")
 
     width = (right + LEG_X0 - 0.1) * ux
     border = (

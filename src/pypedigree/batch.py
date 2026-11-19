@@ -19,6 +19,7 @@ from pypedigree.errors import PedigreeBatchError, PedigreeDataWarning, PedigreeS
 from pypedigree.models import Pedigree
 from pypedigree.phenotypes import (
     check_band_text,
+    check_legend,
     check_min_font_size,
     check_pgs_scale,
     check_phenotype_layout,
@@ -138,6 +139,7 @@ def render_families(
     check_pgs_scale(style)
     check_min_font_size(style)
     check_band_text(style)
+    check_legend(style)
     if interactive:
         from pypedigree.svg_renderer import check_id_prefix, render_interactive_svg, render_svg
 

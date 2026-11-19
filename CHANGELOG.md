@@ -9,12 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `phenotype_labels` style option: the name a column is shown with, e.g.
+  `{"SRS": "SRS T-score", "PGS_IQ": "IQ"}`, in the legend, the quadrant key, band text, the SVG
+  tooltips and carrier rows (#56). The style's other options still use the column names.
+- `legend` style option: `"auto"` (default), `"compact"` or `"full"` (#56).
+- The PGS legend row says which color is which score: each name follows a dash of its color
+  ("PGS distribution: -- autism -- ADHD"), instead of the names in parentheses (#56).
 - `show_pgs_values` style option, `--show-pgs-values` on the command line and "Polygenic score
   values" in the web app: each PGS value is written beside its marker, in its color, so a
   printed figure says how high a score is, not only that it is high (#54). "+2.1" or "−0.4" on
   the z scale (a typographic minus), the rounded percentile, or the value to three significant
   digits on "minmax". The values go left of the curve's box, at their marker's height, spread
   apart when close; the layout widens the gaps by the widest value. Off by default.
+
+### Changed
+
+- Column names are shown with underscores as spaces ("intellectual_disability" ->
+  "intellectual disability"), in the legend, band text and tooltips (#56); figures whose
+  column names have none are unchanged.
+- With the quadrant layout the legend is compact by default (`legend: "auto"`): the quadrant
+  key gives each column's color, so two or more binary columns share one Affected /
+  Unaffected / Unknown row, its first swatch striped with their colors, instead of one row
+  each. With four phenotypes the legend loses three rows, which matters in a small journal
+  figure. Gradient, categorical, outline, PGS and carrier rows are unchanged; `legend:
+  "full"` restores one row per column. The golden images with quadrants are redrawn.
 
 ### Fixed
 
