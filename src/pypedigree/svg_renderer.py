@@ -37,6 +37,7 @@ from pypedigree.carriers import (
 from pypedigree.config import (
     DEFAULT_PGS_COLOR,
     PedigreeStyle,
+    apply_outline_spacing,
     apply_pgs_spacing,
     is_pgs_column,
     resolve_style,
@@ -65,12 +66,15 @@ from pypedigree.phenotypes import (
     LEG_CATEGORY_COLOR,
     LEG_GRAD_W,
     LEG_PAD,
+    LEG_RING_INSET_PT,
+    LEG_RING_WIDTH_PT,
     LEG_SWATCH_EDGE,
     LEG_UNIT_X_EM,
     LEG_UNIT_Y_EM,
     LEG_X0,
     NA_FILL,
     NA_TEXT_COLOR,
+    OUTLINE_WIDTH_SCALE,
     PGS_BOX_PAD,
     PGS_DOT_PT,
     PGS_VALUE_GAP_EM,
@@ -98,7 +102,10 @@ from pypedigree.phenotypes import (
     legend_row_centers,
     legend_rows,
     legend_slot_count,
-    outline_color,
+    outline_colors,
+    outline_columns,
+    outline_reach,
+    outline_ring_offsets,
     pgs_caption_above,
     pgs_curve,
     pgs_marker_values,
@@ -117,6 +124,7 @@ from pypedigree.phenotypes import (
     text_color_on,
     to_hex,
     validate_style_colors,
+    with_outline_rings,
     with_quadrants,
 )
 
@@ -237,6 +245,9 @@ def _render(
     check_band_text(style)
     check_legend(style)
     render = with_quadrants(render, render.band_names(names), carriers, style)
+    # Several o_ borders (#46): room around every symbol, applied once here.
+    render = with_outline_rings(render, pedigree.individuals(), names)
+    style = apply_outline_spacing(style, outline_reach(render.outline_rings, style))
     # Bands need colors; PGS curves need none (see renderer._render_layout).
     banded = bool(
         names and render.effective_modes and (style.phenotype_colors or render.pgs_names(names))
@@ -397,7 +408,8 @@ def _family_extent(layout: FamilyLayout, ctx: _SvgContext) -> _Extent:
     """Bounding box of everything drawn for one family."""
     style = ctx.style
     half = style.shape_size / 2
-    reach = half * 1.2  # the diamond is the widest shape
+    ring = outline_reach(ctx.render.outline_rings, style)  # several o_ borders (#46)
+    reach = half * 1.2 + ring  # the diamond is the widest shape
     xs = [n.x for n in layout.nodes]
     ys = [n.y for n in layout.nodes]
     for e in layout.edges:
@@ -760,7 +772,11 @@ _ROLE_LABELS = {"D": "Gamete donor", "S": "Surrogate"}
 
 
 def _tooltip(
-    node: NodeLayout, ind: Individual | None, carriers: CarrierScheme, style: PedigreeStyle
+    node: NodeLayout,
+    ind: Individual | None,
+    carriers: CarrierScheme,
+    style: PedigreeStyle,
+    outline_names: Sequence[str] = (),
 ) -> str:
     """Text of a node's tooltip, lines separated by " | "."""
     lines = [f"ID: {node.individual_id}"]
@@ -800,6 +816,11 @@ def _tooltip(
 
     if ind is not None and ind.date_of_birth:
         lines.append(f"DOB: {ind.date_of_birth}")
+
+    borders = outline_columns(node, outline_names)
+    if len(borders) > 1:
+        # Which border is which, inner first (#46).
+        lines.append("Borders: " + ", ".join(display_name(n, style) for n in borders))
 
     raw = node.extra_phenotypes_raw
     categorical = node.extra_phenotypes_categorical
@@ -868,8 +889,9 @@ def _svg_node(
     parts.append(_svg_notation(node, ctx, banded and bool(ctx.band_names)))
 
     sw = style.shape_line_width * _PT
+    ring = _node_ring(node, ctx) if banded else 0.0  # around several o_ borders (#46)
     if node.is_deceased and not triangle:
-        o = half * 0.2
+        o = (half + ring) * 0.2 + ring
         parts.append(
             f'<line x1="{node.x - half - o:.3f}" y1="{node.y + half + o:.3f}" '
             f'x2="{node.x + half + o:.3f}" y2="{node.y - half - o:.3f}" '
@@ -880,7 +902,7 @@ def _svg_node(
         if triangle:
             tip_x, tip_y = symbols.triangle_points(node.x, node.y, half, up=-1.0)[1]
         else:
-            tip_x, tip_y = node.x - half, node.y + half
+            tip_x, tip_y = node.x - half - ring, node.y + half + ring
         size = style.text_size() * _PT
         ax, ay = symbols.marker_points(tip_x, tip_y, size, up=-1.0)
         if node.is_proband:
@@ -909,7 +931,8 @@ def _svg_node(
     if ctx.show_labels and node.label:
         parts.append(_svg_labels(node, style))
 
-    parts.append(f"<title>{html.escape(_tooltip(node, ind, ctx.carriers, style))}</title>")
+    tip = _tooltip(node, ind, ctx.carriers, style, ctx.outline_names)
+    parts.append(f"<title>{html.escape(tip)}</title>")
     parts.append("</g>")
     return "\n".join(p for p in parts if p)
 
@@ -945,6 +968,10 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
     """
     style, carriers = ctx.style, ctx.carriers
     half = style.shape_size / 2
+    ring = _node_ring(node, ctx) if banded else 0.0
+    if ring:
+        # Round the outer border of several (#46).
+        half = symbols.grown_half(node.sex, half, ring)
     triangle = symbols.is_pregnancy_loss(node.notation)
     out = []
     if node.notation.adoption is not None:
@@ -1126,14 +1153,28 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
                 _svg_text(cx, cy, na.text, na.size * _PT, style, color=NA_TEXT_COLOR, weight="bold")
             )
 
-    border = outline_color(node, ctx.outline_names, style)
-    sw = style.shape_line_width * _PT * (2.5 if border else 1.0)
+    borders = outline_colors(node, ctx.outline_names, style)
+    border = borders[0] if borders else None
+    sw = style.shape_line_width * _PT * (OUTLINE_WIDTH_SCALE if border else 1.0)
     dash = 'stroke-dasharray="0.1 0.05"' if node.is_phantom or node.is_inferred else ""
     out.append(
         f'{_svg_shape_outline(node, half, cls="shape")} fill="none" '
         f'stroke="{html.escape(border or style.outline_color)}" stroke-width="{sw:.3f}" {dash}/>'
     )
+    # The other borders around it, outwards, in column order (#46).
+    offsets = outline_ring_offsets(len(borders), style)
+    for color, offset in zip(borders[1:], offsets, strict=True):
+        grown = symbols.grown_half(node.sex, half, offset * _PT)
+        out.append(
+            f'{_svg_shape_outline(node, grown, cls="outline-ring")} fill="none" '
+            f'stroke="{html.escape(color)}" stroke-width="{sw:.3f}" {dash}/>'
+        )
     return "\n".join(out)
+
+
+def _node_ring(node: NodeLayout, ctx: _SvgContext) -> float:
+    """Room the borders after the first take around this symbol (#46)."""
+    return outline_reach(len(outline_colors(node, ctx.outline_names, ctx.style)), ctx.style)
 
 
 def _svg_quadrants(node: NodeLayout, ctx: _SvgContext, clip_attr: str) -> tuple[list[str], bool]:
@@ -1218,7 +1259,8 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
         return ""
     half = style.shape_size / 2
     box_w, box_h = half * 0.8, half * 2
-    left = node.x - half - box_w - half * 0.15
+    # Clear of several o_ borders (#46).
+    left = node.x - half - box_w - half * 0.15 - _node_ring(node, ctx)
     bottom = node.y + half
     thin = 0.5 * _PT
 
@@ -1577,6 +1619,20 @@ def _svg_legend(
                 swatch(m.swatch_x(k), vc, m.sw_w, m.sw_h, fill)
         elif row.kind == "outline":
             swatch(LEG_X0, vc, m.sw_w, m.sw_h, "white", stroke=row.color, width_pt=2.5)
+        elif row.kind == "outline_rings":
+            # Two nested borders, inner first (#46).
+            inner, outer = (to_hex(c) for c in row.colors)
+            du, dv = LEG_RING_INSET_PT * _PT / ux, LEG_RING_INSET_PT * _PT / uy
+            swatch(LEG_X0, vc, m.sw_w, m.sw_h, "white", stroke=outer, width_pt=LEG_RING_WIDTH_PT)
+            swatch(
+                LEG_X0 + du,
+                vc,
+                m.sw_w - 2 * du,
+                m.sw_h - 2 * dv,
+                "none",
+                stroke=inner,
+                width_pt=LEG_RING_WIDTH_PT,
+            )
         elif row.kind == "pgs":
             baseline = vc - m.sw_h / 2
             curve = [(LEG_X0 + t * 0.9, baseline + d * m.sw_h * 0.9) for t, d in pgs_curve(30)]

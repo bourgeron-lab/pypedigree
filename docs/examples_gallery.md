@@ -164,6 +164,20 @@ pypedigree tests/data/phenotype/quadrants.ped --phenotype-layout quadrants --sty
 
 ---
 
+## outline_rings.ped (several outline columns)
+
+![One border per outline column](imgs/examples/outline_rings.png)
+
+**Description**: Synthetic three-generation family with one binary phenotype (`b_ASD`) and three outline columns saying which data each individual has: `o_WGS`, `o_WES` and `o_Array`.
+
+**Features**: an individual affected in several `o_` columns gets one colored border per column, the first on the outline, the others around it, outwards, in column order (III-1 has the three, inner orange for WGS). One affected in a single column keeps the usual border (II-3, III-2). All symbols are spaced and labelled for the most borders anyone has, so the labels of a generation stay level, and the proband's arrow points at the outer border. The legend adds "Several borders: one per column, inner first"; in the interactive SVG the tooltip lists them ("Borders: WGS, WES, Array"). More than three borders draw a warning: the symbols then take much more room.
+
+```bash
+pypedigree tests/data/phenotype/outline_rings.ped -o outline_rings.png
+```
+
+---
+
 ## PGS distribution
 
 **Description**: If a column named `PGS` (case-insensitive) is present in the data, a vertical gaussian distribution curve is drawn to the left of each individual with a red marker indicating their score.

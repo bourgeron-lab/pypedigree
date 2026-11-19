@@ -229,11 +229,16 @@ class PhenotypeRender:
             carrier source → its quadrant ("top-left", ...), in drawing
             order. Empty with the "bands" layout, or when the figure has
             more columns than quadrants.
+        outline_rings: The most colored borders one individual of the
+            drawn families has, one per ``o_`` column they are affected in
+            (`with_outline_rings`, #46). Above one, every symbol is spaced
+            and labelled for that many.
     """
 
     effective_modes: dict[str, str] = field(default_factory=dict)
     categorical_colors: dict[str, dict[str, str]] = field(default_factory=dict)
     quadrants: dict[str, str] = field(default_factory=dict)
+    outline_rings: int = 0
 
     def effective(self, name: str) -> str:
         """Effective display mode of a column ("binary" if unknown)."""
@@ -804,14 +809,85 @@ def fit_text(
     return FittedText(text, low)
 
 
+#: Width of a colored border (``o_`` column), in multiples of the shape's line width.
+OUTLINE_WIDTH_SCALE = 2.5
+#: White gap between two colored borders, in points (#46).
+OUTLINE_RING_GAP_PT = 1.0
+#: More borders than this make a symbol much larger: a warning says so.
+MAX_QUIET_OUTLINE_RINGS = 3
+
+
+def outline_columns(node: _HasPhenotypes, outline_names: Sequence[str]) -> list[str]:
+    """The ``o_`` columns this individual is affected in, in column order."""
+    return [n for n in outline_names if node.extra_phenotypes.get(n) == 1.0]
+
+
+def outline_colors(
+    node: _HasPhenotypes, outline_names: Sequence[str], style: PedigreeStyle
+) -> list[str]:
+    """One border color per ``o_`` column this individual is affected in.
+
+    The first is drawn on the symbol's outline, the others around it,
+    outwards, in column order (#46).
+    """
+    return [
+        style.phenotype_colors.get(n, FALLBACK_COLOR) for n in outline_columns(node, outline_names)
+    ]
+
+
 def outline_color(
     node: _HasPhenotypes, outline_names: Sequence[str], style: PedigreeStyle
 ) -> str | None:
     """Border color from the first ``o_`` column this individual is affected in."""
-    for name in outline_names:
-        if node.extra_phenotypes.get(name) == 1.0:
-            return style.phenotype_colors.get(name, FALLBACK_COLOR)
-    return None
+    colors = outline_colors(node, outline_names, style)
+    return colors[0] if colors else None
+
+
+def outline_ring_offsets(count: int, style: PedigreeStyle) -> list[float]:
+    """How far each border after the first lies outside the symbol, in points.
+
+    Measured from the outline to the border's centre line: one border's
+    width and a white gap (`OUTLINE_RING_GAP_PT`) per border.
+    """
+    step = style.shape_line_width * OUTLINE_WIDTH_SCALE + OUTLINE_RING_GAP_PT
+    return [k * step for k in range(1, count)]
+
+
+def outline_reach(count: int, style: PedigreeStyle) -> float:
+    """Room the borders after the first take around a symbol, in layout units.
+
+    Converted with `symbols.UNITS_PER_POINT`, the scale of the SVG; the PNG
+    draws at that scale or larger (see `renderer._OutlineRings`).
+    """
+    offsets = outline_ring_offsets(count, style)
+    return offsets[-1] * symbols.UNITS_PER_POINT if offsets else 0.0
+
+
+def with_outline_rings(
+    render: PhenotypeRender, nodes: Iterable[_HasPhenotypes], names: Sequence[str]
+) -> PhenotypeRender:
+    """`render` with the most borders one individual of `nodes` has (#46).
+
+    Warns when that is more than `MAX_QUIET_OUTLINE_RINGS`: every symbol then
+    takes much more room.
+    """
+    outline_names = render.outline_names(names)
+    if not outline_names:
+        return render
+    most, who = 0, ""
+    for node in nodes:
+        count = len(outline_columns(node, outline_names))
+        if count > most:
+            most = count
+            who = str(getattr(node, "sample_id", "") or getattr(node, "individual_id", ""))
+    if most > MAX_QUIET_OUTLINE_RINGS:
+        warnings.warn(
+            f"{who} has {most} colored borders (one per o_ column they are affected in): "
+            f"above {MAX_QUIET_OUTLINE_RINGS}, symbols take much more room",
+            PedigreeStyleWarning,
+            stacklevel=3,
+        )
+    return replace(render, outline_rings=most)
 
 
 def check_pgs_scale(style: PedigreeStyle) -> None:
@@ -1056,6 +1132,9 @@ LEG_KEY_SIDE = 1.5  # height of the key's square and circle, in vertical units
 LEG_KEY_GAP = 0.12  # between the key's symbols and their labels
 LEG_CHAR_WIDTH_EM = 0.55  # average glyph width, to make room for labels
 LEG_SHARED_BINARY_LABEL = "Phenotypes in the key (their colors)"
+LEG_OUTLINE_RINGS_LABEL = "Several borders: one per column, inner first"
+LEG_RING_WIDTH_PT = 1.6  # each border of the "outline_rings" icon
+LEG_RING_INSET_PT = 2.2  # its inner border, inside the outer one
 LEG_KEY_DASH_EM = 1.4  # length of a PGS score's dash in the legend's key, in ems
 LEG_KEY_GAP_EM = 0.3  # between a dash and its score's name
 LEG_KEY_SPACE_EM = 0.9  # between one score's name and the next dash
@@ -1187,11 +1266,13 @@ class LegendRow:
     Attributes:
         kind: "binary", "binary_shared" (the binary columns of the quadrant
             key, compact legend), "gradient", "categorical", "outline",
-            "pgs", "legacy_carrier" (half-fill / dot) or "carrier" (patterned).
+            "outline_rings" (how to read several borders, #46), "pgs",
+            "legacy_carrier" (half-fill / dot) or "carrier" (patterned).
         label: Row text.
         color: Swatch color ("binary", "outline").
         colors: Gradient bar, left to right ("gradient"); the columns'
-            colors, side by side in the "affected" swatch ("binary_shared").
+            colors, side by side in the "affected" swatch ("binary_shared");
+            the two borders of the icon, inner first ("outline_rings").
         low: Caption under the left end of a gradient bar.
         high: Caption under the right end of a gradient bar.
         categories: Category value → color ("categorical").
@@ -1429,6 +1510,18 @@ def legend_rows(
                 "outline",
                 f"Outline: {display_name(name, style)} (colored border when affected)",
                 color=style.phenotype_colors.get(name, FALLBACK_COLOR),
+            )
+        )
+    outline_names = render.outline_names(names)
+    if render.outline_rings > 1 and len(outline_names) > 1:
+        # Some individual has several borders: say how to read them (#46).
+        rows.append(
+            LegendRow(
+                "outline_rings",
+                LEG_OUTLINE_RINGS_LABEL,
+                colors=tuple(
+                    to_rgb(style.phenotype_colors.get(n, FALLBACK_COLOR)) for n in outline_names[:2]
+                ),
             )
         )
 

@@ -461,6 +461,18 @@ def shape_half_width(sex: Sex, half: float) -> float:
     return half * DIAMOND_SCALE if sex not in (Sex.MALE, Sex.FEMALE) else half
 
 
+def grown_half(sex: Sex, half: float, distance: float) -> float:
+    """Half size of the shape whose outline runs `distance` outside this one's.
+
+    Used for the colored borders drawn around a symbol (#46). The square and
+    the circle grow by `distance`; the diamond's sides are at 45°, so its
+    vertices move √2 times further.
+    """
+    if sex in (Sex.MALE, Sex.FEMALE):
+        return half + distance
+    return half + distance * math.sqrt(2) / DIAMOND_SCALE
+
+
 def shape_reach(sex: Sex, half: float, direction: float, rotation: float = 0.0) -> float:
     """Distance from a shape's centre to its outline in a given direction.
 

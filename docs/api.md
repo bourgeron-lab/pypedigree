@@ -716,7 +716,7 @@ Enum controlling how extra phenotype columns are rendered. Set via column name p
 | `b_` | `BINARY` | Color (affected) / white (unaffected) / grey (unknown) / grey with "NA" (no data) bands. When all bands are NA, a single centered "NA" is shown. |
 | `g_` | `GRADIENT` | White to color continuous gradient with value labels |
 | `gi_` | `GRADIENT_INVERTED` | Color to white gradient (high value = white, low value = full color). Useful for metrics where low = bad (e.g., IQ: low IQ = more red). |
-| `o_` | `OUTLINE` | Colored shape border (not a band) |
+| `o_` | `OUTLINE` | Colored shape border (not a band). An individual affected in several `o_` columns gets one border per column, inner first, in column order (#46) |
 | `c_` | `CATEGORICAL` | Distinct color per unique string value |
 | `cr_` | `CARRIER` | Carrier status of one gene or condition (0 = not, 1 = carrier, 2 = obligate carrier), drawn as a patterned section, not a phenotype band |
 | *(none)* | `AUTO` | Auto-detect from data (default, backward compatible) |

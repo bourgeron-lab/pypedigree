@@ -7,6 +7,7 @@ Never computes positions — only draws from pre-computed layout data.
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
@@ -20,7 +21,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure, SubFigure
 from matplotlib.lines import Line2D
 from matplotlib.text import Text
-from matplotlib.transforms import Bbox, ScaledTranslation
+from matplotlib.transforms import Affine2D, Bbox, ScaledTranslation
 
 from pypedigree import symbols
 from pypedigree.carriers import (
@@ -35,6 +36,7 @@ from pypedigree.carriers import (
 from pypedigree.config import (
     DEFAULT_PGS_COLOR,
     PedigreeStyle,
+    apply_outline_spacing,
     apply_pgs_spacing,
     is_pgs_column,
     resolve_style,
@@ -63,10 +65,13 @@ from pypedigree.phenotypes import (
     LEG_CATEGORY_COLOR,
     LEG_GRAD_W,
     LEG_PAD,
+    LEG_RING_INSET_PT,
+    LEG_RING_WIDTH_PT,
     LEG_SWATCH_EDGE,
     LEG_X0,
     NA_FILL,
     NA_TEXT_COLOR,
+    OUTLINE_WIDTH_SCALE,
     PGS_BOX_PAD,
     PGS_CURVE_SIGMA,
     PGS_DOT_PT,
@@ -96,7 +101,9 @@ from pypedigree.phenotypes import (
     legend_row_centers,
     legend_rows,
     legend_slot_count,
-    outline_color,
+    outline_colors,
+    outline_reach,
+    outline_ring_offsets,
     pgs_caption_above,
     pgs_marker_values,
     pgs_tail_positions,
@@ -111,7 +118,9 @@ from pypedigree.phenotypes import (
     spread_dots,
     spread_labels,
     text_color_on,
+    to_hex,
     validate_style_colors,
+    with_outline_rings,
     with_quadrants,
 )
 
@@ -187,6 +196,9 @@ def render_pedigree(
     pheno_render = with_quadrants(
         pheno_render, pheno_render.band_names(pheno_names or []), carriers, style
     )
+    # Several o_ borders (#46): room around every symbol, applied once here.
+    pheno_render = with_outline_rings(pheno_render, pedigree.individuals(), pheno_names or [])
+    style = apply_outline_spacing(style, outline_reach(pheno_render.outline_rings, style))
 
     if ax is not None:
         fig = _root_figure(ax)
@@ -461,6 +473,7 @@ def _render_layout(
             n_patches_before = len(ax.patches)
             n_lines_before = len(ax.lines)
             n_texts_before = len(ax.texts)
+        ring = 0.0  # room taken by the borders after the first (#46)
 
         banded = use_banded and bool(node.extra_phenotypes) and not node.is_phantom
         if symbols.is_pregnancy_loss(node.notation):
@@ -469,21 +482,23 @@ def _render_layout(
             )
             _draw_pregnancy_loss(ax, node, style, fill)
         elif banded:
+            borders = outline_colors(node, outline_names, style)
+            ring = outline_reach(len(borders), style)
             _draw_banded_node(
                 ax,
                 node,
                 style,
                 band_names,
                 display_modes,
-                outline_color(node, outline_names, style),
+                borders,
                 pheno_render,
                 carriers=carriers,
             )
             if pgs_names:
-                _draw_pgs_ridge(ax, node, style, pgs_names)
+                _draw_pgs_ridge(ax, node, style, pgs_names, ring)
         else:
             _draw_node(ax, node, style, carriers)
-        _draw_notation(ax, node, style, carriers, banded)
+        _draw_notation(ax, node, style, carriers, banded, ring if banded else 0.0)
 
         # Apply rotation to all patches/lines added for this node
         if node.rotation != 0.0:
@@ -502,6 +517,7 @@ def _render_layout(
             if node.is_proband or node.notation.is_consultand:
                 half = style.shape_size / 2
                 reach = _shape_boundary_radius(node.sex, half, node.rotation, _PROBAND_DIRECTION)
+                reach += ring
                 _draw_proband_marker(
                     ax,
                     node.x + reach * math.cos(_PROBAND_DIRECTION),
@@ -936,16 +952,25 @@ def _draw_pregnancy_loss(ax: Axes, node: NodeLayout, style: PedigreeStyle, fill:
 
 
 def _draw_notation(
-    ax: Axes, node: NodeLayout, style: PedigreeStyle, carriers: CarrierScheme, banded: bool
+    ax: Axes,
+    node: NodeLayout,
+    style: PedigreeStyle,
+    carriers: CarrierScheme,
+    banded: bool,
+    ring: float = 0.0,
 ) -> None:
     """Draw adoption brackets, the documented-evaluation asterisk, and the letter (P, D or S).
 
     The letter is white on a filled symbol and gets a white backing on
     carrier sections. A symbol with phenotype bands has text of its own, so
-    the letter goes outside, beside its upper-right corner.
+    the letter goes outside, beside its upper-right corner. Around several
+    colored borders (`ring` layout units beyond the outline, #46), the
+    brackets, asterisk and outside letter go round the outer border.
     """
-    half = style.shape_size / 2
     triangle = symbols.is_pregnancy_loss(node.notation)
+    half = style.shape_size / 2
+    if ring:
+        half = symbols.grown_half(node.sex, half, ring)
     if node.notation.adoption is not None:
         for line in symbols.bracket_lines(node.x, node.y, half, node.sex, triangle):
             ax.plot(
@@ -1486,7 +1511,7 @@ def _draw_banded_node(
     style: PedigreeStyle,
     band_names: list[str],
     display_modes: dict[str, PhenotypeDisplayMode] | None = None,
-    outline_color: str | None = None,
+    outline_colors: Sequence[str] = (),
     pheno_render: PhenotypeRender | None = None,
     *,
     carriers: CarrierScheme | None = None,
@@ -1503,7 +1528,9 @@ def _draw_banded_node(
         style: Visual style parameters.
         band_names: Phenotype columns to draw as bands, top to bottom.
         display_modes: Map of phenotype name → declared display mode.
-        outline_color: Shape border color from an `o_` phenotype, if any.
+        outline_colors: One border color per `o_` column the individual
+            is affected in: the first on the outline, the others around it
+            (`_OutlineRings`, #46).
         pheno_render: Per-figure phenotype display resolution.
         carriers: Per-figure carrier notation. Each carrier source adds a
             band below the phenotype bands, patterned for carriers.
@@ -1557,15 +1584,20 @@ def _draw_banded_node(
             zorder=6,
         )
 
-    # Draw shape outline on top (use outline_color from o_ phenotype if set)
+    # Draw shape outline on top, in the first o_ border's color if any
+    outline_color = outline_colors[0] if outline_colors else None
     oc = outline_color if outline_color else edgecolor
-    olw = linewidth * 2.5 if outline_color else linewidth
+    olw = linewidth * OUTLINE_WIDTH_SCALE if outline_color else linewidth
     if node.sex == Sex.MALE:
-        _draw_square(ax, cx, cy, half, "none", oc, olw, linestyle)
+        border = _draw_square(ax, cx, cy, half, "none", oc, olw, linestyle)
     elif node.sex == Sex.FEMALE:
-        _draw_circle(ax, cx, cy, half, "none", oc, olw, linestyle)
+        border = _draw_circle(ax, cx, cy, half, "none", oc, olw, linestyle)
     else:
-        _draw_diamond(ax, cx, cy, half, "none", oc, olw, linestyle)
+        border = _draw_diamond(ax, cx, cy, half, "none", oc, olw, linestyle)
+    if len(outline_colors) > 1:
+        # Under the bands, the inner half of the line is hidden; with more
+        # borders around it, it is drawn whole, as wide as they are (#46).
+        border.set_zorder(5)
 
     # Legacy carrier notation: half-fill and dot, drawn on top of bands
     if carriers.legacy:
@@ -1574,14 +1606,19 @@ def _draw_banded_node(
         if node.is_obligate_carrier:
             _draw_obligate_carrier_dot(ax, cx, cy, style)
 
+    # The borders after the first, around the outline (#46)
+    ring = outline_reach(len(outline_colors), style)
+    if ring:
+        ax.add_artist(_OutlineRings(ax, node, outline_colors[1:], style, olw, linestyle))
+
     # Deceased marker
     if node.is_deceased:
-        _draw_deceased_marker(ax, cx, cy, half, style)
+        _draw_deceased_marker(ax, cx, cy, half + ring, style)
 
     # Proband marker. A rotated node gets its marker after rotation instead,
     # so the "P" stays upright (see _render_layout).
     if (node.is_proband or node.notation.is_consultand) and node.rotation == 0.0:
-        _draw_proband_marker(ax, cx - half, cy - half, style, letter=node.is_proband)
+        _draw_proband_marker(ax, cx - half - ring, cy - half - ring, style, letter=node.is_proband)
 
 
 def _draw_bands(
@@ -1861,11 +1898,13 @@ def _draw_pgs_ridge(
     node: NodeLayout,
     style: PedigreeStyle,
     pgs_names: list[str],
+    ring: float = 0.0,
 ) -> None:
     """Draw a single gaussian distribution with multiple colored markers.
 
     One shared curve, each PGS trait's individual score shown as a colored
-    dashed line + dot at the corresponding y-position.
+    dashed line + dot at the corresponding y-position. The box moves `ring`
+    further left, clear of the symbol's outer borders (#46).
     """
     half = style.shape_size / 2
     cx, cy = node.x, node.y
@@ -1878,7 +1917,7 @@ def _draw_pgs_ridge(
     box_width = half * 0.8
     box_height = half * 2
     gap = half * 0.15
-    box_left = cx - half - box_width - gap
+    box_left = cx - half - box_width - gap - ring
     box_bottom = cy - half
 
     # Shared box outline
@@ -2048,6 +2087,99 @@ class _PgsMarks(Artist):
         self._place(renderer)
         boxes = [child.get_window_extent(renderer) for child in self.get_children()]
         return Bbox.union(boxes) if boxes else Bbox.null()
+
+
+class _OutlineRings(Artist):
+    """The colored borders after the first, around a symbol, placed when drawn (#46).
+
+    Each border is one shape's line width and a white gap
+    (`phenotypes.outline_ring_offsets`) further out, in points: like the
+    first border, which is a line in points, they keep their width and their
+    gaps at any scale, so they are drawn once the figure's scale is known
+    (as for `_PgsMarks`). A rotated node's borders turn with it.
+    """
+
+    def __init__(
+        self,
+        ax: Axes,
+        node: NodeLayout,
+        colors: Sequence[str],
+        style: PedigreeStyle,
+        linewidth: float,
+        linestyle: str,
+    ) -> None:
+        super().__init__()
+        self.set_zorder(6)
+        self._ax = ax
+        self._node = node
+        self._half = style.shape_size / 2
+        self._offsets = outline_ring_offsets(len(colors) + 1, style)
+        transform: Any = ax.transData
+        if node.rotation != 0.0:
+            transform = Affine2D().rotate_around(node.x, node.y, node.rotation) + ax.transData
+        self._patches: list[mpatches.Patch] = []
+        for color in colors:
+            patch = _shape_patch(node.sex, node.x, node.y, self._half, color, linewidth, linestyle)
+            patch.set_figure(ax.figure)
+            patch.set_transform(transform)
+            self._patches.append(patch)
+
+    def _place(self, renderer: Any) -> None:
+        origin, unit = self._ax.transData.transform([(0.0, 0.0), (1.0, 0.0)])
+        pixels_per_unit = abs(unit[0] - origin[0]) or 1.0
+        pt = renderer.points_to_pixels(1.0) / pixels_per_unit  # layout units per point
+        node = self._node
+        for patch, offset in zip(self._patches, self._offsets, strict=True):
+            half = symbols.grown_half(node.sex, self._half, offset * pt)
+            _set_shape_size(patch, node.sex, node.x, node.y, half)
+
+    def get_children(self) -> list[Artist]:
+        """The borders, so `findobj` and the like see them."""
+        return list(self._patches)
+
+    def draw(self, renderer: Any) -> None:
+        if not self.get_visible():
+            return
+        self._place(renderer)
+        for patch in self._patches:
+            patch.draw(renderer)
+
+    def get_window_extent(self, renderer: Any = None) -> Bbox:
+        if renderer is None:
+            renderer = self._ax.figure.canvas.get_renderer()  # type: ignore[attr-defined]
+        self._place(renderer)
+        return Bbox.union([p.get_window_extent(renderer) for p in self._patches])
+
+
+def _shape_patch(
+    sex: Sex, cx: float, cy: float, half: float, color: str, linewidth: float, linestyle: str
+) -> mpatches.Patch:
+    """An unfilled symbol outline, not yet added to any axes."""
+    patch: mpatches.Patch
+    if sex == Sex.MALE:
+        patch = mpatches.Rectangle((cx - half, cy - half), 2 * half, 2 * half)
+    elif sex == Sex.FEMALE:
+        patch = mpatches.Circle((cx, cy), radius=half)
+    else:
+        patch = mpatches.RegularPolygon(
+            (cx, cy), numVertices=4, radius=half * _DIAMOND_SCALE, orientation=0
+        )
+    patch.set_facecolor("none")
+    patch.set_edgecolor(color)
+    patch.set_linewidth(linewidth)
+    patch.set_linestyle(linestyle)
+    patch.set_joinstyle("miter")
+    return patch
+
+
+def _set_shape_size(patch: mpatches.Patch, sex: Sex, cx: float, cy: float, half: float) -> None:
+    """Resize a `_shape_patch` outline around its centre."""
+    if isinstance(patch, mpatches.Rectangle):
+        patch.set_bounds(cx - half, cy - half, 2 * half, 2 * half)
+    elif isinstance(patch, mpatches.Circle):
+        patch.set_radius(half)
+    elif isinstance(patch, mpatches.RegularPolygon):
+        patch.radius = half * _DIAMOND_SCALE
 
 
 def _legend_swatch(
@@ -2321,6 +2453,29 @@ def _draw_legend_shared_binary_row(
         _legend_swatch(ax, m.swatch_x(i), y_center, m.sw_w, m.sw_h, fill)
 
 
+def _draw_legend_outline_rings_row(
+    ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics, style: PedigreeStyle
+) -> None:
+    """Two nested borders, inner first, for "several borders" (#46)."""
+    dx = LEG_RING_INSET_PT / 72 / m.unit_x
+    dy = LEG_RING_INSET_PT / 72 / m.unit_y
+    inner, outer = (to_hex(c) for c in row.colors)
+    _legend_swatch(
+        ax, LEG_X0, y_center, m.sw_w, m.sw_h, "white", edgecolor=outer, linewidth=LEG_RING_WIDTH_PT
+    )
+    _legend_swatch(
+        ax,
+        LEG_X0 + dx,
+        y_center,
+        m.sw_w - 2 * dx,
+        m.sw_h - 2 * dy,
+        "none",
+        edgecolor=inner,
+        linewidth=LEG_RING_WIDTH_PT,
+    )
+    _legend_row_label(ax, y_center, row.label, m.icon_text_x, m, style)
+
+
 def _draw_legend_outline_row(
     ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics, style: PedigreeStyle
 ) -> None:
@@ -2559,6 +2714,8 @@ def _draw_legend(
             _draw_legend_shared_binary_row(ax, y_center, row, m)
         elif row.kind == "outline":
             _draw_legend_outline_row(ax, y_center, row, m, style)
+        elif row.kind == "outline_rings":
+            _draw_legend_outline_rings_row(ax, y_center, row, m, style)
         elif row.kind == "pgs":
             _draw_legend_pgs_row(ax, y_center, row, m, style)
         elif row.kind == "legacy_carrier":
