@@ -50,7 +50,7 @@ body:
     attributes:
       label: pypedigree version
       description: Output of `pypedigree --version`
-      placeholder: "0.7.0"
+      placeholder: "0.8.0"
     validations:
       required: true
 
