@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-11-19
+
 ### Added
 
 - `--output-dir DIR`: one file per family in a single run, named after the family (`FAM1.png`,
