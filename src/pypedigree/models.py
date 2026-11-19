@@ -5,7 +5,7 @@ Pure data structures with no I/O or rendering dependencies.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -308,12 +308,18 @@ class Pedigree:
 
     Attributes:
         families: Map of family_id to Family.
+        phenotype_names: Extra phenotype columns, in file order.
+        phenotype_display_modes: Display mode declared by each column's prefix.
+        annotation_names: Annotation (``a_``) columns, in file order.
+        source: For a pedigree made by `subset`, the whole pedigree it was
+            taken from, else None.
     """
 
     families: dict[str, Family] = field(default_factory=dict)
     phenotype_names: list[str] = field(default_factory=list)
     phenotype_display_modes: dict[str, PhenotypeDisplayMode] = field(default_factory=dict)
     annotation_names: list[str] = field(default_factory=list)
+    source: Pedigree | None = field(default=None, repr=False, compare=False)
 
     def get_family(self, family_id: str) -> Family | None:
         """Get a family by its ID."""
@@ -329,8 +335,13 @@ class Pedigree:
 
         Building ``Pedigree(families=...)`` instead drops the phenotype and
         annotation columns, so the families would be drawn without bands,
-        PGS curves or legend. The columns are those of the whole file, so
-        figures of different families share their colors and legend.
+        PGS curves or legend. The columns are those of the whole file, and
+        the subset keeps the whole pedigree as `source`: the renderers
+        decide how a column is drawn (its mode, category colors, carrier
+        sources) over `column_scope`, as the parser normalised its values
+        over the whole file. So a family is drawn as in the figure of the
+        whole file, and figures of different families share their colors
+        and legend.
 
         Args:
             family_ids: IDs of the families to keep, in the order wanted.
@@ -350,7 +361,18 @@ class Pedigree:
             phenotype_names=list(self.phenotype_names),
             phenotype_display_modes=dict(self.phenotype_display_modes),
             annotation_names=list(self.annotation_names),
+            source=self.source or self,
         )
+
+    @property
+    def column_scope(self) -> Pedigree:
+        """The pedigree over which columns are resolved: `source`, or this one."""
+        return self.source or self
+
+    def individuals(self) -> Iterator[Individual]:
+        """Every individual of every family, in order."""
+        for family in self.families.values():
+            yield from family.individuals.values()
 
 
 # --- Layout result types (decoupled from rendering) ---

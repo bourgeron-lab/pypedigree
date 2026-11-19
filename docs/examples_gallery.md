@@ -242,6 +242,21 @@ Without `pgs_colors`, the scores still get distinct colors: `PGS_autism` autism'
 
 ---
 
+## One file per family
+
+**Description**: `--output-dir` draws each family of a file into its own file, named after the family ID, in one run. Every file has the colors, column modes and legend of the whole file, so the figures of a cohort can be compared side by side.
+
+```bash
+pypedigree tests/data/basic/multi_family.ped --output-dir figures/
+# Saved: figures/FAM1.png
+# Saved: figures/FAM2.png
+pypedigree tests/data/basic/multi_family.ped --output-dir figures/ --interactive
+```
+
+From Python: `render_families(pedigree, "figures", fmt="svg")`.
+
+---
+
 ## Zero-padded IDs
 
 **Description**: Use the `zero_pad_ids` style option to zero-pad sample IDs in labels. For example, with `zero_pad_ids: 3`, ID `1` displays as `001`.

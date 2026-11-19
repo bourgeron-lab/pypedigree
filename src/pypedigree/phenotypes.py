@@ -318,12 +318,13 @@ def resolve_phenotype_render(
     """Resolve how every phenotype column of a pedigree is drawn.
 
     Args:
-        pedigree: The pedigree being rendered.
+        pedigree: The pedigree whose values decide: the one rendered, or for a
+            subset the whole pedigree (`Pedigree.column_scope`).
         phenotype_names: Ordered phenotype column names.
         display_modes: Modes declared by column prefixes.
         style: Resolved style.
     """
-    individuals = [ind for fam in pedigree.families.values() for ind in fam.individuals.values()]
+    individuals = list(pedigree.individuals())
 
     effective_modes: dict[str, str] = {}
     categorical_colors: dict[str, dict[str, str]] = {}

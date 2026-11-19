@@ -6,6 +6,7 @@ from importlib.metadata import version as _metadata_version
 from typing import TYPE_CHECKING, Any
 
 from pypedigree.api import PedigreeBuilder
+from pypedigree.batch import family_file_names, render_families
 from pypedigree.config import (
     DEFAULT_PHENOTYPE_PALETTE,
     PedigreeStyle,
@@ -14,6 +15,7 @@ from pypedigree.config import (
     resolve_style,
 )
 from pypedigree.errors import (
+    PedigreeBatchError,
     PedigreeDataWarning,
     PedigreeError,
     PedigreeLayoutError,
@@ -134,6 +136,8 @@ __all__ = [
     "render_family",
     "render_interactive_svg",
     "render_svg",
+    "render_families",
+    "family_file_names",
     # Config
     "PedigreeStyle",
     "DEFAULT_PHENOTYPE_PALETTE",
@@ -147,6 +151,7 @@ __all__ = [
     "PedigreeParseError",
     "PedigreeValidationError",
     "PedigreeLayoutError",
+    "PedigreeBatchError",
     # Warnings
     "PedigreeWarning",
     "PedigreeStyleWarning",

@@ -140,10 +140,12 @@ def render_pedigree(
     # resolved), then widen for PGS curves — this is the only place that
     # applies the PGS spacing, so it can never be applied twice.
     style = apply_pgs_spacing(resolve_style(style, pheno_names), pheno_names)
-    pheno_render = resolve_phenotype_render(pedigree, pheno_names or [], display_modes, style)
+    # A subset is drawn as in the whole file (`Pedigree.column_scope`).
+    scope = pedigree.column_scope
+    pheno_render = resolve_phenotype_render(scope, pheno_names or [], display_modes, style)
     check_notation(style.carrier_notation)
     carriers = resolve_carrier_scheme(
-        (ind for fam in families for ind in fam.individuals.values()),
+        scope.individuals(),
         carrier_columns(pheno_names or [], display_modes),
         style.carrier_notation,
     )

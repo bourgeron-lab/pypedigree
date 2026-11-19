@@ -9,8 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--output-dir DIR`: one file per family in a single run, named after the family (`FAM1.png`,
+  `FAM1.svg` with `--interactive`), in every format and with `--circular`, `--pheno`,
+  `--annotations`, `--style` and `--family` (#49). Every file has the colors, column modes and
+  legend of the whole file, so the figures of a cohort can be compared. Family IDs are made
+  safe for file names (other characters become `_`, Windows device names get a `_`); two IDs
+  giving the same name, ignoring case, get `_2`, `_3`... with a warning. A family that cannot
+  be drawn is reported with its ID, the others are still written, and the exit code is 1.
+- `render_families(pedigree, output_dir, ...)` does the same from Python and returns the files
+  written; `PedigreeBatchError` lists the files written and the families that failed.
+  `family_file_names(ids)` gives the file names.
 - `Pedigree.subset(family_ids)`: a pedigree with only some families, keeping the phenotype and
-  annotation columns of the whole file (#50).
+  annotation columns of the whole file (#50). It keeps the whole pedigree as `source`, and
+  `Pedigree.column_scope` and `Pedigree.individuals()` are new.
 
 ### Changed
 
@@ -26,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--family` drew the family without its phenotype columns, PGS curves, annotations and
   legend, from column 6 only; so did the web app's family choice (#50). Both now keep the
   file's columns, so a family's colors and legend are those of the whole file.
+- A family drawn alone (`--family`, the web app, `subset`) now has the column modes, category
+  colors and carrier legend of the whole file. They were decided from the family's own
+  values, while the parser normalises values over the whole file: an IQ column whose family
+  had only the values 1 and 2 was drawn as a binary phenotype (#49).
 
 ## [0.6.1] - 2026-11-18
 

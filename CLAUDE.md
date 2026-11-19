@@ -60,6 +60,8 @@ src/pypedigree/
   renderer.py      -> Matplotlib drawing (depends on: models, config, layout, carriers, phenotypes, symbols)
   svg_renderer.py  -> Interactive SVG rendering (depends on: models, config, layout, carriers, phenotypes, symbols)
   api.py           -> PedigreeBuilder fluent API (depends on: models, config, renderer, svg_renderer)
+  batch.py         -> render_families / family_file_names: one file per family (#49) (depends on:
+                      models, config, carriers, phenotypes; renderer or svg_renderer inside the function)
   cli.py       -> Click CLI (depends on: parser, config; renderer and matplotlib only for PNG/PDF)
   __init__.py  -> Public re-exports (includes compute_layout_circular); render_pedigree and
                   render_family are imported lazily through a module __getattr__ (PEP 562)
@@ -248,9 +250,20 @@ Parent IDs with no row become phantoms keeping that ID (`_create_phantom_parents
 which returns one warning message per missing parent); a child with one parent given
 gets a `_phantom_*` parent with no label. `PedigreeBuilder.build()` calls the same function.
 
-To keep some families, use `Pedigree.subset(ids)` (the CLI's `--family`, the web app): it keeps
-`phenotype_names`, `phenotype_display_modes` and `annotation_names`. `Pedigree(families=...)`
-drops them, and the family is drawn without bands, PGS curves or legend (#50).
+To keep some families, use `Pedigree.subset(ids)` (the CLI's `--family`, the web app,
+`render_families`): it keeps `phenotype_names`, `phenotype_display_modes` and `annotation_names`,
+and the whole pedigree as `source`. `Pedigree(families=...)` drops them, and the family is drawn
+without bands, PGS curves or legend (#50). Both renderers resolve columns (`resolve_phenotype_render`:
+AUTO modes, category colors; `resolve_carrier_scheme`) over `pedigree.column_scope` (`source`
+or itself), since the parser normalised values over the whole file: a subset is drawn as in the
+whole figure (#49). Decide anything else that depends on all values the same way.
+
+`render_families` (`--output-dir`) checks the style once, then draws `subset([fid])` per family
+into `family_file_names()` (safe characters, Windows device names, case-insensitive collisions
+→ `_2` with a `PedigreeDataWarning`). A failing family is recorded and the others drawn; then
+`PedigreeBatchError(written, failures)`; the CLI prints `Saved:` per file, `Error: family '<id>'`
+per failure, exit 1. matplotlib figures are closed per family (`_save_figure`), only those it
+opened. `tests/test_batch.py`.
 
 Extended format adds:
 - Column 7: date_of_birth (YYYYMMDD, YYYYMM, or YYYY)
@@ -338,6 +351,7 @@ pypedigree INPUT.ped [OPTIONS]
 -o, --output PATH        Output file path
 --format [png|svg|pdf]   Output format (auto-detected from extension)
 --family ID              Render only this family ID
+--output-dir DIR         One file per family in DIR (not with -o/--show)
 --dpi INT                Output resolution (default: 150)
 --show                   Display interactively instead of saving
 --style PATH             JSON file with style overrides
@@ -432,6 +446,8 @@ Validation warnings are printed to stderr as `Warning: <message>`.
     and `<name>.diff.png` (changes in red) next to the golden
   - Regenerate: `uv run pytest tests/visual/ --regen-golden`
 - `tests/test_api.py` — PedigreeBuilder programmatic API tests
+- `tests/test_batch.py` — One file per family: file names, `render_families` (formats, failures,
+  figures closed, same legend in every file), `--output-dir`
 - `tests/test_carrier.py` — Carrier notation: NSGC 2022 sections and `cr_` columns, legacy half-fill / dot (model, parsing, rendering, API, CLI)
 - `tests/test_light_import.py` — No matplotlib on import, parsing, layout, SVG or `--interactive` (fresh
   interpreter, matplotlib blocked); lazy `render_pedigree`; `pypedigree.colors` equal to `matplotlib.colors`

@@ -499,6 +499,32 @@ ped = parse_pedigree("family.ped")
 svg_str = render_svg(ped, id_prefix="fam1-", responsive=True)
 ```
 
+### `render_families(pedigree, output_dir, *, fmt="png", family_ids=None, style=None, show_labels=True, show_legend=True, circular=False, interactive=False, script=True, id_prefix="", responsive=False)`
+
+Draw each family into its own file in `output_dir` (created if needed; existing files are overwritten), and return a `dict` of family ID → `Path`, in drawing order. CLI: `--output-dir`.
+
+Every family is drawn with the colors, column modes and legend of the whole pedigree (see `Pedigree.subset`), so the figures of one cohort can be compared. The style is checked once, before anything is drawn. A family that fails does not stop the others: once all are drawn, `PedigreeBatchError` is raised, with `.written` (family ID → path) and `.failures` (family ID → message). Figures are closed as they are saved, so hundreds of families do not fill the memory; the caller's own figures are left open.
+
+| Argument | Description |
+|----------|-------------|
+| `fmt` | `"png"`, `"pdf"` or `"svg"` (matplotlib's SVG); ignored with `interactive` |
+| `family_ids` | Families to draw, in order (default: all). `KeyError` for an unknown ID |
+| `circular` | Circular layout (PNG, PDF, matplotlib SVG); with `interactive` it warns and draws the hierarchical layout |
+| `interactive` | pypedigree's SVG (`render_interactive_svg`); matplotlib is not imported |
+| `script` | With `interactive`: `False` writes `render_svg`'s static SVG |
+| `id_prefix`, `responsive` | With `interactive`: as in `render_interactive_svg` |
+
+```python
+from pypedigree import parse_pedigree, render_families
+
+ped = parse_pedigree("cohort.ped")
+files = render_families(ped, "figures", fmt="svg")   # {'FAM1': Path('figures/FAM1.svg'), ...}
+```
+
+### `family_file_names(family_ids)`
+
+The file name (without extension) `render_families` gives each family. Letters (accented ones too), digits, `-`, `_` and `.` are kept, every other character becomes `_`; leading and trailing dots and spaces are dropped (an empty name becomes `family`), Windows device names (`CON`, `NUL`, `COM1`...) get a trailing `_`, and names are cut to 100 characters. Two IDs giving the same name, ignoring case (`F/1` and `F_1`, or `f1` and `F1`), are told apart by `_2`, `_3`... in order, with a `PedigreeDataWarning`.
+
 ---
 
 ## Data Model
@@ -595,6 +621,9 @@ Top-level container for multiple families.
 | `family_ids` | `list[str]` | List of family identifiers |
 | `get_family(family_id)` | `Family \| None` | Look up a family by ID |
 | `subset(family_ids)` | `Pedigree` | Only these families, with every phenotype and annotation column kept (to draw one family with `render_pedigree`; `Pedigree(families=...)` would drop the columns). `KeyError` for an unknown ID |
+| `source` | `Pedigree \| None` | For a subset, the whole pedigree it was taken from (not compared, not in `repr`) |
+| `column_scope` | `Pedigree` | `source`, or the pedigree itself: the renderers decide each column's mode, category colors and carrier legend over its individuals, as the parser normalised the values over the whole file. So a subset is drawn as in the figure of the whole file |
+| `individuals()` | `Iterator[Individual]` | Every individual of every family, in order |
 | `phenotype_names` | `list[str]` | Names of extra phenotype columns |
 | `annotation_names` | `list[str]` | Names of annotation columns (from `a_` prefixed headers) |
 
@@ -769,6 +798,7 @@ Whether a phenotype column name denotes a polygenic score, i.e. starts with
 | `PedigreeParseError` | `PedigreeError` | File format or parsing issues |
 | `PedigreeValidationError` | `PedigreeError` | Data validation failures (cycles, invalid references) |
 | `PedigreeLayoutError` | `PedigreeError` | Layout computation failures |
+| `PedigreeBatchError` | `PedigreeError` | `render_families`: some families could not be drawn (the others were). `.written`: family ID → path; `.failures`: family ID → message |
 
 Every color in a style is validated before drawing starts, and all offending
 values are reported in one error:

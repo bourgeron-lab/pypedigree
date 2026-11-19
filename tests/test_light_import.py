@@ -112,6 +112,19 @@ class TestImport:
         )
         assert out.strip() == "ok"
 
+    def test_one_svg_per_family_without_matplotlib(self, tmp_path: Path) -> None:
+        """`render_families` with the interactive SVG never needs matplotlib (#49)."""
+        out = _run(
+            f"""
+            from pypedigree import parse_pedigree_from_string, render_families
+            ped = parse_pedigree_from_string({PED!r})
+            files = render_families(ped, {str(tmp_path)!r}, interactive=True)
+            print(sorted(p.name for p in files.values()))
+            """,
+            block_matplotlib=True,
+        )
+        assert out.strip() == "['F.svg']"
+
     def test_without_matplotlib_its_own_colors_are_invalid(self) -> None:
         out = _run(
             """

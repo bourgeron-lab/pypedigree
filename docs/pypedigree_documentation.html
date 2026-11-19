@@ -336,7 +336,10 @@ pypedigree family.ped -o output.png
 pypedigree family.ped --show
 
 <span class="comment"># Render specific family at high resolution</span>
-pypedigree family.ped --family FAM1 --dpi 300 -o family1.svg</code></pre>
+pypedigree family.ped --family FAM1 --dpi 300 -o family1.svg
+
+<span class="comment"># One file per family: figures/FAM1.svg, figures/FAM2.svg...</span>
+pypedigree cohort.ped --output-dir figures/ --format svg</code></pre>
 
 <h3>Python Script</h3>
 <pre><code><span class="keyword">from</span> pypedigree <span class="keyword">import</span> parse_pedigree, render_pedigree
@@ -500,6 +503,7 @@ child      2         105   62</code></pre>
     <tr><td><code>-o, --output PATH</code></td><td>Output file path (format from extension: .png, .svg, .pdf)</td><td>None (display)</td></tr>
     <tr><td><code>--format FORMAT</code></td><td>Force output format: <code>png</code>, <code>svg</code>, <code>pdf</code></td><td>Auto-detect</td></tr>
     <tr><td><code>--family ID</code></td><td>Render only this family</td><td>All families</td></tr>
+    <tr><td><code>--output-dir DIR</code></td><td>One file per family in DIR, named after the family ID (<code>FAM1.png</code>; <code>.svg</code> with <code>--interactive</code>), with the colors and legend of the whole file. IDs are made safe for file names; two IDs giving the same name get <code>_2</code>, <code>_3</code>&hellip; A family that fails is reported, the others are written, and the exit code is 1. Not with <code>-o</code> or <code>--show</code></td><td>&mdash;</td></tr>
     <tr><td><code>--dpi INT</code></td><td>Output resolution in DPI</td><td>150</td></tr>
     <tr><td><code>--show</code></td><td>Display interactively (matplotlib window)</td><td>Off</td></tr>
     <tr><td><code>--style PATH</code></td><td>JSON file with PedigreeStyle overrides</td><td>None</td></tr>
@@ -646,6 +650,21 @@ svg_str = render_interactive_svg(ped, output=<span class="string">"interactive.s
 
 <h4><code>render_svg(pedigree, ...)</code></h4>
 <p>The same drawing without script and without the tooltip group, for a printed report or for a page that adds its own behaviour. Each individual keeps its <code>&lt;title&gt;</code> and its <code>data-*</code> attributes. Same arguments as <code>render_interactive_svg()</code>.</p>
+
+<h4><code>render_families(pedigree, output_dir, ...)</code></h4>
+<p>Draw each family into its own file in <code>output_dir</code> (created if needed) and return a dict of family ID &rarr; <code>Path</code>. Every family has the colors, column modes and legend of the whole pedigree, so the figures of a cohort can be compared. The CLI's <code>--output-dir</code>. File names come from <code>family_file_names(ids)</code>: other characters than letters, digits, <code>-</code>, <code>_</code> and <code>.</code> become <code>_</code>, Windows device names get a <code>_</code>, and two IDs giving the same name (ignoring case) get <code>_2</code>, <code>_3</code>&hellip; with a warning.</p>
+<dl class="param-list">
+  <dt>fmt: str = "png"</dt><dd><code>"png"</code>, <code>"pdf"</code> or <code>"svg"</code> (matplotlib's SVG). Ignored with <code>interactive</code>.</dd>
+  <dt>family_ids: Iterable[str] | None = None</dt><dd>Families to draw, in order (default: all). <code>KeyError</code> for an unknown ID.</dd>
+  <dt>style, show_labels, show_legend, circular</dt><dd>As in <code>render_pedigree()</code>. The style is checked once, before anything is drawn.</dd>
+  <dt>interactive: bool = False</dt><dd>Write <code>render_interactive_svg()</code>'s SVG (matplotlib is not imported); with <code>script=False</code>, <code>render_svg()</code>'s. <code>id_prefix</code> and <code>responsive</code> as there.</dd>
+</dl>
+<p>A family that fails does not stop the others: once all are drawn, <code>PedigreeBatchError</code> is raised, with <code>.written</code> and <code>.failures</code> (family ID &rarr; message). Figures are closed as they are saved.</p>
+
+<pre><code><span class="keyword">from</span> pypedigree <span class="keyword">import</span> parse_pedigree, render_families
+
+ped = parse_pedigree(<span class="string">"cohort.ped"</span>)
+files = render_families(ped, <span class="string">"figures"</span>, fmt=<span class="string">"svg"</span>)</code></pre>
 
 <h3>Layout (advanced)</h3>
 
@@ -1499,6 +1518,9 @@ export_fam(ped, "output.fam")  # Ready for PLINK/KING</code></pre>
   <dt>family_ids: list[str] (property)</dt><dd>List of all family IDs.</dd>
   <dt>get_family(family_id) &rarr; Family | None</dt><dd>Get a family by ID.</dd>
   <dt>subset(family_ids) &rarr; Pedigree</dt><dd>Only these families, keeping every phenotype and annotation column, so <code>render_pedigree(ped.subset(["FAM1"]))</code> draws one family with its bands, PGS curves and legend. <code>KeyError</code> for an unknown ID.</dd>
+  <dt>source: Pedigree | None</dt><dd>For a subset, the whole pedigree it was taken from.</dd>
+  <dt>column_scope: Pedigree (property)</dt><dd><code>source</code>, or the pedigree itself. Each column's mode, category colors and carrier legend are decided over its individuals, as values are normalised over the whole file, so a subset is drawn as in the figure of the whole file.</dd>
+  <dt>individuals() &rarr; Iterator[Individual]</dt><dd>Every individual of every family, in order.</dd>
 </dl>
 
 <h3>Layout Classes</h3>
@@ -1620,6 +1642,7 @@ export_fam(ped, "output.fam")  # Ready for PLINK/KING</code></pre>
     <tr><td><code>PedigreeParseError</code></td><td>File parsing failures (bad format, missing columns, invalid values)</td></tr>
     <tr><td><code>PedigreeValidationError</code></td><td>Data validation failures (duplicate IDs, circular references, sex mismatches)</td></tr>
     <tr><td><code>PedigreeLayoutError</code></td><td>Layout computation failures</td></tr>
+    <tr><td><code>PedigreeBatchError</code></td><td><code>render_families()</code>: some families could not be drawn, the others were (<code>.written</code>, <code>.failures</code>)</td></tr>
   </tbody>
 </table>
 

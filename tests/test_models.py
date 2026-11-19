@@ -196,6 +196,26 @@ class TestPedigree:
         sub.phenotype_names.append("other")
         assert ped.phenotype_names == ["autism", "PGS_x"]
 
+    def test_subset_keeps_its_source(self):
+        """#49: columns are resolved over the whole pedigree, even for a subset of a subset."""
+        ped = Pedigree(families={f: Family(family_id=f) for f in ("F1", "F2")})
+        assert ped.column_scope is ped
+        sub = ped.subset(["F1"])
+        assert sub.source is ped
+        assert sub.column_scope is ped
+        assert sub.subset(["F1"]).source is ped
+        assert sub == Pedigree(families={"F1": ped.families["F1"]})  # not compared
+        assert "source" not in repr(sub)
+
+    def test_individuals(self):
+        ped = Pedigree()
+        for fid, ids in (("F1", ("a", "b")), ("F2", ("c",))):
+            fam = Family(family_id=fid)
+            for sid in ids:
+                fam.individuals[sid] = Individual(family_id=fid, sample_id=sid)
+            ped.families[fid] = fam
+        assert [i.sample_id for i in ped.individuals()] == ["a", "b", "c"]
+
     def test_subset_unknown_family(self):
         with pytest.raises(KeyError, match="F9"):
             Pedigree(families={"F1": Family(family_id="F1")}).subset(["F9"])
