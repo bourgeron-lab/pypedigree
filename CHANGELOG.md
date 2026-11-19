@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-19
+
 ### Added
 
 - An individual affected in several outline (`o_`) columns gets one colored border per column
