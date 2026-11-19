@@ -79,7 +79,7 @@ The style JSON supports additional gradient configuration:
 - **`gradient_range`**: custom min/max for gradient normalization. Example: `{"SRS": [40, 90]}` normalizes SRS values between 40 and 90.
 - **`gradient_diverging`**: tricolor diverging gradient. Values below the midpoint blend from `color_low` to white; values above blend from white to `color_high`. Example: `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}`.
 
-Gradient band values (e.g. "IQ: 90") are always displayed regardless of band color intensity.
+Gradient band values (e.g. "IQ: 90") are written whatever the band's color intensity. Text in bands and quadrants fits its place (`band_text: "auto"`, the default since 0.7.0): a gradient band writes "IQ: 90", or "90" alone, or the value smaller (down to `min_font_size`, or half `font_size`), whichever first fits the band's width at that height (a circle's chord), and nothing when even that does not fit; quadrant text likewise. `band_text: "name_value"` always writes "IQ: 90" (as before 0.7.0), `"value"` the value alone, `"none"` no value.
 
 Example — compact format (phenotypes directly after Sex):
 

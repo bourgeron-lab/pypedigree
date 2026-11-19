@@ -158,6 +158,68 @@ _CHAR_EM: dict[str, float] = {
     )
     for ch in chars
 }
+# The same for DejaVu Sans Bold, in which band and quadrant text is drawn.
+_CHAR_EM_BOLD = {
+    ch: em
+    for chars, em in (
+        ("'", 0.306),
+        ("ijl", 0.343),
+        (" ", 0.348),
+        ("/\\|", 0.365),
+        ("IJ", 0.372),
+        (",.", 0.38),
+        (":;", 0.4),
+        ("-", 0.415),
+        ("f", 0.435),
+        ("!", 0.456),
+        ("()[]", 0.457),
+        ("t", 0.478),
+        ("r", 0.493),
+        ("_`", 0.5),
+        ('"', 0.521),
+        ("*", 0.523),
+        ("?", 0.58),
+        ("z", 0.582),
+        ("c", 0.593),
+        ("s", 0.595),
+        ("L", 0.637),
+        ("x", 0.645),
+        ("vy", 0.652),
+        ("k", 0.665),
+        ("a", 0.675),
+        ("e", 0.678),
+        ("T", 0.682),
+        ("EF", 0.683),
+        ("o", 0.687),
+        ("$0123456789", 0.696),
+        ("hnu{}", 0.712),
+        ("bdgpq", 0.716),
+        ("S", 0.72),
+        ("Y", 0.724),
+        ("Z", 0.725),
+        ("P", 0.733),
+        ("C", 0.734),
+        ("B", 0.762),
+        ("R", 0.77),
+        ("X", 0.771),
+        ("AV", 0.774),
+        ("K", 0.775),
+        ("U", 0.812),
+        ("G", 0.821),
+        ("D", 0.83),
+        ("HN", 0.837),
+        ("#+<=>^~", 0.838),
+        ("OQ", 0.85),
+        ("&", 0.872),
+        ("w", 0.924),
+        ("M", 0.995),
+        ("@", 1.0),
+        ("%", 1.002),
+        ("m", 1.042),
+        ("W", 1.103),
+    )
+    for ch in chars
+}
 _OTHER_CHAR_EM = 0.7
 _WIDE_CHAR_EM = 1.0
 
@@ -168,24 +230,33 @@ LABEL_GAP_EM = 0.5
 # fraction of the label's font size.
 SMALL_TEXT_SCALE = 0.7
 
+# Other secondary text, as fractions of `font_size` (drawn at
+# `PedigreeStyle.text_size(scale)`, never below `min_font_size`, #51).
+PGS_CAPTION_SCALE = 0.6  # "PGS" under or above a curve
+BAND_TEXT_SCALE = 0.75  # text inside a phenotype band
+NA_TEXT_SCALE = 0.85  # the single "NA" of a symbol with no data at all
 
-def text_width(text: str, font_size: float) -> float:
+
+def text_width(text: str, font_size: float, *, bold: bool = False) -> float:
     """Width of one line of text, in layout units.
 
-    Measured in DejaVu Sans and converted with `UNITS_PER_POINT`, the scale
-    of the interactive SVG, where text takes the most room.
+    Measured in DejaVu Sans (Bold with ``bold``) and converted with
+    `UNITS_PER_POINT`, the scale of the interactive SVG, where text takes
+    the most room.
 
     Args:
         text: The line of text.
         font_size: Font size, in points.
+        bold: Measure in DejaVu Sans Bold (band and quadrant text).
     """
+    table = _CHAR_EM_BOLD if bold else _CHAR_EM
     em = 0.0
     for ch in text:
-        width = _CHAR_EM.get(ch)
+        width = table.get(ch)
         if width is None:
             base = unicodedata.normalize("NFD", ch)[:1]
-            if base in _CHAR_EM:
-                width = _CHAR_EM[base]
+            if base in table:
+                width = table[base]
             elif unicodedata.east_asian_width(ch) in ("W", "F"):
                 width = _WIDE_CHAR_EM
             else:
@@ -194,7 +265,9 @@ def text_width(text: str, font_size: float) -> float:
     return em * font_size * UNITS_PER_POINT
 
 
-def label_width(label: str, below: list[str], font_size: float) -> float:
+def label_width(
+    label: str, below: list[str], font_size: float, below_size: float | None = None
+) -> float:
     """Width of the text drawn under a symbol, in layout units.
 
     Args:
@@ -202,11 +275,16 @@ def label_width(label: str, below: list[str], font_size: float) -> float:
         below: Notation notes and annotations, one line each, drawn below the
             label in smaller type.
         font_size: The label's font size, in points.
+        below_size: The size of the lines below, in points (default:
+            `SMALL_TEXT_SCALE` times ``font_size``; the renderers pass
+            `PedigreeStyle.text_size(SMALL_TEXT_SCALE)`).
     """
     if not label:
         return 0.0
+    if below_size is None:
+        below_size = font_size * SMALL_TEXT_SCALE
     widths = [text_width(label, font_size)]
-    widths += [text_width(line, font_size * SMALL_TEXT_SCALE) for line in below]
+    widths += [text_width(line, below_size) for line in below]
     return max(widths)
 
 
@@ -352,6 +430,27 @@ def marker_clearance(half: float, font_size: float, label_chars: int, letter: bo
     if letter:
         reach += em * (MARKER_LETTER_GAP_EM + _MARKER_LETTER_EM)
     return reach + em * (_MARKER_PAD_EM + _LABEL_CHAR_EM * label_chars / 2)
+
+
+def shape_half_width_at(sex: Sex, half: float, y: float) -> float:
+    """Half the width of an upright symbol at height ``y`` from its centre.
+
+    A square keeps its width, a circle narrows as a chord, the unknown-sex
+    diamond linearly to its vertices. Used to fit text inside bands and
+    quadrants (#55).
+
+    Args:
+        sex: The symbol's shape (`Sex.MALE` square, `FEMALE` circle, else
+            the diamond).
+        half: Half the shape size.
+        y: Vertical distance from the centre, either sign.
+    """
+    y = abs(y)
+    if sex == Sex.MALE:
+        return half if y <= half else 0.0
+    if sex == Sex.FEMALE:
+        return math.sqrt(max(0.0, half * half - y * y))
+    return max(0.0, half * DIAMOND_SCALE - y)
 
 
 def shape_half_width(sex: Sex, half: float) -> float:

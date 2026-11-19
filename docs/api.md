@@ -665,6 +665,7 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `carrier_notation` | `"nsgc2022"` | `"nsgc2022"`: the symbol is divided into patterned sections, one per carrier result, defined in the legend (Bennett et al., J Genet Couns 2022). `"legacy"`: half-filled shape for carriers, center dot for obligate carriers. Any other value raises `PedigreeError` |
 | `carrier_dot_radius` | `0.08` | Radius of the obligate carrier center dot (legacy notation) |
 | `font_size` | `8.0` | Label font size, in points. The legend panel is sized from it (text, swatches and row height), so raise it to keep a figure legible once scaled down for print |
+| `min_font_size` | `None` | Smallest size of any text, in points (e.g. `6`, a common journal rule). The secondary text is drawn at fractions of `font_size` (notes and annotations 0.7, band text 0.75, quadrant text 0.65, "PGS" caption 0.6, legend 0.85 and less); each is raised to this minimum. The layout measures the lines below labels at that size and the legend grows with its text. `None`: no minimum. CLI: `--min-font-size` |
 | `font_family` | `"sans-serif"` | Label font family |
 | `label_offset` | `0.15` | Vertical offset for labels below shapes |
 | `generation_gap` | `2.0` | Vertical distance between generations |
@@ -678,6 +679,7 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `phenotype_layout` | `"auto"` | `"quadrants"` (the symbol cut in four, one quadrant per phenotype or `cr_` carrier source, at most four; more fall back to bands with a `PedigreeStyleWarning`), `"bands"` (one horizontal band per phenotype; the default before 0.5.0) or `"auto"` (quadrants up to four sources, bands beyond, without a warning). With carrier sources and no phenotype column nothing is cut: the symbol and the legend are drawn as with bands. Any other value raises `PedigreeError` |
 | `phenotype_quadrants` | `{}` | Column name → `"top-left"`, `"top-right"`, `"bottom-left"` or `"bottom-right"`, for the quadrant layout. Unlisted columns take their conventional quadrant (autism top left, ADHD top right, intellectual disability bottom left, epilepsy bottom right) or the next free one in column order. Two columns in one quadrant raise `PedigreeError` |
 | `show_na_labels` | `True` | Write "NA" in bands with no data (`-9`, `NA`, empty). When `False` they stay grey with no text, so they look like an "unknown" (`0`) band |
+| `band_text` | `"auto"` | Text in bands and quadrants. `"auto"`: "name: value", or the value alone, or the value smaller (down to `min_font_size`, or half `font_size`), whichever fits; else none. `"name_value"`: always "name: value" (before 0.7.0). `"value"`: the value alone. `"none"`: no value ("NA" still follows `show_na_labels`) |
 | `pgs_scale` | `"minmax"` | Position of a PGS value on its curve: `"minmax"` (between the pedigree's lowest and highest score), `"zscore"` (a z-score on the drawn standard normal, clipped at about ±2.8 SD) or `"percentile"` (a population percentile, 0-100). On the fixed scales the ±2 SD tails are marked and the SVG tooltip gives z and percentile. Any other value raises `PedigreeError` |
 | `pgs_colors` | `{}` | Map of PGS column name to hex color for the marker line. Unset: `#e74c3c` for a single PGS column; with several, distinct colors (known phenotypes' for `PGS_autism` and the like) |
 | `gradient_range` | `{}` | Custom min/max for gradient normalization, e.g. `{"SRS": [40, 90]}` |
@@ -689,6 +691,8 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `margin` | `0.5` | Margin around the diagram |
 
 **Methods**: `PedigreeStyle.from_dict(d)` — create from dictionary. `style.to_dict()` — convert to dictionary.
+
+`PedigreeStyle.text_size(scale=1.0)` returns the size in points of a text drawn at `scale` times `font_size`, never below `min_font_size`: `PedigreeStyle(font_size=6, min_font_size=6).text_size(0.6)` is `6.0`. Both renderers and the layout take every text size from it.
 
 ### `DEFAULT_PHENOTYPE_PALETTE` and `EXTRA_PHENOTYPE_COLORS`
 
@@ -723,7 +727,7 @@ The prefix is stripped from the display name (e.g. `b_ASD` is shown as `ASD`).
 
 **Multiple PGS columns**: Any column whose name starts with `PGS` (case-insensitive) is treated as a PGS column -- e.g. `PGS_autism`, `PGS_IQ`, `PGS_ADHD`. All PGS values are rendered on a single gaussian curve with multiple colored markers. Marker colors are set via the `pgs_colors` style option. With several PGS columns and no `pgs_colors` entry, each gets its own color: a score named after a known phenotype (`PGS_autism`, `PGS_ADHD`, `PGS_ID`, `PGS_epilepsy`) takes that phenotype's color, the one its column has in the figure if there is one; the others take the first color unlike the other scores and the phenotype bands, starting from `#e74c3c`. A single PGS column keeps `#e74c3c`. `pgs_colors` entries always win. When PGS columns are present, `couple_gap` and `sibling_gap` are auto-increased to accommodate the curve.
 
-**Gradient value display**: Gradient band values (e.g. "IQ: 90", "SRS: 76") are always displayed regardless of band color intensity.
+**Gradient value display**: Gradient band values (e.g. "IQ: 90", "SRS: 76") are always written, whatever the band's color intensity. Text in bands and quadrants fits its place (`band_text: "auto"`, the default since 0.7.0): a gradient band writes "IQ: 90", or "90" alone, or the value smaller (down to `min_font_size`, or half `font_size`), whichever first fits the band's width at that height (a circle's chord), and nothing when even that does not fit; quadrant text likewise. `band_text: "name_value"` always writes "IQ: 90" (as before 0.7.0), `"value"` the value alone, `"none"` no value.
 
 **AUTO mode resolution**: A column with no prefix is resolved **once per column**, from all of its values across the pedigree:
 

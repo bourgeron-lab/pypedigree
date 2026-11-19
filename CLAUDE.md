@@ -56,7 +56,8 @@ src/pypedigree/
   symbols.py   -> Standard notation (pregnancies, adoption, childlessness, donors, gender, consultand):
                   decisions and geometry shared by layout and both renderers, no matplotlib (depends on: models)
   phenotypes.py -> Phenotype display decisions shared by both renderers: column modes, band colors/text,
-                   legend rows and geometry; no matplotlib (depends on: models, config, colors, carriers, errors)
+                   legend rows and geometry, text fitted to bands; no matplotlib (depends on: models,
+                   config, colors, carriers, symbols, errors)
   renderer.py      -> Matplotlib drawing (depends on: models, config, layout, carriers, phenotypes, symbols)
   svg_renderer.py  -> Interactive SVG rendering (depends on: models, config, layout, carriers, phenotypes, symbols)
   api.py           -> PedigreeBuilder fluent API (depends on: models, config, renderer, svg_renderer)
@@ -220,7 +221,9 @@ src/pypedigree/
 
 13. **The legend panel derives its own geometry, from the font.** `legend_metrics()`
     (in `phenotypes.py`) returns a `LegendMetrics` from the row count and
-    `style.font_size`; one legend unit is a fixed multiple of the font size
+    `style.font_size` (`LegendMetrics.font`: more, with `min_font_size`, so its
+    row text reaches it; captions through `caption_fs()`, never below it); one
+    legend unit is a fixed multiple of that font size
     (`LEG_UNIT_X_EM`, `LEG_UNIT_Y_EM`), so text and swatches scale together and
     never with the figure. Both renderers use it: `_add_legend_axes()` grows the
     matplotlib figure downward by the panel height rather than taking a share of
@@ -230,6 +233,15 @@ src/pypedigree/
     is drawn before the Affected/Unaffected/Unknown captions, and takes its
     layout from `quadrant_key_geometry()`. Legend geometry constants
     (`LEG_*`) are not user-tunable style. `TestLegendPhysicalSize` checks it.
+
+14. **Every text size comes from `PedigreeStyle.text_size(scale)`** (#51): `font_size`
+    times the text's fraction, never below `min_font_size`. Fractions are named
+    (`symbols.SMALL_TEXT_SCALE` notes/annotations, `BAND_TEXT_SCALE`, `NA_TEXT_SCALE`,
+    `PGS_CAPTION_SCALE`, `phenotypes.QUADRANT_FONT_SCALE`, `LEG_TEXT_SCALE`); never write
+    `style.font_size * 0.7` in a renderer. The layout measures labels with the same sizes
+    (`symbols.label_width(label, below, size, below_size)`). `check_min_font_size()` runs
+    with the other style checks. `tests/test_min_font_size.py` checks that no text of the
+    PNG or SVG is below the minimum, on fixtures with every kind of text.
 
 ## File Format
 
@@ -319,7 +331,16 @@ Multi-phenotype support:
   `EXTRA_PHENOTYPE_COLORS`. With none fixed the palette order is kept exactly (no
   figure changes). Columns are never left grey since 0.6.1.
 - Comma decimal separator: parser accepts `0,712` as `0.712` (European locale)
-- Gradient band values always displayed regardless of intensity
+- Gradient band values always written, fitted to their place (#55, `band_text`, default "auto"):
+  `phenotypes.cell_texts` gives the candidates ("name: value", then `BandCell.short`, the value),
+  `band_room` / `quadrant_room` the width inside the symbol at the text's height
+  (`symbols.shape_half_width_at`), and `fit_text` picks the first that fits, else the last
+  smaller down to `min_font_size` or `FIT_FLOOR_SCALE` x `font_size`, else None. Widths in
+  DejaVu Sans Bold (`symbols._CHAR_EM_BOLD`, `text_width(bold=True)`). The SVG calls it with
+  `_PT`; the PNG draws `renderer._FittedText`, a `Text` that fits itself in `draw` and
+  `get_window_extent` from the axes' transform (works with a caller's `ax`, a resize, a tight
+  bbox). Same for quadrant text and every "NA". `tests/test_band_text.py` checks no SVG band
+  text leaves its symbol or quadrant.
 - AUTO mode (no prefix) is resolved **once per column** from all of its values:
   any string value -> categorical, any numeric value outside 0/1/2 -> gradient,
   otherwise binary. Never per individual, so a column cannot mix band types.
@@ -329,6 +350,8 @@ Additional PedigreeStyle fields:
 - `gradient_range: dict[str, list[float]]` — custom min/max for gradient normalization (e.g. `{"SRS": [40, 90]}`)
 - `gradient_diverging: dict[str, dict]` — tricolor diverging gradient config (e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}`)
 - `zero_pad_ids: int` — zero-pad IDs to this width (0 = no padding)
+- `min_font_size: float | None` — smallest size of any text in points (None = no minimum, #51)
+- `band_text: str` — "auto" (fit, default), "name_value", "value" or "none" (#55)
 Warnings and errors:
 - `PedigreeWarning` (base), `PedigreeStyleWarning`, `PedigreeDataWarning`
 - Unknown keys in a style JSON warn with a suggested spelling (they are still ignored)
@@ -360,6 +383,7 @@ pypedigree INPUT.ped [OPTIONS]
 --annotations PATH       Separate TSV file with annotation text (displayed below IDs)
 --outline-color COLOR    Shape/deceased outline color (e.g. 'grey', '#888888')
 --carrier-notation [nsgc2022|legacy]  Carrier notation (default: nsgc2022)
+--min-font-size PT       Smallest size of any text, in points (style `min_font_size`)
 --no-labels              Hide sample ID labels
 --no-legend              Hide the phenotype legend
 --show-phenotype-labels  Show YES/NO text inside binary phenotype bands

@@ -105,6 +105,14 @@ def _reported_warnings() -> Iterator[None]:
         "for carriers, central dot for obligate carriers."
     ),
 )
+@click.option(
+    "--min-font-size",
+    type=click.FloatRange(min=0, min_open=True),
+    default=None,
+    metavar="PT",
+    help="Smallest size of any text, in points (e.g. 6 for journals): notes, "
+    "annotations, band text, PGS captions and the legend are raised to it.",
+)
 @click.option("--no-labels", is_flag=True, help="Hide sample ID labels.")
 @click.option("--no-legend", is_flag=True, help="Hide the phenotype legend.")
 @click.option(
@@ -181,6 +189,7 @@ def main(
     annotations_file: str | None,
     outline_color: str | None,
     carrier_notation: str | None,
+    min_font_size: float | None,
     no_labels: bool,
     no_legend: bool,
     show_phenotype_labels: bool,
@@ -214,6 +223,8 @@ def main(
                 style.outline_color = outline_color
             if carrier_notation is not None:
                 style.carrier_notation = carrier_notation
+            if min_font_size is not None:
+                style.min_font_size = min_font_size
             if show_phenotype_labels:
                 style.show_phenotype_labels = True
             if no_na_labels:

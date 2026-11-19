@@ -126,6 +126,12 @@ class PedigreeStyle:
     font_size: float = 8.0
     font_family: str = "sans-serif"
     label_offset: float = 0.15
+    # Smallest size of any text, in points (None: no minimum). The secondary
+    # text (notes, annotations, band and quadrant text, "PGS" captions,
+    # legend) is drawn at a fraction of `font_size`; journals often ask for
+    # 6 pt at print size, which those fractions miss unless the labels are
+    # made much larger (#51). See `text_size`.
+    min_font_size: float | None = None
 
     # Layout spacing
     generation_gap: float = 2.0
@@ -171,6 +177,13 @@ class PedigreeStyle:
     # Write "NA" in bands with no data (-9 / NA / empty). Without it, a band
     # with no data is the same plain grey as an "unknown" (0) one.
     show_na_labels: bool = True
+
+    # Text in phenotype bands and quadrants (#55): "auto" writes "name: value",
+    # or the value alone, or the value smaller (down to `min_font_size`, or
+    # half `font_size`), whichever first fits the place; otherwise nothing.
+    # "name_value" always writes "name: value" (before 0.7), "value" the value
+    # alone, "none" no value (an "NA" still follows `show_na_labels`).
+    band_text: str = "auto"
 
     # PGS curve colors (PGS column name -> hex color, e.g. {"PGS_autism": "#3498db"})
     pgs_colors: dict[str, str] = field(default_factory=dict)
@@ -230,6 +243,23 @@ class PedigreeStyle:
     def to_dict(self) -> dict[str, Any]:
         """Convert to a plain dictionary."""
         return asdict(self)
+
+    def text_size(self, scale: float = 1.0) -> float:
+        """Size in points of a text drawn at ``scale`` times `font_size`.
+
+        Never below `min_font_size`. Every text of both renderers, and the
+        layout's measure of the labels, take their size from here.
+
+        Args:
+            scale: Fraction of `font_size` (e.g. `SMALL_TEXT_SCALE`).
+
+        Returns:
+            The size in points.
+        """
+        size = self.font_size * scale
+        if self.min_font_size is not None and size < self.min_font_size:
+            return float(self.min_font_size)
+        return size
 
 
 def is_pgs_column(name: str) -> bool:

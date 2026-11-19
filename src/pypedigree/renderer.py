@@ -66,11 +66,17 @@ from pypedigree.phenotypes import (
     LegendMetrics,
     LegendRow,
     PhenotypeRender,
+    Room,
     active_pgs,
     all_bands_na,
     band_cell,
+    band_room,
+    cell_texts,
+    check_band_text,
+    check_min_font_size,
     check_pgs_scale,
     check_phenotype_layout,
+    fit_text,
     legend_metrics,
     legend_row_centers,
     legend_rows,
@@ -83,6 +89,7 @@ from pypedigree.phenotypes import (
     quadrant_cell,
     quadrant_center,
     quadrant_key_geometry,
+    quadrant_room,
     resolve_phenotype_render,
     text_color_on,
     validate_style_colors,
@@ -151,6 +158,8 @@ def render_pedigree(
     )
     check_phenotype_layout(style)
     check_pgs_scale(style)
+    check_min_font_size(style)
+    check_band_text(style)
     pheno_render = with_quadrants(
         pheno_render, pheno_render.band_names(pheno_names or []), carriers, style
     )
@@ -214,7 +223,7 @@ def render_pedigree(
                 pheno_render,
                 carriers=carriers,
             )
-            ax_obj.set_title(f"Family: {fam.family_id}", fontsize=style.font_size + 2)
+            ax_obj.set_title(f"Family: {fam.family_id}", fontsize=style.text_size() + 2)
             _finalize_axes(ax_obj)
             if circular:
                 ax_obj.set_aspect("equal")
@@ -412,7 +421,7 @@ def _render_layout(
             ax.text(
                 *symbols.unknown_offspring_anchor(node.x, node.y, style.shape_size / 2),
                 symbols.UNKNOWN_OFFSPRING_TEXT,
-                fontsize=style.font_size * symbols.UNKNOWN_OFFSPRING_FONT_SCALE,
+                fontsize=style.text_size(symbols.UNKNOWN_OFFSPRING_FONT_SCALE),
                 fontfamily=style.font_family,
                 ha="center",
                 va="top",
@@ -843,14 +852,15 @@ def _draw_proband_marker(
     """
     # The arrow's start and the "P", in points from the tip (y up): the SVG
     # gets the same from `symbols.marker_points` with the font in layout units.
-    start_x, start_y = symbols.marker_points(0.0, 0.0, style.font_size)
+    size = style.text_size()
+    start_x, start_y = symbols.marker_points(0.0, 0.0, size)
     if letter:
         ax.annotate(
             "P",
             xy=(tip_x, tip_y),
-            xytext=(start_x - symbols.MARKER_LETTER_GAP_EM * style.font_size, start_y),
+            xytext=(start_x - symbols.MARKER_LETTER_GAP_EM * size, start_y),
             textcoords="offset points",
-            fontsize=style.font_size,
+            fontsize=size,
             fontfamily=style.font_family,
             fontweight="bold",
             ha="right",
@@ -928,7 +938,7 @@ def _draw_notation(
             ex,
             ey,
             symbols.EVALUATION_MARK,
-            fontsize=style.font_size * symbols.EVALUATION_MARK_FONT_SCALE,
+            fontsize=style.text_size(symbols.EVALUATION_MARK_FONT_SCALE),
             fontfamily=style.font_family,
             fontweight="bold",
             ha="center",
@@ -956,7 +966,7 @@ def _draw_notation(
         x,
         y,
         letter,
-        fontsize=style.font_size,
+        fontsize=style.text_size(),
         fontfamily=style.font_family,
         zorder=11,
         **kwargs,
@@ -1144,7 +1154,7 @@ def _draw_twin_connector(ax: Axes, tc: TwinConnector, style: PedigreeStyle) -> N
             q_x,
             q_y,
             "?",
-            fontsize=style.font_size,
+            fontsize=style.text_size(),
             fontfamily=style.font_family,
             fontweight="bold",
             ha="center",
@@ -1215,7 +1225,7 @@ def _draw_label(ax: Axes, node: NodeLayout, style: PedigreeStyle) -> None:
         node.x,
         y_cursor,
         node.label,
-        fontsize=style.font_size,
+        fontsize=style.text_size(),
         fontfamily=style.font_family,
         ha="center",
         va="top",
@@ -1229,7 +1239,7 @@ def _draw_label(ax: Axes, node: NodeLayout, style: PedigreeStyle) -> None:
             node.x,
             y_cursor,
             text,
-            fontsize=style.font_size * 0.7,
+            fontsize=style.text_size(symbols.SMALL_TEXT_SCALE),
             fontfamily=style.font_family,
             ha="center",
             va="top",
@@ -1273,9 +1283,10 @@ class _RadialLabels(Artist):
         for node in nodes:
             assert node.label_angle is not None
             lines: list[tuple[str, float, dict[str, Any]]] = [
-                (node.label, style.font_size, {"color": style.line_color})
+                (node.label, style.text_size(), {"color": style.line_color})
             ]
-            lines += [(t, style.font_size * 0.7, kw) for t, kw in _lines_below_label(node, style)]
+            small = style.text_size(symbols.SMALL_TEXT_SCALE)
+            lines += [(t, small, kw) for t, kw in _lines_below_label(node, style)]
             texts = [
                 Text(
                     text=text,
@@ -1305,7 +1316,7 @@ class _RadialLabels(Artist):
         x, y = node.x + distance * c, node.y + distance * s
         # Points away from the node: a gap from the shape that does not
         # shrink with the scale, then each line below the previous one.
-        step = _RADIAL_LABEL_GAP_EM * self._style.font_size
+        step = _RADIAL_LABEL_GAP_EM * self._style.text_size()
         fig = self._ax.figure
         for text in texts:
             offset = ScaledTranslation(step * c / 72, step * s / 72, fig.dpi_scale_trans)
@@ -1509,15 +1520,15 @@ def _draw_banded_node(
 
     # If all bands are NA, draw a single centered "NA" label
     if all_na and band_names and style.show_na_labels:
-        ax.text(
+        _fitted_text(
+            ax,
             cx,
             cy,
-            "NA",
-            fontsize=style.font_size * 0.85,
-            fontfamily=style.font_family,
-            fontweight="bold",
-            ha="center",
-            va="center",
+            ("NA",),
+            style.text_size(symbols.NA_TEXT_SCALE),
+            style,
+            band_room(node.sex, half, 0.0),
+            2 * half,
             color=NA_TEXT_COLOR,
             zorder=6,
         )
@@ -1609,15 +1620,16 @@ def _draw_bands(
         # Text inside the band; a symbol with no data at all gets a single
         # centred "NA" instead (drawn below).
         if cell.text is not None and not (cell.is_na and all_na):
-            ax.text(
+            yc = band_top - band_height / 2
+            _fitted_text(
+                ax,
                 cx,
-                band_top - band_height / 2,
-                cell.text,
-                fontsize=style.font_size * 0.75,
-                fontfamily=style.font_family,
-                fontweight="bold",
-                ha="center",
-                va="center",
+                yc,
+                cell_texts(cell, style.band_text),
+                style.text_size(symbols.BAND_TEXT_SCALE),
+                style,
+                band_room(node.sex, half, yc - cy),
+                band_height,
                 color=cell.text_color,
                 zorder=6,
             )
@@ -1650,15 +1662,16 @@ def _draw_bands(
             clip_on=True,
         )
         if state is None and style.show_na_labels:
-            ax.text(
+            yc = band_top - band_height / 2
+            _fitted_text(
+                ax,
                 cx,
-                band_top - band_height / 2,
-                "NA",
-                fontsize=style.font_size * 0.75,
-                fontfamily=style.font_family,
-                fontweight="bold",
-                ha="center",
-                va="center",
+                yc,
+                ("NA",),
+                style.text_size(symbols.BAND_TEXT_SCALE),
+                style,
+                band_room(node.sex, half, yc - cy),
+                band_height,
                 color=NA_TEXT_COLOR,
                 zorder=6,
             )
@@ -1690,7 +1703,7 @@ def _draw_quadrants(
     columns = [n for n in pheno_render.quadrants if n not in carriers.keys]
     has_carriers = any(n in carriers.keys for n in pheno_render.quadrants)
     all_na = not has_carriers and all_bands_na(node, columns)
-    fontsize = style.font_size * QUADRANT_FONT_SCALE
+    fontsize = style.text_size(QUADRANT_FONT_SCALE)
 
     for name, position in pheno_render.quadrants.items():
         x, y, w, h = quadrant_box(position, cx, cy, half)
@@ -1700,12 +1713,12 @@ def _draw_quadrants(
             if state in (CARRIER, OBLIGATE_CARRIER):
                 hatch = _hatch(carriers.pattern(name), state == OBLIGATE_CARRIER)
             fill: Any = NA_FILL if state is None else "white"
-            text = "NA" if state is None and style.show_na_labels else None
+            texts: tuple[str, ...] = ("NA",) if state is None and style.show_na_labels else ()
             text_color = NA_TEXT_COLOR
         else:
             cell = quadrant_cell(node, name, style, pheno_render, display_modes)
             fill = cell.color
-            text = None if (cell.is_na and all_na) else cell.text
+            texts = () if (cell.is_na and all_na) else cell_texts(cell, style.band_text)
             text_color = cell.text_color
         rect = mpatches.Rectangle(
             (x, y),
@@ -1719,21 +1732,104 @@ def _draw_quadrants(
         )
         rect.set_clip_path(clip_patch)
         ax.add_patch(rect)
-        if text is not None:
+        if texts:
             tx, ty = quadrant_center(position, cx, cy, half)
-            ax.text(
+            _fitted_text(
+                ax,
                 tx,
                 ty,
-                text,
-                fontsize=fontsize,
-                fontfamily=style.font_family,
-                fontweight="bold",
-                ha="center",
-                va="center",
+                texts,
+                fontsize,
+                style,
+                quadrant_room(node.sex, half, position),
+                half,
                 color=text_color,
                 zorder=6,
             )
     return all_na
+
+
+class _FittedText(Text):
+    """Band or quadrant text that fits its place, chosen when the figure is drawn.
+
+    The text is in points and the symbol in layout units, so how much room
+    the text has depends on the scale of the finished figure (it can be
+    drawn into a journal-sized `ax`, or resized after `render_pedigree`).
+    Each time the figure is drawn, `phenotypes.fit_text` picks the text and
+    size at that scale, as the SVG does at its own (#55); when nothing fits
+    the text is empty.
+    """
+
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        texts: tuple[str, ...],
+        size: float,
+        style: PedigreeStyle,
+        room: Room,
+        height: float,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(x, y, texts[0], fontsize=size, **kwargs)
+        self._texts = texts
+        self._size = size
+        self._style = style
+        self._room = room
+        self._height = height
+
+    def _fit(self, renderer: Any) -> None:
+        axes = self.axes
+        if axes is None:
+            return
+        origin, unit = axes.transData.transform([(0.0, 0.0), (1.0, 0.0)])
+        pixels_per_unit = abs(unit[0] - origin[0])
+        if pixels_per_unit <= 0:
+            return
+        pt = renderer.points_to_pixels(1.0) / pixels_per_unit
+        fit = fit_text(self._texts, self._size, self._style, pt, self._room, self._height)
+        self.set_text("" if fit is None else fit.text)
+        self.set_fontsize(self._size if fit is None else fit.size)
+
+    def draw(self, renderer: Any) -> None:
+        self._fit(renderer)
+        super().draw(renderer)
+
+    def get_window_extent(self, renderer: Any = None, dpi: Any = None) -> Bbox:
+        if renderer is not None:
+            self._fit(renderer)
+        return super().get_window_extent(renderer, dpi)
+
+
+def _fitted_text(
+    ax: Axes,
+    x: float,
+    y: float,
+    texts: tuple[str, ...],
+    size: float,
+    style: PedigreeStyle,
+    room: Room,
+    height: float,
+    **kwargs: Any,
+) -> None:
+    """Write a band's or quadrant's text, fitted to its place (`_FittedText`).
+
+    With ``band_text`` other than "auto" nothing needs fitting: the first
+    text is written at ``size``.
+    """
+    if not texts:
+        return
+    kwargs = {
+        "fontfamily": style.font_family,
+        "fontweight": "bold",
+        "ha": "center",
+        "va": "center",
+        **kwargs,
+    }
+    if style.band_text != "auto":
+        ax.text(x, y, texts[0], fontsize=size, **kwargs)
+        return
+    ax.add_artist(_FittedText(x, y, texts, size, style, room, height, **kwargs))
 
 
 def _draw_pgs_ridge(
@@ -1834,7 +1930,7 @@ def _draw_pgs_ridge(
         box_left + box_width / 2,
         box_bottom + box_height + half * 0.15 if above else box_bottom - half * 0.15,
         "PGS",
-        fontsize=style.font_size * 0.6,
+        fontsize=style.text_size(symbols.PGS_CAPTION_SCALE),
         fontfamily=style.font_family,
         ha="center",
         va="bottom" if above else "top",
@@ -1897,7 +1993,7 @@ def _legend_caption(
         x,
         y,
         text,
-        fontsize=m.label_fs * size_factor,
+        fontsize=m.caption_fs(size_factor),
         fontfamily=style.font_family,
         va="top",
         ha=ha,
@@ -1958,7 +2054,7 @@ def _draw_legend_header(ax: Axes, m: LegendMetrics, style: PedigreeStyle) -> flo
         LEG_X0,
         y,
         "Legend",
-        fontsize=max(m.fs + 1, style.font_size * 0.7),
+        fontsize=m.title_fs,
         fontfamily=style.font_family,
         fontweight="bold",
         va="top",

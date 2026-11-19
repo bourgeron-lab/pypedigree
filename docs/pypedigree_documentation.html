@@ -460,7 +460,7 @@ FAM1       daughter   father  mother  2    1      0    0      0         0       
   <ul>
     <li><strong>Standard pedigree encoding (1/2)</strong>: values <code>1</code>=unaffected, <code>2</code>=affected, <code>0</code>=unknown and <code>-9</code>=no data are properly handled in extra phenotype columns, following the same convention as the main phenotype column</li>
     <li><strong>Binary</strong> (0 or 1): filled band (1) or empty band (0)</li>
-    <li><strong>Continuous</strong> (values &gt; 1): color gradient from white (min) to full color (max)</li>
+    <li><strong>Continuous</strong> (values &gt; 1): color gradient from white (min) to full color (max), with the value written in the band: &ldquo;IQ: 90&rdquo;, or &ldquo;90&rdquo; alone, or smaller, as the room allows (a circle's top and bottom bands are narrow; see <code>band_text</code>)</li>
     <li><strong>PGS column</strong>: rendered as a vertical Gaussian distribution curve</li>
     <li><strong>Missing</strong> (<code>.</code>, <code>NA</code>, <code>NaN</code>, <code>-9</code>, empty): grey band reading &ldquo;NA&rdquo; (the grey of <code>0</code>=unknown, told apart by the text); a single centred &ldquo;NA&rdquo; when every band of the symbol has no data. The text can be turned off with <code>show_na_labels</code> / <code>--no-na-labels</code></li>
     <li><strong><code>a_</code> prefix columns</strong> are annotation columns (text below IDs, not phenotypes)</li>
@@ -512,6 +512,7 @@ child      2         105   62</code></pre>
     <tr><td><code>--annotations PATH</code></td><td>Separate TSV file with annotation text (displayed below individual IDs)</td><td>None</td></tr>
     <tr><td><code>--outline-color COLOR</code></td><td>Shape outline color (e.g. <code>grey</code>, <code>#888</code>)</td><td>black</td></tr>
     <tr><td><code>--carrier-notation [nsgc2022|legacy]</code></td><td>Carrier notation: patterned sections (NSGC 2022) or half-fill and center dot</td><td>nsgc2022</td></tr>
+    <tr><td><code>--min-font-size PT</code></td><td>Smallest size of any text, in points (style <code>min_font_size</code>; e.g. 6 for journals)</td><td>None</td></tr>
     <tr><td><code>--no-labels</code></td><td>Hide sample ID labels under shapes</td><td>Off</td></tr>
     <tr><td><code>--no-legend</code></td><td>Hide phenotype legend</td><td>Off</td></tr>
     <tr><td><code>--show-phenotype-labels</code></td><td>Show YES/NO text inside binary phenotype bands (hidden by default)</td><td>Off</td></tr>
@@ -1257,6 +1258,7 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>double_line_gap</code></td><td>float</td><td>0.06</td><td>Gap between consanguinity double lines</td></tr>
     <tr><td><code>broken_gap_size</code></td><td>float</td><td>0.15</td><td>Gap size in broken relationship lines</td></tr>
     <tr><td><code>font_size</code></td><td>float</td><td>8.0</td><td>Label and text font size, in points. The legend panel is sized from it (text, swatches and row height), so raise it to keep a figure legible once scaled down for print</td></tr>
+    <tr><td><code>min_font_size</code></td><td>float | None</td><td>None</td><td>Smallest size of any text, in points (e.g. 6, a common journal rule). Notes, annotations, band and quadrant text, &ldquo;NA&rdquo;, &ldquo;PGS&rdquo; captions and the legend, drawn at fractions of <code>font_size</code>, are raised to it; the layout and the legend make room. <code>PedigreeStyle.text_size(scale)</code> gives the size of any text</td></tr>
     <tr><td><code>font_family</code></td><td>str</td><td>"sans-serif"</td><td>Font family for all text</td></tr>
     <tr><td><code>label_offset</code></td><td>float</td><td>0.15</td><td>Distance below shape for label</td></tr>
     <tr><td><code>generation_gap</code></td><td>float</td><td>2.0</td><td>Vertical spacing between generations</td></tr>
@@ -1274,6 +1276,7 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>phenotype_layout</code></td><td>str</td><td>"auto"</td><td><code>"auto"</code> (quadrants up to four phenotype or carrier sources, bands beyond), <code>"quadrants"</code> (the same, with a warning when it falls back) or <code>"bands"</code> (one band per column)</td></tr>
     <tr><td><code>phenotype_quadrants</code></td><td>dict</td><td>{}</td><td>Column name &rarr; <code>"top-left"</code>, <code>"top-right"</code>, <code>"bottom-left"</code> or <code>"bottom-right"</code>; other columns take their conventional or the next free quadrant</td></tr>
     <tr><td><code>show_na_labels</code></td><td>bool</td><td>True</td><td>Write &ldquo;NA&rdquo; in bands with no data; when false they stay grey with no text, like an &ldquo;unknown&rdquo; band</td></tr>
+    <tr><td><code>band_text</code></td><td>str</td><td>"auto"</td><td>Text in bands and quadrants. <code>"auto"</code>: &ldquo;name: value&rdquo;, or the value alone, or the value smaller (down to <code>min_font_size</code>, or half <code>font_size</code>), whichever fits the symbol at that height; else none. <code>"name_value"</code>: always &ldquo;name: value&rdquo; (before 0.7.0). <code>"value"</code>: the value alone. <code>"none"</code>: no value</td></tr>
     <tr><td><code>pgs_scale</code></td><td>str</td><td>"minmax"</td><td><code>"minmax"</code>, <code>"zscore"</code> or <code>"percentile"</code>: how a PGS value is placed on its curve</td></tr>
     <tr><td><code>pgs_colors</code></td><td>dict</td><td>{}</td><td>Map of PGS column name to hex color for marker line (e.g. <code>{"PGS_autism": "#3498db"}</code>). Unset: <code>#e74c3c</code> for a single PGS column; with several, distinct colors</td></tr>
     <tr><td><code>gradient_range</code></td><td>dict</td><td>{}</td><td>Custom min/max for gradient normalization (e.g. <code>{"SRS": [40, 90]}</code>)</td></tr>

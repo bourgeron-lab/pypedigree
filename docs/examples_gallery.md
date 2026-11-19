@@ -257,6 +257,17 @@ From Python: `render_families(pedigree, "figures", fmt="svg")`.
 
 ---
 
+## Minimum text size (journal figures)
+
+**Description**: Journals often require every text of a figure to be at least 6 pt at print size. Notes, annotations, values in the symbols, "PGS" captions and the legend are drawn smaller than the ID labels; `--min-font-size` raises them to a minimum without enlarging the labels. The layout and the legend make room for the larger text.
+
+```bash
+echo '{"font_size": 6}' > style.json
+pypedigree tests/data/phenotype/test_all.ped --style style.json --min-font-size 6 -o journal.pdf
+```
+
+---
+
 ## Zero-padded IDs
 
 **Description**: Use the `zero_pad_ids` style option to zero-pad sample IDs in labels. For example, with `zero_pad_ids: 3`, ID `1` displays as `001`.

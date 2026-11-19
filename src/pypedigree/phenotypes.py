@@ -14,16 +14,24 @@ from __future__ import annotations
 
 import math
 import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from statistics import NormalDist
 from typing import Any, Protocol
 
+from pypedigree import symbols
 from pypedigree.carriers import CarrierScheme
 from pypedigree.colors import parse_rgb, rgb_to_hex
 from pypedigree.config import DEFAULT_PGS_COLOR, PedigreeStyle, is_pgs_column, known_phenotype
 from pypedigree.errors import PedigreeError, PedigreeStyleWarning
-from pypedigree.models import Individual, NodeLayout, Pedigree, Phenotype, PhenotypeDisplayMode
+from pypedigree.models import (
+    Individual,
+    NodeLayout,
+    Pedigree,
+    Phenotype,
+    PhenotypeDisplayMode,
+    Sex,
+)
 
 RGB = tuple[float, ...]
 Color = str | RGB
@@ -383,11 +391,14 @@ class BandCell:
             of the symbol is NA, in which case a single centred "NA"
             replaces them. With ``style.show_na_labels`` off there is no
             "NA" at all and ``text`` is None.
+        short: The value alone, for a gradient band whose ``text`` is
+            "name: value"; None when ``text`` is already as short (#55).
     """
 
     color: Color
     text: str | None
     is_na: bool
+    short: str | None = None
 
     @property
     def text_color(self) -> str:
@@ -448,8 +459,9 @@ def band_cell(
             nv = norm_val if norm_val is not None else 0
             color = blend_with_white(rgb, 1.0 - nv if inverted else nv)
         if raw_val is not None:
-            # Gradient values are always written.
-            text = f"{name}: {raw_val:g}"
+            # Gradient values are always written, shortened or smaller when
+            # they do not fit (`fit_text`).
+            return BandCell(color, f"{name}: {raw_val:g}", False, f"{raw_val:g}")
     return BandCell(color, text, False)
 
 
@@ -626,6 +638,133 @@ def quadrant_cell(
     return BandCell(cell.color, None if raw is None else f"{raw:g}", False)
 
 
+# --- Text that fits its band or quadrant (#55) --------------------------------
+
+BAND_TEXT_MODES = ("auto", "name_value", "value", "none")
+# With band_text "auto", a text too wide for its place is drawn smaller, down
+# to this fraction of `font_size` (or to `min_font_size` when it is set),
+# before it is left out.
+FIT_FLOOR_SCALE = 0.5
+_FIT_PAD_EM = 0.15  # space kept on each side of a fitted text, in ems
+_FIT_HEIGHT_EM = 0.8  # height of a line of digits and capitals, in ems
+
+
+@dataclass(frozen=True)
+class FittedText:
+    """The text a band or quadrant shows, and its size in points."""
+
+    text: str
+    size: float
+
+
+# Width available to a centred line of text of a given height (both in
+# layout units): see `band_room` and `quadrant_room`.
+Room = Callable[[float], float]
+
+
+def check_band_text(style: PedigreeStyle) -> None:
+    """Reject an unknown ``band_text`` before anything is drawn.
+
+    Raises:
+        PedigreeError: If ``style.band_text`` is not one of `BAND_TEXT_MODES`.
+    """
+    if style.band_text not in BAND_TEXT_MODES:
+        raise PedigreeError(
+            f"Unknown band_text {style.band_text!r}: expected one of {', '.join(BAND_TEXT_MODES)}"
+        )
+
+
+def cell_texts(cell: BandCell, mode: str) -> tuple[str, ...]:
+    """The texts a band may show, the preferred first, under ``band_text``.
+
+    "NA" is always offered (``show_na_labels`` decides on it); "none" drops
+    the values, "value" writes them without the column name, "name_value"
+    keeps the name, and "auto" offers both, the name first.
+    """
+    if cell.text is None:
+        return ()
+    if cell.is_na:
+        return (cell.text,)
+    short = cell.short or cell.text
+    return {
+        "none": (),
+        "value": (short,),
+        "name_value": (cell.text,),
+    }.get(mode, tuple(dict.fromkeys((cell.text, short))))
+
+
+def band_room(sex: Sex, half: float, dy: float) -> Room:
+    """Width inside a symbol for a text centred ``dy`` from its centre."""
+    return lambda h: 2 * symbols.shape_half_width_at(sex, half, abs(dy) + h / 2)
+
+
+def quadrant_room(sex: Sex, half: float, position: str) -> Room:
+    """Width for a text at `quadrant_center`, between the symbol's edge and its axis."""
+    dx, dy = half / 2, half / 2
+
+    def room(h: float) -> float:
+        edge = symbols.shape_half_width_at(sex, half, dy + h / 2)
+        return 2 * max(0.0, min(dx, edge - dx))
+
+    return room
+
+
+def fit_text(
+    texts: Sequence[str],
+    size: float,
+    style: PedigreeStyle,
+    pt: float,
+    room: Room,
+    height: float,
+) -> FittedText | None:
+    """The text and size a band or quadrant shows, so that it fits (#55).
+
+    With ``band_text`` "auto", the first text that fits at ``size`` is
+    taken; else the last (shortest) is drawn smaller, down to
+    `min_font_size`, or `FIT_FLOOR_SCALE` times `font_size` without it;
+    else nothing. Other modes draw their text at ``size`` as it comes. The
+    renderers call it with their own scale: the SVG with its fixed one, the
+    PNG when the figure is drawn, so at the same scale both choose the same.
+
+    Args:
+        texts: Candidates, preferred first (`cell_texts`).
+        size: The size wanted, in points.
+        style: The style (``band_text``, ``font_size``, ``min_font_size``).
+        pt: Layout units per point at the drawing's scale.
+        room: Width available for a text of a given height (`band_room`,
+            `quadrant_room`), in layout units.
+        height: Height of the band or quadrant, in layout units.
+
+    Returns:
+        The text and its size, or None when nothing is written.
+    """
+    if not texts:
+        return None
+    if style.band_text != "auto":
+        return FittedText(texts[0], size)
+    if style.min_font_size is not None:
+        floor = min(size, style.min_font_size)
+    else:
+        floor = min(size, style.font_size * FIT_FLOOR_SCALE)
+
+    def fits(text: str, s: float) -> bool:
+        h = s * pt * _FIT_HEIGHT_EM
+        width = symbols.text_width(text, s, bold=True) / symbols.UNITS_PER_POINT
+        return h <= height and (width + 2 * _FIT_PAD_EM * s) * pt <= room(h)
+
+    for text in texts:
+        if fits(text, size):
+            return FittedText(text, size)
+    text = texts[-1]
+    if not fits(text, floor):
+        return None
+    low, high = floor, size
+    for _ in range(20):
+        mid = (low + high) / 2
+        low, high = (mid, high) if fits(text, mid) else (low, mid)
+    return FittedText(text, low)
+
+
 def outline_color(
     node: _HasPhenotypes, outline_names: Sequence[str], style: PedigreeStyle
 ) -> str | None:
@@ -645,6 +784,22 @@ def check_pgs_scale(style: PedigreeStyle) -> None:
     if style.pgs_scale not in PGS_SCALES:
         raise PedigreeError(
             f"Unknown pgs_scale {style.pgs_scale!r}: expected one of {', '.join(PGS_SCALES)}"
+        )
+
+
+def check_min_font_size(style: PedigreeStyle) -> None:
+    """Reject a ``min_font_size`` that is not a positive number, before drawing.
+
+    Raises:
+        PedigreeError: If ``style.min_font_size`` is set and not a number
+            above zero.
+    """
+    value = style.min_font_size
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not value > 0:
+        raise PedigreeError(
+            f"min_font_size must be a number of points above zero, or None; got {value!r}"
         )
 
 
@@ -736,6 +891,7 @@ LEG_BINARY_HEADER_H = 0.5  # Affected / Unaffected / Unknown captions
 LEG_ROW_H = 1.2  # one phenotype or carrier row
 LEG_PAD = 0.8  # room below the last row for its captions
 LEG_REFERENCE_FONT = 8.0  # font size the marker sizes below are tuned for
+LEG_TEXT_SCALE = 0.85  # legend row text, as a fraction of the legend's font
 LEG_SWATCH_EDGE = "#cccccc"
 LEG_CAPTION_COLOR = "#999999"
 LEG_CATEGORY_COLOR = "#666666"
@@ -750,8 +906,8 @@ class LegendMetrics:
     """Derived geometry of the legend panel.
 
     Lengths are in legend units (see `LEG_UNIT_X_EM`); font and marker sizes
-    are in points. All of them scale with `style.font_size`, nothing with
-    the figure.
+    are in points. All of them scale with the legend's font (`font`), never
+    with the figure.
 
     Attributes:
         n_rows: Number of phenotype/carrier rows (at least 1).
@@ -768,6 +924,10 @@ class LegendMetrics:
         marker_size: Size of plot-marker icons.
         unit_x: One horizontal legend unit, in inches.
         unit_y: One vertical legend unit, in inches.
+        font: The font size the legend is built on: `style.font_size`, or
+            more so that its row text reaches `style.min_font_size`.
+        title_fs: Size of the "Legend" title.
+        min_fs: `style.min_font_size`, or 0.
     """
 
     n_rows: int
@@ -784,6 +944,13 @@ class LegendMetrics:
     marker_size: float
     unit_x: float
     unit_y: float
+    font: float = 8.0
+    title_fs: float = 7.8
+    min_fs: float = 0.0
+
+    def caption_fs(self, size_factor: float = 1.0) -> float:
+        """Size of a caption at ``size_factor`` times `label_fs`, never below `min_fs`."""
+        return max(self.label_fs * size_factor, self.min_fs)
 
     def row_center(self, index: int, y_top: float) -> float:
         """Vertical centre of row `index`, counting down from `y_top`."""
@@ -824,25 +991,32 @@ def legend_metrics(
     icon_right = max(1.3, LEG_X0 + sw_w, 1.2)
     icon_text_x = icon_right + 0.3
 
-    fs = style.font_size * 0.85
-    em = style.font_size / 72  # inches
+    # With a minimum text size the whole legend grows until its row text
+    # reaches it (#51); its smaller captions are then raised to it too.
+    min_fs = style.min_font_size or 0.0
+    font = max(style.font_size, min_fs / LEG_TEXT_SCALE)
+    fs = font * LEG_TEXT_SCALE
+    em = font / 72  # inches
     header_h = LEG_HEADER_H + (LEG_BINARY_HEADER_H if binary_headers else 0.0)
 
     return LegendMetrics(
         n_rows=n_rows,
         row_h=row_h,
         total_h=header_h + n_rows * row_h + LEG_PAD,
-        scale=style.font_size / LEG_REFERENCE_FONT,
+        scale=font / LEG_REFERENCE_FONT,
         sw_h=sw_h,
         sw_w=sw_w,
         sw_gap=sw_gap,
         text_x=text_x,
         icon_text_x=icon_text_x,
         fs=fs,
-        label_fs=fs * 0.75,
-        marker_size=style.font_size,
+        label_fs=max(fs * 0.75, min_fs),
+        marker_size=font,
         unit_x=LEG_UNIT_X_EM * em,
         unit_y=LEG_UNIT_Y_EM * em,
+        font=font,
+        title_fs=max(fs + 1, font * 0.7),
+        min_fs=min_fs,
     )
 
 

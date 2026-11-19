@@ -14,7 +14,7 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 
 - **Standard pedigree symbols**: squares (male), circles (female), diamonds (unknown sex), with affected/unaffected fill
 - **Parents without children**: a family holding only the two parents (no child in the file) is drawn as their couple, father on the left, with a descent line to a "?".
-- **Multi-phenotype rendering**: the symbol cut in four quadrants, one per phenotype (the default, up to four phenotypes), or horizontal color bands (`--phenotype-layout bands`, and automatically beyond four phenotypes) (binary: 0=unknown/grey, -9=no data/grey with "NA"; continuous: gradient). Autism, intellectual disability, ADHD and epilepsy columns get conventional colors (blue, red, yellow, purple) and quadrants (top left, bottom left, top right, bottom right). The legend always matches the bands it describes; it is sized from the font, so it reads the same under a 4-person pedigree as under a 45-person one.
+- **Multi-phenotype rendering**: the symbol cut in four quadrants, one per phenotype (the default, up to four phenotypes), or horizontal color bands (`--phenotype-layout bands`, and automatically beyond four phenotypes) (binary: 0=unknown/grey, -9=no data/grey with "NA"; continuous: gradient, the value written in the band and shortened or made smaller where the symbol is too narrow). Autism, intellectual disability, ADHD and epilepsy columns get conventional colors (blue, red, yellow, purple) and quadrants (top left, bottom left, top right, bottom right). The legend always matches the bands it describes; it is sized from the font, so it reads the same under a 4-person pedigree as under a 45-person one.
 - **PGS (Polygenic Score) curves**: gaussian distribution with individual score marker, drawn alongside each node. Supports multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) with colored markers on a single curve. Scores are placed between the pedigree's lowest and highest by default, or on a fixed scale with `--pgs-scale zscore` / `percentile` (±2 SD marked, z and percentile in the SVG tooltip).
 - **Hooks for host pages**: a `css_class` column and `data_` columns (or the builder's `css_class=` and `data=`) add classes and `data-*` attributes to each individual's node in the interactive SVG, so a page can style or select individuals without re-rendering.
 - **Individuals never sampled**: a `not_sampled` column (or the builder's `inferred=True`) draws "dummy" individuals that only link real members with a dashed outline, keeping their label, parents and phenotypes.
@@ -28,6 +28,7 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 - **One file per family**: `--output-dir figures/` (or `render_families()`) draws each family of a cohort into its own file, with the colors and legend of the whole file
 - **Customizable styling**: JSON-based style overrides for colors, sizes, fonts
 - **Long IDs**: symbols are spaced by their labels' width, so long IDs or a large font do not make labels run into each other; short labels keep the usual spacing
+- **Journal-ready text sizes**: `--min-font-size 6` (style `min_font_size`) raises every text, notes, annotations, values in the symbols, "PGS" captions and legend, to at least 6 pt, whatever the label size
 - **Separate phenotype files**: load phenotypes from `.pheno` TSV files
 - **Optional legend**: auto-generated phenotype legend with proper male/female symbols
 - **Programmatic API**: fluent `PedigreeBuilder` for constructing pedigrees from code
@@ -380,6 +381,7 @@ Options:
   --annotations PATH             Separate TSV file with annotation text (displayed below IDs)
   --outline-color COLOR          Shape outline color (e.g. 'grey', '#888888')
   --carrier-notation [nsgc2022|legacy]  Carrier notation (default: nsgc2022)
+  --min-font-size PT             Smallest size of any text, in points (e.g. 6 for journals)
   --no-labels                    Hide sample ID labels
   --no-legend                    Hide the phenotype legend
   --show-phenotype-labels        Show YES/NO text labels inside binary phenotype bands
