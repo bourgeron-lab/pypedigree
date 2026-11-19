@@ -34,7 +34,13 @@ from pypedigree.carriers import (
     check_notation,
     resolve_carrier_scheme,
 )
-from pypedigree.config import PedigreeStyle, apply_pgs_spacing, is_pgs_column, resolve_style
+from pypedigree.config import (
+    DEFAULT_PGS_COLOR,
+    PedigreeStyle,
+    apply_pgs_spacing,
+    is_pgs_column,
+    resolve_style,
+)
 from pypedigree.layout import compute_layout
 from pypedigree.models import (
     DuplicateArc,
@@ -53,7 +59,6 @@ from pypedigree.models import (
     TwinType,
 )
 from pypedigree.phenotypes import (
-    DEFAULT_PGS_COLOR,
     FALLBACK_COLOR,
     LEG_BINARY_HEADER_H,
     LEG_CAPTION_COLOR,

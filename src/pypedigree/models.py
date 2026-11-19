@@ -5,6 +5,7 @@ Pure data structures with no I/O or rendering dependencies.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -322,6 +323,34 @@ class Pedigree:
     def family_ids(self) -> list[str]:
         """List of all family IDs."""
         return list(self.families.keys())
+
+    def subset(self, family_ids: Iterable[str]) -> Pedigree:
+        """A pedigree with only some of the families, and every column kept.
+
+        Building ``Pedigree(families=...)`` instead drops the phenotype and
+        annotation columns, so the families would be drawn without bands,
+        PGS curves or legend. The columns are those of the whole file, so
+        figures of different families share their colors and legend.
+
+        Args:
+            family_ids: IDs of the families to keep, in the order wanted.
+
+        Returns:
+            A new Pedigree sharing the Family objects.
+
+        Raises:
+            KeyError: If an ID is not a family of this pedigree.
+        """
+        ids = list(dict.fromkeys(family_ids))
+        missing = [f for f in ids if f not in self.families]
+        if missing:
+            raise KeyError(f"No family {', '.join(map(repr, missing))} in this pedigree")
+        return Pedigree(
+            families={f: self.families[f] for f in ids},
+            phenotype_names=list(self.phenotype_names),
+            phenotype_display_modes=dict(self.phenotype_display_modes),
+            annotation_names=list(self.annotation_names),
+        )
 
 
 # --- Layout result types (decoupled from rendering) ---

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Pedigree.subset(family_ids)`: a pedigree with only some families, keeping the phenotype and
+  annotation columns of the whole file (#50).
+
+### Changed
+
+- Several PGS columns get distinct marker colors when `pgs_colors` does not set them (#53).
+  They were all red (`#e74c3c`), so the scores could not be told apart. A score named after a
+  known phenotype (`PGS_autism`, `PGS_ADHD`, `PGS_ID`, `PGS_epilepsy`) takes that phenotype's
+  color, the one its column has in the figure if there is one; the others take the first
+  color unlike the other scores and the phenotype bands, starting from the red. A figure with
+  one PGS column is unchanged.
+
+### Fixed
+
+- `--family` drew the family without its phenotype columns, PGS curves, annotations and
+  legend, from column 6 only; so did the web app's family choice (#50). Both now keep the
+  file's columns, so a family's colors and legend are those of the whole file.
+
 ## [0.6.1] - 2026-11-18
 
 ### Changed

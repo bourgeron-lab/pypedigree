@@ -403,6 +403,8 @@ fam = ped.get_family("FAM1")
 fig, layout = render_family(fam)
 ```
 
+`render_family` draws the family's structure only, without phenotype bands, PGS curves or legend, which are resolved for the whole pedigree. To draw one family with them, use `render_pedigree(ped.subset(["FAM1"]))`.
+
 **Returns**: Tuple of (`Figure`, `FamilyLayout`).
 
 ---
@@ -592,6 +594,7 @@ Top-level container for multiple families.
 |-------------------|---------|-------------|
 | `family_ids` | `list[str]` | List of family identifiers |
 | `get_family(family_id)` | `Family \| None` | Look up a family by ID |
+| `subset(family_ids)` | `Pedigree` | Only these families, with every phenotype and annotation column kept (to draw one family with `render_pedigree`; `Pedigree(families=...)` would drop the columns). `KeyError` for an unknown ID |
 | `phenotype_names` | `list[str]` | Names of extra phenotype columns |
 | `annotation_names` | `list[str]` | Names of annotation columns (from `a_` prefixed headers) |
 
@@ -647,7 +650,7 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `phenotype_quadrants` | `{}` | Column name → `"top-left"`, `"top-right"`, `"bottom-left"` or `"bottom-right"`, for the quadrant layout. Unlisted columns take their conventional quadrant (autism top left, ADHD top right, intellectual disability bottom left, epilepsy bottom right) or the next free one in column order. Two columns in one quadrant raise `PedigreeError` |
 | `show_na_labels` | `True` | Write "NA" in bands with no data (`-9`, `NA`, empty). When `False` they stay grey with no text, so they look like an "unknown" (`0`) band |
 | `pgs_scale` | `"minmax"` | Position of a PGS value on its curve: `"minmax"` (between the pedigree's lowest and highest score), `"zscore"` (a z-score on the drawn standard normal, clipped at about ±2.8 SD) or `"percentile"` (a population percentile, 0-100). On the fixed scales the ±2 SD tails are marked and the SVG tooltip gives z and percentile. Any other value raises `PedigreeError` |
-| `pgs_colors` | `{}` | Map of PGS column name to hex color for the marker line (default marker color: `#e74c3c`) |
+| `pgs_colors` | `{}` | Map of PGS column name to hex color for the marker line. Unset: `#e74c3c` for a single PGS column; with several, distinct colors (known phenotypes' for `PGS_autism` and the like) |
 | `gradient_range` | `{}` | Custom min/max for gradient normalization, e.g. `{"SRS": [40, 90]}` |
 | `gradient_diverging` | `{}` | Tricolor diverging gradient config, e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}` |
 | `zero_pad_ids` | `0` | Zero-pad sample IDs to this width in labels (0 = no padding) |
@@ -689,7 +692,7 @@ FID  ID  Father  Mother  Sex  b_ASD  g_IQ  o_Proband  c_Diagnosis
 
 The prefix is stripped from the display name (e.g. `b_ASD` is shown as `ASD`).
 
-**Multiple PGS columns**: Any column whose name starts with `PGS` (case-insensitive) is treated as a PGS column -- e.g. `PGS_autism`, `PGS_IQ`, `PGS_ADHD`. All PGS values are rendered on a single gaussian curve with multiple colored markers. Marker colors are set via the `pgs_colors` style option. When PGS columns are present, `couple_gap` and `sibling_gap` are auto-increased to accommodate the curve.
+**Multiple PGS columns**: Any column whose name starts with `PGS` (case-insensitive) is treated as a PGS column -- e.g. `PGS_autism`, `PGS_IQ`, `PGS_ADHD`. All PGS values are rendered on a single gaussian curve with multiple colored markers. Marker colors are set via the `pgs_colors` style option. With several PGS columns and no `pgs_colors` entry, each gets its own color: a score named after a known phenotype (`PGS_autism`, `PGS_ADHD`, `PGS_ID`, `PGS_epilepsy`) takes that phenotype's color, the one its column has in the figure if there is one; the others take the first color unlike the other scores and the phenotype bands, starting from `#e74c3c`. A single PGS column keeps `#e74c3c`. `pgs_colors` entries always win. When PGS columns are present, `couple_gap` and `sibling_gap` are auto-increased to accommodate the curve.
 
 **Gradient value display**: Gradient band values (e.g. "IQ: 90", "SRS: 76") are always displayed regardless of band color intensity.
 

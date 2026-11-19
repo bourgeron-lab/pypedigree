@@ -216,6 +216,97 @@ class TestPaletteContrast:
         assert not _alike("#2ecc71", "#8c564b")  # green, brown
 
 
+class TestPgsColors:
+    """#53: several PGS columns get distinct marker colors."""
+
+    @staticmethod
+    def _assert_distinct(colors: dict[str, str]) -> None:
+        TestPaletteContrast._assert_distinct(colors)
+
+    def test_a_single_pgs_keeps_the_default(self):
+        """Figures with one PGS column do not change."""
+        for names in (["PGS"], ["PGS_autism"], ["autism", "PGS_x"]):
+            assert resolve_style(None, names).pgs_colors == {}
+
+    def test_known_phenotypes_take_their_color(self):
+        names = ["PGS_autism", "PGS_ADHD", "PGS_ID", "PGS_epilepsy"]
+        colors = resolve_style(None, names).pgs_colors
+        assert colors == {
+            "PGS_autism": "#386eb2",
+            "PGS_ADHD": "#e59635",
+            "PGS_ID": "#d34436",
+            "PGS_epilepsy": "#5e287e",
+        }
+
+    def test_four_scores_get_four_colors(self):
+        names = ["PGS_autism", "PGS_ADHD", "PGS_intelligence", "PGS_epilepsy"]
+        colors = resolve_style(None, names).pgs_colors
+        assert set(colors) == set(names)
+        self._assert_distinct(colors)
+        assert colors["PGS_autism"] == "#386eb2"
+
+    def test_unrelated_scores_start_with_the_default(self):
+        from pypedigree.config import DEFAULT_PGS_COLOR
+
+        colors = resolve_style(None, ["PGS_a", "PGS_b", "PGS_c"]).pgs_colors
+        assert colors["PGS_a"] == DEFAULT_PGS_COLOR
+        self._assert_distinct(colors)
+
+    def test_score_matches_its_column_color(self):
+        """``PGS_autism`` is drawn in the autism column's color, even a chosen one."""
+        style = PedigreeStyle(phenotype_colors={"ASD": "#123456"})
+        colors = resolve_style(style, ["ASD", "PGS_autism", "PGS_x"]).pgs_colors
+        assert colors["PGS_autism"] == "#123456"
+
+    def test_unrelated_scores_avoid_band_colors(self):
+        from pypedigree.config import _alike
+
+        names = ["A", "B", "PGS_x", "PGS_y"]
+        style = resolve_style(None, names)
+        for color in style.pgs_colors.values():
+            for band in style.phenotype_colors.values():
+                assert not _alike(color, band), (color, band)
+
+    def test_known_color_taken_by_another_column(self):
+        """PGS_ADHD does not take an orange already standing for another column."""
+        from pypedigree.config import _alike
+
+        style = PedigreeStyle(phenotype_colors={"IQ": "#e67e22"})
+        colors = resolve_style(style, ["IQ", "PGS_ADHD", "PGS_x"]).pgs_colors
+        assert not _alike(colors["PGS_ADHD"], "#e67e22")
+        self._assert_distinct(colors)
+
+    def test_user_colors_win_and_are_avoided(self):
+        style = PedigreeStyle(pgs_colors={"PGS_x": "#386eb2"})
+        colors = resolve_style(style, ["PGS_x", "PGS_autism"]).pgs_colors
+        assert colors["PGS_x"] == "#386eb2"
+        self._assert_distinct(colors)
+
+    def test_idempotent(self):
+        names = ["autism", "PGS_autism", "PGS_x", "PGS_y"]
+        once = resolve_style(None, names)
+        assert resolve_style(once, names).pgs_colors == once.pgs_colors
+
+    def test_drawn_in_both_renderers(self):
+        from pypedigree import render_interactive_svg
+
+        text = (
+            "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tPGS_autism\tPGS_x\tPGS_y\n"
+            "F1\tf\t0\t0\t1\t1\t0.2\t0.1\t-0.3\n"
+            "F1\tm\t0\t0\t2\t1\t-0.4\t0.5\t0.2\n"
+            "F1\tc\tf\tm\t1\t2\t1.8\t-1.0\t0.7\n"
+        )
+        ped = parse_pedigree_from_string(text)
+        colors = resolve_style(None, ped.phenotype_names).pgs_colors
+        svg = render_interactive_svg(ped)
+        fig = render_pedigree(ped)
+        lines = {line.get_color() for ax in fig.axes for line in ax.get_lines()}
+        plt.close(fig)
+        for color in colors.values():
+            assert f'stroke="{color}"' in svg
+            assert color in lines
+
+
 class TestApplyPgsSpacing:
     def test_widens_once(self):
         base = PedigreeStyle()

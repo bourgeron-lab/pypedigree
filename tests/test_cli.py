@@ -83,6 +83,29 @@ class TestCLIOptions:
         assert result.exit_code == 0, result.output
         assert out.exists()
 
+    @pytest.mark.parametrize("interactive", [False, True])
+    def test_family_filter_keeps_phenotypes(self, runner, tmp_path, interactive):
+        """#50: --family kept column 6 only; bands, PGS curves and legend are drawn."""
+        ped = tmp_path / "two.ped"
+        ped.write_text(
+            "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tb_autism\tPGS_autism\n"
+            "F1\tfather\t0\t0\t1\t1\t1\t0.2\n"
+            "F1\tmother\t0\t0\t2\t1\t1\t-0.4\n"
+            "F1\tchild\tfather\tmother\t1\t2\t2\t1.8\n"
+            "F2\tsolo\t0\t0\t2\t1\t1\t0.0\n",
+            encoding="utf-8",
+        )
+        out = tmp_path / "one.svg"
+        args = [str(ped), "--family", "F1", "-o", str(out)]
+        result = runner.invoke(main, args + (["--interactive"] if interactive else []))
+        assert result.exit_code == 0, result.output
+        svg = out.read_text(encoding="utf-8")
+        assert "solo" not in svg
+        assert "#386eb2" in svg  # the autism band
+        assert "PGS distribution (autism)" in svg  # a comment in matplotlib's SVG
+        if interactive:
+            assert svg.count('class="pgs"') == 3
+
     def test_no_labels(self, runner, tmp_path):
         out = tmp_path / "nolabels.png"
         result = runner.invoke(

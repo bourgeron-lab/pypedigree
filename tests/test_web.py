@@ -78,6 +78,13 @@ class TestRender:
         assert out["families"] == ["F", "G"]
         assert out["individuals"] == 1
 
+    def test_one_family_keeps_the_columns(self):
+        """#50: the family is drawn with its bands, PGS curves and legend."""
+        for key in ("svg", "static_svg"):
+            svg = _render(family="F")[key]
+            assert "PGS distribution (x)" in svg
+            assert svg.count('class="pgs"') >= 3
+
     def test_options_reach_the_drawing(self):
         default = _render()["static_svg"]
         assert ">3</text>" in default and "Legend" in default

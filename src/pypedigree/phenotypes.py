@@ -21,7 +21,7 @@ from typing import Any, Protocol
 
 from pypedigree.carriers import CarrierScheme
 from pypedigree.colors import parse_rgb, rgb_to_hex
-from pypedigree.config import PedigreeStyle, is_pgs_column, known_phenotype
+from pypedigree.config import DEFAULT_PGS_COLOR, PedigreeStyle, is_pgs_column, known_phenotype
 from pypedigree.errors import PedigreeError, PedigreeStyleWarning
 from pypedigree.models import Individual, NodeLayout, Pedigree, Phenotype, PhenotypeDisplayMode
 
@@ -49,7 +49,6 @@ FALLBACK_COLOR = "#999999"  # column without a phenotype_colors entry
 SEPARATOR_COLOR = "#cccccc"  # thin line between bands
 NA_TEXT_COLOR = "#555555"  # "NA" written on NA_FILL (contrast 5:1)
 DARK_TEXT = "#333333"  # band text on a light background
-DEFAULT_PGS_COLOR = "#e74c3c"
 GRADIENT_STEPS = 20  # swatches making up a legend gradient bar
 
 # Shape of the PGS distribution curve: a gaussian of this width on [0, 1].

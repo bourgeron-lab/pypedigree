@@ -1,5 +1,7 @@
 """Tests for pypedigree.models."""
 
+import pytest
+
 from pypedigree.models import (
     EdgeLayout,
     EdgeType,
@@ -174,6 +176,29 @@ class TestPedigree:
         ped.families["F1"] = Family(family_id="F1")
         ped.families["F2"] = Family(family_id="F2")
         assert set(ped.family_ids) == {"F1", "F2"}
+
+    def test_subset_keeps_the_columns(self):
+        """#50: one family keeps the phenotype and annotation columns."""
+        from pypedigree.models import PhenotypeDisplayMode
+
+        ped = Pedigree(
+            families={f: Family(family_id=f) for f in ("F1", "F2", "F3")},
+            phenotype_names=["autism", "PGS_x"],
+            phenotype_display_modes={"autism": PhenotypeDisplayMode.BINARY},
+            annotation_names=["variant"],
+        )
+        sub = ped.subset(["F3", "F1", "F3"])
+        assert sub.family_ids == ["F3", "F1"]
+        assert sub.families["F1"] is ped.families["F1"]
+        assert sub.phenotype_names == ped.phenotype_names
+        assert sub.phenotype_display_modes == ped.phenotype_display_modes
+        assert sub.annotation_names == ped.annotation_names
+        sub.phenotype_names.append("other")
+        assert ped.phenotype_names == ["autism", "PGS_x"]
+
+    def test_subset_unknown_family(self):
+        with pytest.raises(KeyError, match="F9"):
+            Pedigree(families={"F1": Family(family_id="F1")}).subset(["F9"])
 
 
 class TestLayoutTypes:

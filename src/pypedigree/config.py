@@ -36,6 +36,10 @@ EXTRA_PHENOTYPE_COLORS = [
     "#bcbd22",  # olive
 ]
 
+# Marker color of a PGS column with no `pgs_colors` entry, when it is the
+# figure's only PGS column (several get distinct colors, see `resolve_style`).
+DEFAULT_PGS_COLOR = "#e74c3c"
+
 # Palette pairs too alike to tell apart in a thin border or a small band,
 # although their hues differ (perceptual distance alone does not catch them:
 # red and orange are as far apart as green and teal).
@@ -308,7 +312,59 @@ def resolve_style(
         resolved.phenotype_colors[name] = color
         in_use.append(color)
 
+    _assign_pgs_colors(resolved, all_names, known)
     return resolved
+
+
+def _assign_pgs_colors(
+    style: PedigreeStyle, all_names: Sequence[str], known: dict[str, str]
+) -> None:
+    """Give each PGS column of a figure with several a distinct marker color.
+
+    A score named after a known phenotype (``PGS_autism``) takes that
+    phenotype's color, the one its column has in the figure if there is one;
+    the others take the first color unlike every PGS color and phenotype
+    color in use, starting from `DEFAULT_PGS_COLOR`. A figure with one PGS
+    column is left as it was (`DEFAULT_PGS_COLOR`), and `pgs_colors` entries
+    always win.
+
+    Args:
+        style: Resolved style whose `pgs_colors` is filled in place.
+        all_names: Ordered phenotype column names of the pedigree.
+        known: Non-PGS columns standing for a known phenotype, with its key.
+    """
+    pgs = [n for n in all_names if is_pgs_column(n)]
+    if len(pgs) < 2:
+        return
+    bands = {
+        n: style.phenotype_colors[n]
+        for n in all_names
+        if not is_pgs_column(n) and n in style.phenotype_colors
+    }
+    column_color = {key: bands[n] for n, key in reversed(known.items()) if n in bands}
+    used = [style.pgs_colors[n] for n in pgs if n in style.pgs_colors]
+    pending = [n for n in pgs if n not in style.pgs_colors]
+    for name in list(pending):
+        key = known_phenotype(name[len("PGS") :])
+        if key is None:
+            continue
+        color = column_color.get(key, KNOWN_PHENOTYPE_COLORS[key])
+        # Not the color of another column, nor of a score already drawn.
+        others = [c for n, c in bands.items() if known.get(n) != key]
+        if not any(_alike(color, c) for c in used + others):
+            style.pgs_colors[name] = color
+            used.append(color)
+            pending.remove(name)
+    # The other scores avoid the phenotype colors too, so no marker seems to
+    # belong to a band it has nothing to do with.
+    candidates = [DEFAULT_PGS_COLOR, *DEFAULT_PHENOTYPE_PALETTE, *EXTRA_PHENOTYPE_COLORS]
+    for name in pending:
+        free = [c for c in candidates if not any(_alike(c, u) for u in used)]
+        apart = [c for c in free if not any(_alike(c, b) for b in bands.values())]
+        unused = [c for c in candidates if c.lower() not in {u.lower() for u in used}]
+        color = (apart or free or unused or [DEFAULT_PGS_COLOR])[0]
+        style.pgs_colors[name] = color
+        used.append(color)
 
 
 def _alike(a: str, b: str) -> bool:

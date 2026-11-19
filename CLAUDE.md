@@ -248,6 +248,10 @@ Parent IDs with no row become phantoms keeping that ID (`_create_phantom_parents
 which returns one warning message per missing parent); a child with one parent given
 gets a `_phantom_*` parent with no label. `PedigreeBuilder.build()` calls the same function.
 
+To keep some families, use `Pedigree.subset(ids)` (the CLI's `--family`, the web app): it keeps
+`phenotype_names`, `phenotype_display_modes` and `annotation_names`. `Pedigree(families=...)`
+drops them, and the family is drawn without bands, PGS curves or legend (#50).
+
 Extended format adds:
 - Column 7: date_of_birth (YYYYMMDD, YYYYMM, or YYYY)
 - Column 8: twins (comma-separated TYPE:sample_id entries)
@@ -293,7 +297,7 @@ Multi-phenotype support:
   `active_pgs(node, names, scale)`, `pgs_position(z) = 0.5 + z * PGS_CURVE_SIGMA` on fixed scales,
   `pgs_tail_positions()` (±2 SD dotted lines), `pgs_value_text()` for the SVG tooltip. Curves (and the
   legend) are drawn even with no other phenotype column. `tests/test_pgs_scale.py`
-- PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve. Multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) show colored markers on a single curve. Marker colors via `pgs_colors` style option. `couple_gap` and `sibling_gap` auto-increase when PGS present.
+- PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve. Multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) show colored markers on a single curve. Marker colors via `pgs_colors` style option; unset ones are filled by `config._assign_pgs_colors` when there are several PGS columns (#53): a known phenotype's color (its column's in the figure if any), else the first of `DEFAULT_PGS_COLOR` + palette + extras not `_alike` any other score or band. One PGS column keeps `DEFAULT_PGS_COLOR` (now in `config.py`). `couple_gap` and `sibling_gap` auto-increase when PGS present.
 - Colors from `phenotype_colors` in style JSON, or auto-assigned from palette
   (`config.resolve_style`): by position among all columns, lookalikes of known
   phenotypes skipped; when any color is fixed (known phenotype or user's), a
@@ -308,7 +312,7 @@ Multi-phenotype support:
   otherwise binary. Never per individual, so a column cannot mix band types.
 
 Additional PedigreeStyle fields:
-- `pgs_colors: dict[str, str]` — PGS column name → hex color for marker line (default: `#e74c3c`)
+- `pgs_colors: dict[str, str]` — PGS column name → hex color for marker line (default: `#e74c3c` for one PGS column, distinct colors for several)
 - `gradient_range: dict[str, list[float]]` — custom min/max for gradient normalization (e.g. `{"SRS": [40, 90]}`)
 - `gradient_diverging: dict[str, dict]` — tricolor diverging gradient config (e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}`)
 - `zero_pad_ids: int` — zero-pad IDs to this width (0 = no padding)
