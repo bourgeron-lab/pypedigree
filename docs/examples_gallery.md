@@ -238,6 +238,8 @@ echo '{"pgs_colors": {"PGS_autism": "#e74c3c", "PGS_IQ": "#3498db", "PGS_ADHD": 
 pypedigree family.ped --style style.json -o multi_pgs.png
 ```
 
+Without `pgs_colors`, the scores still get distinct colors: `PGS_autism` autism's blue, `PGS_ADHD` ADHD's orange (unless a band of the figure already uses an orange), and `PGS_IQ` the red.
+
 ---
 
 ## Zero-padded IDs

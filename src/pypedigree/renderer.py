@@ -30,7 +30,7 @@ from pypedigree.carriers import (
     check_notation,
     resolve_carrier_scheme,
 )
-from pypedigree.config import PedigreeStyle, apply_pgs_spacing, resolve_style
+from pypedigree.config import DEFAULT_PGS_COLOR, PedigreeStyle, apply_pgs_spacing, resolve_style
 from pypedigree.errors import PedigreeError
 from pypedigree.layout import compute_layout, compute_layout_circular
 from pypedigree.models import (
@@ -49,7 +49,6 @@ from pypedigree.models import (
     TwinType,
 )
 from pypedigree.phenotypes import (
-    DEFAULT_PGS_COLOR,
     FALLBACK_COLOR,
     LEG_BINARY_HEADER_H,
     LEG_CAPTION_COLOR,

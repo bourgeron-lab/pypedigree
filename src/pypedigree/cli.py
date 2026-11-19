@@ -245,9 +245,8 @@ def main(
             if fam is None:
                 available = ", ".join(pedigree.family_ids)
                 raise click.ClickException(f"Family '{family}' not found. Available: {available}")
-            from pypedigree.models import Pedigree
-
-            pedigree = Pedigree(families={family: fam})
+            # Keeps the phenotype and annotation columns (#50).
+            pedigree = pedigree.subset([family])
 
         # Interactive SVG mode
         if (no_script or id_prefix or responsive) and not interactive:

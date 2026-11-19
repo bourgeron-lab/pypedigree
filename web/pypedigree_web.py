@@ -17,7 +17,7 @@ import warnings
 from typing import Any
 
 import pypedigree
-from pypedigree import Pedigree, PedigreeStyle, parse_pedigree_from_string
+from pypedigree import PedigreeStyle, parse_pedigree_from_string
 from pypedigree.errors import PedigreeError
 from pypedigree.svg_renderer import render_interactive_svg, render_svg
 
@@ -78,7 +78,7 @@ def _render(text: str, options: dict[str, Any]) -> dict[str, Any]:
     if family:
         if family not in pedigree.families:
             raise ValueError(f"Family '{family}' not found. Available: {', '.join(families)}")
-        pedigree = Pedigree(families={family: pedigree.families[family]})
+        pedigree = pedigree.subset([family])
 
     style = _style(options)
     kwargs = {
