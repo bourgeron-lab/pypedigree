@@ -335,6 +335,21 @@ Multi-phenotype support:
   draw time (its `get_children()` lets `findobj` see them). `pgs_values_width` (widest value +
   gap + `PGS_BOX_PAD`, at the SVG's scale) is passed to `apply_pgs_spacing(..., values_width)` and
   to the SVG viewBox. `tests/test_pgs_values.py`
+- Several `o_` borders (#46): `phenotypes.outline_colors` gives one color per `o_` column the
+  individual is affected in (column order); the first is the shape's outline (`OUTLINE_WIDTH_SCALE`
+  × `shape_line_width`), the others lie `outline_ring_offsets` points further out (one border's
+  width + `OUTLINE_RING_GAP_PT`), grown with `symbols.grown_half` (the diamond's vertices move
+  √2/`DIAMOND_SCALE` times further). `with_outline_rings` stores the most borders one drawn
+  individual has in `PhenotypeRender.outline_rings` (warns above `MAX_QUIET_OUTLINE_RINGS`);
+  each renderer then applies `config.apply_outline_spacing(style, outline_reach(...))` once: both
+  gaps widen by twice the reach and `label_offset` by the reach, for every symbol, so labels stay
+  level. Per node, the PGS box, proband arrow, deceased line, brackets, asterisk and outside
+  letter move by that node's own reach. The SVG draws `class="outline-ring"` shapes at `_PT`;
+  the PNG draws `renderer._OutlineRings`, an artist sizing its patches in points at draw time
+  (rotated with the node in the circular layout), and lifts the first border above the bands
+  (zorder 5) so it is drawn whole, as wide as the others. Legend row `"outline_rings"`
+  (`LEG_OUTLINE_RINGS_LABEL`), tooltip "Borders: …". Nothing changes when nobody has two.
+  `tests/test_outline_rings.py`
 - PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve. Multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) show colored markers on a single curve. Marker colors via `pgs_colors` style option; unset ones are filled by `config._assign_pgs_colors` when there are several PGS columns (#53): a known phenotype's color (its column's in the figure if any), else the first of `DEFAULT_PGS_COLOR` + palette + extras not `_alike` any other score or band. One PGS column keeps `DEFAULT_PGS_COLOR` (now in `config.py`). `couple_gap` and `sibling_gap` auto-increase when PGS present.
 - Colors from `phenotype_colors` in style JSON, or auto-assigned from palette
   (`config.resolve_style`): by position among all columns, lookalikes of known
@@ -379,7 +394,7 @@ Warnings and errors:
   - `b_` → binary (color/white/grey/NA, no text by default)
   - `g_` → gradient (white→color continuous scale)
   - `gi_` → gradient inverted (color→white scale; high value = white, low = full color; for metrics where low = bad)
-  - `o_` → outline (colored shape border, not a band)
+  - `o_` → outline (colored shape border, not a band; one border per `o_` column the individual is affected in, inner first)
   - `c_` → categorical (distinct color per unique string value)
   - `cr_` → carrier status of one gene or condition (0/1/2), drawn as a patterned section, not a band
   - No prefix → auto-detect from data
@@ -507,6 +522,8 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
 - `tests/test_legend_labels.py` — Names shown (`phenotype_labels`, `_` as spaces), compact legend
   with quadrants, the PGS key (#56)
+- `tests/test_outline_rings.py` — One border per `o_` column (#46): order, spacing, labels level,
+  PGS box, tooltip, legend row, PNG borders in points, warning above three
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
 - `tests/test_proband_marker.py` — The proband's "P" clear of the label on its left: room kept by
   the layout with tight spacing or large text, none at the default style, no overlap in the PNG

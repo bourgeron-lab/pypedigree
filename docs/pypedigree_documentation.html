@@ -943,7 +943,7 @@ in the rendered pedigree.</p>
     <tr>
       <td><code>o_</code></td>
       <td>Outline</td>
-      <td>Colored shape border when affected, instead of a filled band. Does not consume band space.</td>
+      <td>Colored shape border when affected, instead of a filled band. Does not consume band space. An individual affected in several <code>o_</code> columns gets one border per column, inner first, in column order.</td>
       <td>Proband marker, secondary highlight</td>
     </tr>
     <tr>
@@ -1624,6 +1624,12 @@ export_fam(ped, "output.fam")  # Ready for PLINK/KING</code></pre>
 <figure class="example-img">
   <img src="imgs/examples/quadrants.png" alt="Four phenotypes, one quadrant each" style="max-width:100%">
   <figcaption><code>quadrants.ped</code> (synthetic), <code>--phenotype-layout quadrants</code>: autism top left (blue), ADHD top right (yellow), intellectual disability bottom left (red), epilepsy bottom right (purple), and a red outline for sequenced individuals. 316 has no data at all</figcaption>
+</figure>
+
+<h3>Several Outline Columns</h3>
+<figure class="example-img">
+  <img src="imgs/examples/outline_rings.png" alt="One border per outline column" style="max-width:700px">
+  <figcaption><code>outline_rings.ped</code> (synthetic): which data each individual has, in three outline columns (<code>o_WGS</code>, <code>o_WES</code>, <code>o_Array</code>). One border per column an individual is affected in, the first on the outline, the others around it in column order: III-1 has the three, inner orange for WGS. The legend explains it; the SVG tooltip lists them</figcaption>
 </figure>
 
 <h3>Five Generations with Loops (81 individuals)</h3>

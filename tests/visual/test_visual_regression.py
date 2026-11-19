@@ -212,6 +212,12 @@ class TestVisualExtended:
         fig = render_pedigree(ped, style=PedigreeStyle(phenotype_layout="quadrants"))
         _assert_visual_match(fig, "quadrants", regen_golden)
 
+    def test_outline_rings(self, regen_golden: bool) -> None:
+        """One colored border per o_ column an individual is affected in (#46)."""
+        ped = parse_pedigree(DATA_DIR / "phenotype/outline_rings.ped")
+        fig = render_pedigree(ped)
+        _assert_visual_match(fig, "outline_rings", regen_golden)
+
     def test_quadrants_with_gradient_and_carrier(self, regen_golden: bool) -> None:
         """Quadrants holding a gradient value and a carrier source, on the large pedigree."""
         ped = parse_pedigree(DATA_DIR / "complex/multigenerational.ped")

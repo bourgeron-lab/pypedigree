@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- An individual affected in several outline (`o_`) columns gets one colored border per column
+  (#46): the first on the symbol's outline, as before, the others around it, outwards, in
+  column order, each one border's width and a white gap further out. Then every symbol is
+  spaced and labelled for that many borders, so the labels of a generation stay level; the
+  proband's arrow, the PGS curve, adoption brackets, the documented-evaluation asterisk and the
+  deceased line go round the outer border. The legend adds "Several borders: one per column,
+  inner first", and the SVG tooltip lists them ("Borders: WGS, WES"). Above three borders, a
+  `PedigreeStyleWarning` says the symbols take much more room. Figures where nobody has more
+  than one border are unchanged. New gallery example: `tests/data/phenotype/outline_rings.ped`.
+
+### Fixed
+
+- Only the first `o_` column an individual was affected in was drawn: the others did not show
+  on the symbol, while the legend listed them all (#46).
+
 ## [0.8.0] - 2026-11-19
 
 ### Added
