@@ -151,15 +151,12 @@ pypedigree tests/data/basic/couple_only.ped --phenotype-layout quadrants -o coup
 
 ![Four phenotypes, one quadrant each](imgs/examples/quadrants.png)
 
-**Description**: Synthetic three-generation pedigree, written by `tests/data/generate_fixtures.py` from a fixed seed, with four binary phenotype columns (`b_Autism`, `b_ADHD`, `b_ID`, `b_Epilepsy`) and an `o_WGS` outline for the individuals with sequencing data.
+**Description**: Synthetic three-generation pedigree, written by `tests/data/generate_fixtures.py` from a fixed seed, with four binary phenotype columns (`b_Autism`, `b_ADHD`, `b_ID`, `b_Epilepsy`) and an `o_WGS` outline for the individuals with sequencing data, green: the automatic colors keep it unlike the four phenotypes' (a red outline would look like the intellectual disability quadrant).
 
 **Features**: the quadrant layout (the default since 0.5.0) cuts each symbol in four. Autism is top left in blue, ADHD top right in yellow, intellectual disability bottom left in red, epilepsy bottom right in purple: these four phenotypes are recognised by name (whatever the column order) and get their conventional quadrant and color. Other columns take the free quadrants in column order, and `phenotype_quadrants` in a style file places any column explicitly. A `cr_` carrier source takes a quadrant too, patterned. The legend starts with a key, a square and a circle cut in four with the column names around them. Since the key gives each column's color, the binary columns then share one Affected / Unaffected / Unknown row, its first swatch striped with their colors (`"legend": "full"` in a style file gives one row per column). A symbol with no data at all (316) is grey with a single "NA". `"phenotype_labels": {"ID": "Intellectual disability"}` shows a column under another name.
 
 ```bash
 pypedigree tests/data/phenotype/quadrants.ped --phenotype-layout quadrants -o quadrants.png
-# The figure above also colors the WGS outline red:
-echo '{"phenotype_colors": {"WGS": "#ea3323"}}' > style.json
-pypedigree tests/data/phenotype/quadrants.ped --phenotype-layout quadrants --style style.json -o quadrants.png
 ```
 
 ---
