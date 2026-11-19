@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `show_pgs_values` style option, `--show-pgs-values` on the command line and "Polygenic score
+  values" in the web app: each PGS value is written beside its marker, in its color, so a
+  printed figure says how high a score is, not only that it is high (#54). "+2.1" or "−0.4" on
+  the z scale (a typographic minus), the rounded percentile, or the value to three significant
+  digits on "minmax". The values go left of the curve's box, at their marker's height, spread
+  apart when close; the layout widens the gaps by the widest value. Off by default.
+
+### Fixed
+
+- The dots of two PGS markers with close values no longer hide each other: dots closer than
+  their diameter are set side by side across the curve's box, the dashed lines staying at the
+  exact heights (#54). The PNG decides at the finished figure's scale, as for the band text.
+
 ## [0.7.0] - 2026-11-19
 
 ### Added

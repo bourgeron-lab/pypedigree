@@ -106,6 +106,7 @@ function options() {
     show_labels: f.show_labels.checked,
     show_legend: f.show_legend.checked,
     show_na_labels: f.show_na_labels.checked,
+    show_pgs_values: f.show_pgs_values.checked,
     style: f.style.value,
   };
 }

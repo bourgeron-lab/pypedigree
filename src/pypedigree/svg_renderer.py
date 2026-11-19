@@ -71,6 +71,11 @@ from pypedigree.phenotypes import (
     LEG_X0,
     NA_FILL,
     NA_TEXT_COLOR,
+    PGS_BOX_PAD,
+    PGS_DOT_PT,
+    PGS_VALUE_GAP_EM,
+    PGS_VALUE_HALO_PT,
+    PGS_VALUE_LINE_EM,
     QUADRANT_FONT_SCALE,
     SEPARATOR_COLOR,
     UNKNOWN_FILL,
@@ -93,8 +98,10 @@ from pypedigree.phenotypes import (
     outline_color,
     pgs_caption_above,
     pgs_curve,
+    pgs_marker_values,
     pgs_tail_positions,
     pgs_value_text,
+    pgs_values_width,
     pregnancy_loss_fill,
     quadrant_box,
     quadrant_cell,
@@ -102,6 +109,8 @@ from pypedigree.phenotypes import (
     quadrant_key_geometry,
     quadrant_room,
     resolve_phenotype_render,
+    spread_dots,
+    spread_labels,
     text_color_on,
     to_hex,
     validate_style_colors,
@@ -206,7 +215,11 @@ def _render(
     modes = pedigree.phenotype_display_modes
     # Same style resolution as render_pedigree, so both outputs share colors
     # and spacing. Each renderer applies the PGS spacing exactly once.
-    style = apply_pgs_spacing(resolve_style(style, names), names)
+    style = resolve_style(style, names)
+    pgs_cols = [n for n in names if is_pgs_column(n)]
+    values_width = pgs_values_width(pedigree.individuals(), pgs_cols, style)
+    # The only place the PGS spacing is applied (see `apply_pgs_spacing`).
+    style = apply_pgs_spacing(style, names, values_width)
     check_notation(style.carrier_notation)
     families = list(pedigree.families.values())
     # A subset is drawn as in the whole file (`Pedigree.column_scope`).
@@ -392,7 +405,8 @@ def _family_extent(layout: FamilyLayout, ctx: _SvgContext) -> _Extent:
     x0, x1 = min(xs) - reach, max(xs) + reach
     y0, y1 = min(ys) - reach, max(ys) + reach
     if ctx.pgs_names:
-        x0 -= half * 0.95  # PGS box on the left of each symbol
+        # PGS box on the left of each symbol, and its values beyond it.
+        x0 -= half * 0.95 + pgs_values_width(layout.nodes, ctx.pgs_names, style)
     if ctx.show_labels and layout.nodes:
         label_bottom = max(
             n.y
@@ -700,13 +714,15 @@ def _svg_text(
     weight: str = "",
     italic: bool = False,
     cls: str = "",
+    halo: float = 0.0,
 ) -> str:
     """One `<text>` element; `size` is in layout units.
 
     `baseline` says where `y` falls on the text: "hanging" (top),
     "central" (middle) or "auto" (baseline). It is turned into an explicit
     offset rather than `dominant-baseline`, which several SVG renderers
-    (librsvg, older Inkscape) do not honour.
+    (librsvg, older Inkscape) do not honour. ``halo`` (layout units) draws a
+    white outline under the glyphs.
     """
     y += size * _BASELINE_SHIFT[baseline]
     extra = ""
@@ -714,6 +730,11 @@ def _svg_text(
         extra += f' font-weight="{weight}"'
     if italic:
         extra += ' font-style="italic"'
+    if halo:
+        extra += (
+            f' stroke="white" stroke-width="{halo:.3f}" stroke-linejoin="round"'
+            ' paint-order="stroke"'
+        )
     if cls:
         extra += f' class="{cls}"'
     return (
@@ -1216,16 +1237,21 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
             f'y2="{ty:.3f}" stroke="#aaaaaa" stroke-width="{thin:.3f}" '
             'stroke-dasharray="0.02 0.03"/>'
         )
-    for name, value in active:
+    ys = [bottom - value * box_h for _name, value in active]
+    # Dots closer than their diameter side by side, so none hides another (#54).
+    offsets = spread_dots(ys, PGS_DOT_PT * _PT)
+    for (name, _value), y, dx in zip(active, ys, offsets, strict=True):
         color = html.escape(style.pgs_colors.get(name, DEFAULT_PGS_COLOR))
-        y = bottom - value * box_h
         out.append(
             f'<line x1="{left:.3f}" y1="{y:.3f}" x2="{left + box_w:.3f}" y2="{y:.3f}" '
             f'stroke="{color}" stroke-width="{_PT:.3f}" stroke-dasharray="0.06 0.03"/>'
         )
+        cx = left + box_w / 2 + dx
         out.append(
-            f'<circle cx="{left + box_w / 2:.3f}" cy="{y:.3f}" r="{1.5 * _PT:.3f}" fill="{color}"/>'
+            f'<circle cx="{cx:.3f}" cy="{y:.3f}" r="{PGS_DOT_PT / 2 * _PT:.3f}" fill="{color}"/>'
         )
+    if style.show_pgs_values:
+        out.extend(_svg_pgs_values(node, active, ys, left, bottom - box_h, bottom, style))
     above = pgs_caption_above(node)
     out.append(
         _svg_text(
@@ -1240,6 +1266,41 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
     )
     out.append("</g>")
     return "\n".join(out)
+
+
+def _svg_pgs_values(
+    node: NodeLayout,
+    active: list[tuple[str, float]],
+    ys: list[float],
+    left: float,
+    top: float,
+    bottom: float,
+    style: PedigreeStyle,
+) -> list[str]:
+    """Each PGS value left of the curve's box, at its marker's height (#54)."""
+    texts = pgs_marker_values(node, [name for name, _ in active], style.pgs_scale)
+    size = style.text_size(symbols.PGS_CAPTION_SCALE)
+    step = PGS_VALUE_LINE_EM * size * _PT
+    placed = spread_labels(ys, step, top + step / 2, bottom - step / 2)
+    x = left - PGS_BOX_PAD - PGS_VALUE_GAP_EM * size * _PT
+    out = []
+    for (name, _value), y in zip(active, placed, strict=True):
+        if name in texts:
+            color = style.pgs_colors.get(name, DEFAULT_PGS_COLOR)
+            out.append(
+                _svg_text(
+                    x,
+                    y,
+                    texts[name],
+                    size * _PT,
+                    style,
+                    anchor="end",
+                    color=color,
+                    cls="pgs-value",
+                    halo=PGS_VALUE_HALO_PT * _PT,
+                )
+            )
+    return out
 
 
 # Vertical step between annotation lines under a label, in layout units.

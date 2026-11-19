@@ -185,6 +185,11 @@ class PedigreeStyle:
     # alone, "none" no value (an "NA" still follows `show_na_labels`).
     band_text: str = "auto"
 
+    # Write each PGS value beside its marker, in the marker's color, on the
+    # far side of the curve from the symbol (#54): "+2.1" on the z scale, the
+    # percentile, or the value on "minmax". The layout makes room for them.
+    show_pgs_values: bool = False
+
     # PGS curve colors (PGS column name -> hex color, e.g. {"PGS_autism": "#3498db"})
     pgs_colors: dict[str, str] = field(default_factory=dict)
 
@@ -430,6 +435,7 @@ def _lab_distance(a: tuple[float, float, float], b: tuple[float, float, float]) 
 def apply_pgs_spacing(
     style: PedigreeStyle,
     phenotype_names: Sequence[str] | None = None,
+    values_width: float = 0.0,
 ) -> PedigreeStyle:
     """Widen node spacing to make room for PGS distribution curves.
 
@@ -441,6 +447,8 @@ def apply_pgs_spacing(
     Args:
         style: Style to widen.
         phenotype_names: Ordered phenotype column names of the pedigree.
+        values_width: Room for the values written left of the curves, in
+            layout units (`phenotypes.pgs_values_width`; 0 without them).
 
     Returns:
         A new PedigreeStyle, widened if any PGS column is present, else
@@ -449,7 +457,7 @@ def apply_pgs_spacing(
     if not any(is_pgs_column(n) for n in (phenotype_names or [])):
         return style
 
-    pgs_extra = style.shape_size * 0.55
+    pgs_extra = style.shape_size * 0.55 + values_width
     return replace(
         style,
         couple_gap=style.couple_gap + pgs_extra,

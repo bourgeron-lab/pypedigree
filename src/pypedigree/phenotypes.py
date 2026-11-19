@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 import warnings
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from statistics import NormalDist
 from typing import Any, Protocol
@@ -873,6 +873,123 @@ def pgs_value_text(raw: float, scale: str) -> str:
     if scale == "percentile":
         return f"{_ordinal(round(min(max(raw, 0), 100)))} percentile, z = {z:+.2f}"
     return f"z = {z:+.2f}, {_ordinal(percentile)} percentile"
+
+
+# --- PGS values and markers (#54) --------------------------------------------
+
+MINUS = "\u2212"  # the typographic minus of the values written beside the curve
+PGS_DOT_PT = 3.0  # diameter of a PGS marker's dot, in points
+PGS_DOT_SPREAD = 1.5  # distance between the centres of dots set side by side, in diameters
+PGS_BOX_PAD = 0.02  # how far the curve's rounded box reaches past its edge, in layout units
+PGS_VALUE_GAP_EM = 0.4  # between a value and the curve's box, in ems of the value
+PGS_VALUE_LINE_EM = 1.15  # smallest distance between two values' centres, in ems
+PGS_VALUE_HALO_PT = 2.0  # white outline around a value, so a line behind it does not cross it
+
+
+def pgs_marker_text(raw: float, scale: str) -> str:
+    """A PGS value as written beside its marker (``show_pgs_values``).
+
+    Signed with one decimal on "zscore" ("+2.1", "\u22120.4"), the rounded
+    percentile on "percentile" ("98"), three significant digits on
+    "minmax" ("0.712").
+    """
+    if scale == "zscore":
+        text = f"{raw:+.1f}"
+    elif scale == "percentile":
+        text = f"{round(raw):d}"
+    else:
+        text = f"{raw:.3g}"
+    return text.replace("-", MINUS)
+
+
+def pgs_marker_values(node: _HasPhenotypes, pgs_names: Sequence[str], scale: str) -> dict[str, str]:
+    """The text of each PGS value an individual has, by column."""
+    out = {}
+    for name in pgs_names:
+        raw = node.extra_phenotypes_raw.get(name)
+        if raw is not None and not is_na_value(raw):
+            out[name] = pgs_marker_text(raw, scale)
+    return out
+
+
+def pgs_values_width(
+    nodes: Iterable[_HasPhenotypes], pgs_names: Sequence[str], style: PedigreeStyle
+) -> float:
+    """Room the values need on the left of the curves, in layout units.
+
+    The widest value of these individuals plus the gap to the box, measured
+    at the SVG's scale as labels are (#41); 0 without ``show_pgs_values``.
+    """
+    if not style.show_pgs_values or not pgs_names:
+        return 0.0
+    size = style.text_size(symbols.PGS_CAPTION_SCALE)
+    widths = [
+        symbols.text_width(text, size)
+        for ind in nodes
+        for text in pgs_marker_values(ind, pgs_names, style.pgs_scale).values()
+    ]
+    if not widths:
+        return 0.0
+    return max(widths) + PGS_VALUE_GAP_EM * size * symbols.UNITS_PER_POINT + PGS_BOX_PAD
+
+
+def spread_dots(ys: Sequence[float], dot: float) -> list[float]:
+    """Horizontal offsets that keep the markers' dots apart (#54).
+
+    Dots closer than ``dot`` (their diameter) vertically form a group, set
+    side by side, centred on the curve's axis, `PGS_DOT_SPREAD` diameters
+    apart. A dot alone keeps offset 0.
+
+    Args:
+        ys: Height of each dot, in any unit.
+        dot: The dots' diameter, in the same unit.
+
+    Returns:
+        The offset of each dot, in the order of ``ys``, in that unit.
+    """
+    order = sorted(range(len(ys)), key=lambda i: ys[i])
+    offsets = [0.0] * len(ys)
+    group: list[int] = []
+    for i in [*order, None]:
+        if i is not None and (not group or ys[i] - ys[group[-1]] < dot):
+            group.append(i)
+            continue
+        for k, j in enumerate(group):
+            offsets[j] = (k - (len(group) - 1) / 2) * dot * PGS_DOT_SPREAD
+        group = [] if i is None else [i]
+    return offsets
+
+
+def spread_labels(ys: Sequence[float], step: float, low: float, high: float) -> list[float]:
+    """Heights for labels at ``ys``, at least ``step`` apart, kept in [low, high].
+
+    Labels too close are set ``step`` apart around the mean of their
+    heights, in order; a group reaching past ``low`` or ``high`` is moved
+    back inside (when it fits).
+
+    Returns:
+        The height of each label, in the order of ``ys``.
+    """
+    order = sorted(range(len(ys)), key=lambda i: ys[i])
+    groups: list[list[int]] = []
+
+    def placed(group: list[int]) -> list[float]:
+        centre = sum(ys[i] for i in group) / len(group)
+        first = centre - step * (len(group) - 1) / 2
+        span = step * (len(group) - 1)
+        first = min(max(first, low), max(low, high - span))
+        return [first + k * step for k in range(len(group))]
+
+    for i in order:
+        groups.append([i])
+        while len(groups) > 1 and placed(groups[-2])[-1] + step > placed(groups[-1])[0]:
+            last = groups.pop()
+            groups[-1].extend(last)
+    out = [0.0] * len(ys)
+    for group in groups:
+        for i, y in zip(group, placed(group), strict=True):
+            out[i] = y
+    return out
 
 
 # --- Legend ------------------------------------------------------------------

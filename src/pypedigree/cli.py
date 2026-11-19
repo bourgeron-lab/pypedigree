@@ -136,6 +136,11 @@ def _reported_warnings() -> Iterator[None]:
     "highest score (minmax, default), as z-scores, or as population percentiles.",
 )
 @click.option(
+    "--show-pgs-values",
+    is_flag=True,
+    help="Write each PGS value beside its marker (z-score, percentile or value).",
+)
+@click.option(
     "--no-na-labels",
     is_flag=True,
     help='Do not write "NA" in bands with no data (they stay grey, like unknown).',
@@ -194,6 +199,7 @@ def main(
     no_legend: bool,
     show_phenotype_labels: bool,
     no_na_labels: bool,
+    show_pgs_values: bool,
     pgs_scale: str | None,
     phenotype_layout: str | None,
     interactive: bool,
@@ -229,6 +235,8 @@ def main(
                 style.show_phenotype_labels = True
             if no_na_labels:
                 style.show_na_labels = False
+            if show_pgs_values:
+                style.show_pgs_values = True
             if pgs_scale:
                 style.pgs_scale = pgs_scale
             if phenotype_layout:
