@@ -477,3 +477,28 @@ def apply_pgs_spacing(
         couple_gap=style.couple_gap + pgs_extra,
         sibling_gap=style.sibling_gap + pgs_extra,
     )
+
+
+def apply_outline_spacing(style: PedigreeStyle, reach: float) -> PedigreeStyle:
+    """Make room for the colored borders drawn around the symbols (#46).
+
+    With several ``o_`` borders, the outer ones lie `reach` layout units
+    outside the symbol (`phenotypes.outline_reach`). Every symbol is spaced
+    and labelled for that room, so the labels of one generation stay level.
+    Like `apply_pgs_spacing`, not idempotent: each renderer applies it once.
+
+    Args:
+        style: Style to widen.
+        reach: Room taken by the borders after the first, in layout units.
+
+    Returns:
+        A new PedigreeStyle, or `style` unchanged when `reach` is 0.
+    """
+    if reach <= 0.0:
+        return style
+    return replace(
+        style,
+        couple_gap=style.couple_gap + 2 * reach,
+        sibling_gap=style.sibling_gap + 2 * reach,
+        label_offset=style.label_offset + reach,
+    )

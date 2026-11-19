@@ -30,7 +30,7 @@ reproduction case to a fabricated file that still shows the bug.
 | `consanguinity/` | First cousins, uncle–niece, sibling union |
 | `nomenclature/` | Pregnancies and pregnancy losses, adoption, childlessness, gamete donor, gender identity, consultand |
 | `multi_partner/` | Individuals with several partners, duplicate nodes |
-| `phenotype/` | Multi-phenotype bands, prefixes, PGS, annotations, carriers, the quadrant layout (`quadrants.ped`) |
+| `phenotype/` | Multi-phenotype bands, prefixes, PGS, annotations, carriers, the quadrant layout (`quadrants.ped`), several outline columns (`outline_rings.ped`) |
 | `plink/` | `.fam` files and PLINK `.ped` with genotype columns |
 | `format/` | Separator detection, headers, unicode IDs, malformed input |
 | `complex/` | Large and structurally awkward pedigrees, including the gallery's five-generation example with two loops (`multigenerational.ped`) |
