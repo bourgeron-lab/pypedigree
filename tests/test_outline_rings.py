@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import pytest
 from click.testing import CliRunner
 from matplotlib import patches as mpatches
-from matplotlib.colors import to_rgb
+from matplotlib.colors import to_hex
 
 import pypedigree as pp
 from pypedigree import symbols
@@ -237,12 +237,10 @@ class TestPng:
         style = _style(ped)
         fig = pp.render_pedigree(ped)
         fig.canvas.draw()
-        colors = sorted(tuple(p.get_edgecolor()[:3]) for p in self._rings(fig))
+        colors = sorted(to_hex(p.get_edgecolor()) for p in self._rings(fig))
         plt.close(fig)
-        expected = sorted(
-            to_rgb(style.phenotype_colors[n]) for n in ("WES", "Array", "WES", "Array", "Array")
-        )
-        assert colors == pytest.approx(expected)
+        names = ("WES", "Array", "WES", "Array", "Array")
+        assert colors == sorted(to_hex(style.phenotype_colors[n]) for n in names)
 
     def test_borders_a_step_apart_in_points(self):
         ped = _ped()
