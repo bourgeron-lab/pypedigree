@@ -7,12 +7,14 @@ import warnings
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import click
 
 from pypedigree import __version__
 from pypedigree.config import PedigreeStyle, resolve_style
-from pypedigree.errors import PedigreeError
+from pypedigree.errors import PedigreeBatchError, PedigreeError
+from pypedigree.models import Pedigree
 from pypedigree.parser import (
     apply_phenotypes_to_pedigree,
     parse_fam_file,
@@ -44,6 +46,13 @@ def _reported_warnings() -> Iterator[None]:
 @click.command()
 @click.argument("pedigree_file", type=click.Path(exists=True))
 @click.option("-o", "--output", type=click.Path(), default=None, help="Output file path.")
+@click.option(
+    "--output-dir",
+    type=click.Path(file_okay=False),
+    default=None,
+    help="Write one file per family into this directory, named after the family "
+    "(e.g. FAM1.png), with the colors and legend of the whole file.",
+)
 @click.option(
     "--format",
     "fmt",
@@ -161,6 +170,7 @@ def _reported_warnings() -> Iterator[None]:
 def main(
     pedigree_file: str,
     output: str | None,
+    output_dir: str | None,
     fmt: str | None,
     family: str | None,
     dpi: int | None,
@@ -248,9 +258,28 @@ def main(
             # Keeps the phenotype and annotation columns (#50).
             pedigree = pedigree.subset([family])
 
-        # Interactive SVG mode
         if (no_script or id_prefix or responsive) and not interactive:
             raise click.UsageError("--no-script, --id-prefix and --responsive need --interactive.")
+
+        if output_dir is not None:
+            if output is not None or show:
+                raise click.UsageError("--output-dir cannot be used with -o/--output or --show.")
+            _write_families(
+                pedigree,
+                output_dir,
+                fmt=fmt or "png",
+                style=style,
+                show_labels=not no_labels,
+                show_legend=not no_legend,
+                circular=circular,
+                interactive=interactive,
+                script=not no_script,
+                id_prefix=id_prefix,
+                responsive=responsive,
+            )
+            return
+
+        # Interactive SVG mode
         if interactive:
             from pypedigree.svg_renderer import check_id_prefix, render_interactive_svg, render_svg
 
@@ -319,3 +348,37 @@ def main(
 
     except PedigreeError as e:
         raise click.ClickException(str(e)) from e
+
+
+def _write_families(pedigree: Pedigree, output_dir: str, **options: Any) -> None:
+    """Write one file per family; report each file, then the failures (#49)."""
+    from pypedigree.batch import render_families
+
+    if options["interactive"]:
+        from pypedigree.svg_renderer import check_id_prefix
+
+        try:
+            check_id_prefix(options["id_prefix"])
+        except ValueError as e:
+            raise click.BadParameter(str(e), param_hint="--id-prefix") from e
+    else:
+        # matplotlib is only imported for these formats (#8).
+        import matplotlib
+
+        matplotlib.use("Agg")
+
+    failed: PedigreeBatchError | None = None
+    with _reported_warnings():
+        try:
+            written = render_families(pedigree, output_dir, **options)
+        except PedigreeBatchError as e:
+            written, failed = e.written, e
+    for path in written.values():
+        click.echo(f"Saved: {path}")
+    if failed is not None:
+        for fid, message in failed.failures.items():
+            click.echo(f"Error: family '{fid}': {message}", err=True)
+        total = len(written) + len(failed.failures)
+        raise click.ClickException(
+            f"{len(failed.failures)} of {total} families could not be drawn."
+        )

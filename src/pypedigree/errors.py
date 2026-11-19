@@ -1,5 +1,9 @@
 """Custom exceptions for pypedigree."""
 
+from __future__ import annotations
+
+from typing import Any
+
 
 class PedigreeError(Exception):
     """Base exception for all pypedigree errors."""
@@ -33,3 +37,21 @@ class PedigreeStyleWarning(PedigreeWarning):
 
 class PedigreeDataWarning(PedigreeWarning):
     """Raised when pedigree data is questionable but still renderable."""
+
+
+class PedigreeBatchError(PedigreeError):
+    """Raised by `render_families` when some families could not be drawn.
+
+    The other families were drawn.
+
+    Attributes:
+        written: Family ID → path of each file written.
+        failures: Family ID → error message, for each family not drawn.
+    """
+
+    def __init__(self, written: dict[str, Any], failures: dict[str, str]) -> None:
+        self.written = written
+        self.failures = failures
+        listed = "; ".join(f"{fid}: {msg}" for fid, msg in failures.items())
+        total = len(written) + len(failures)
+        super().__init__(f"{len(failures)} of {total} families could not be drawn ({listed})")

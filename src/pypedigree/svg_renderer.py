@@ -203,12 +203,12 @@ def _render(
     style = apply_pgs_spacing(resolve_style(style, names), names)
     check_notation(style.carrier_notation)
     families = list(pedigree.families.values())
+    # A subset is drawn as in the whole file (`Pedigree.column_scope`).
+    scope = pedigree.column_scope
     carriers = resolve_carrier_scheme(
-        (ind for fam in families for ind in fam.individuals.values()),
-        carrier_columns(names, modes),
-        style.carrier_notation,
+        scope.individuals(), carrier_columns(names, modes), style.carrier_notation
     )
-    render = resolve_phenotype_render(pedigree, names, modes, style)
+    render = resolve_phenotype_render(scope, names, modes, style)
     check_phenotype_layout(style)
     check_pgs_scale(style)
     render = with_quadrants(render, render.band_names(names), carriers, style)

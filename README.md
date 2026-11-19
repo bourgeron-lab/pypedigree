@@ -25,6 +25,7 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 - **Carrier notation (NSGC 2022)**: the symbol is divided into patterned sections, one per carrier result, so an affected carrier or a carrier of several conditions shows every result; `cr_` columns give one carrier status per gene or condition. The pre-2022 half-fill / center-dot notation stays available (`carrier_notation: "legacy"`)
 - **Interactive SVG**: the same figure as the PNG (phenotype bands, legend, PGS curves, annotations, carrier notation) plus tooltips, click-to-highlight relatives and zoom/pan for browser viewing
 - **Multiple output formats**: PNG, SVG, PDF, interactive SVG
+- **One file per family**: `--output-dir figures/` (or `render_families()`) draws each family of a cohort into its own file, with the colors and legend of the whole file
 - **Customizable styling**: JSON-based style overrides for colors, sizes, fonts
 - **Long IDs**: symbols are spaced by their labels' width, so long IDs or a large font do not make labels run into each other; short labels keep the usual spacing
 - **Separate phenotype files**: load phenotypes from `.pheno` TSV files
@@ -93,6 +94,9 @@ pypedigree family.ped --annotations annotations.tsv -o family.png
 
 # Render only one family from a multi-family file
 pypedigree multi_family.ped --family FAM1 -o fam1.png
+
+# One file per family (figures/FAM1.svg, figures/FAM2.svg...), same colors and legend in each
+pypedigree cohort.ped --output-dir figures/ --format svg
 
 # High resolution, no legend
 pypedigree family.ped --dpi 300 --no-legend -o family.png
@@ -367,6 +371,7 @@ Options:
   -o, --output PATH              Output file path
   --format [png|svg|pdf]         Output format (auto-detected from extension)
   --family ID                    Render only this family ID
+  --output-dir DIR               One file per family in DIR, named after the family
   --dpi INT                      Output resolution (default: 150)
   --show                         Display interactively instead of saving
   --style PATH                   JSON file with style overrides
