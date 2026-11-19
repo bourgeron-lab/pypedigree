@@ -78,6 +78,11 @@ class TestRender:
         assert out["families"] == ["F", "G"]
         assert out["individuals"] == 1
 
+    def test_show_pgs_values(self):
+        """#54: the form's "Polygenic score values" writes them beside the markers."""
+        assert 'class="pgs-value"' in _render(show_pgs_values=True)["static_svg"]
+        assert 'class="pgs-value"' not in _render()["static_svg"]
+
     def test_min_font_size(self):
         """#51: the form's "Smallest text" raises every text of the drawing."""
         svg = _render(min_font_size="6")["static_svg"]
@@ -246,6 +251,7 @@ class TestSite:
             "show_labels",
             "show_legend",
             "show_na_labels",
+            "show_pgs_values",
             "min_font_size",
             "style",
         } <= names

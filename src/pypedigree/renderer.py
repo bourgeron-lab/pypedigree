@@ -14,9 +14,11 @@ from typing import Any, Literal
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import patheffects
 from matplotlib.artist import Artist
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure, SubFigure
+from matplotlib.lines import Line2D
 from matplotlib.text import Text
 from matplotlib.transforms import Bbox, ScaledTranslation
 
@@ -30,7 +32,13 @@ from pypedigree.carriers import (
     check_notation,
     resolve_carrier_scheme,
 )
-from pypedigree.config import DEFAULT_PGS_COLOR, PedigreeStyle, apply_pgs_spacing, resolve_style
+from pypedigree.config import (
+    DEFAULT_PGS_COLOR,
+    PedigreeStyle,
+    apply_pgs_spacing,
+    is_pgs_column,
+    resolve_style,
+)
 from pypedigree.errors import PedigreeError
 from pypedigree.layout import compute_layout, compute_layout_circular
 from pypedigree.models import (
@@ -59,7 +67,12 @@ from pypedigree.phenotypes import (
     LEG_X0,
     NA_FILL,
     NA_TEXT_COLOR,
+    PGS_BOX_PAD,
     PGS_CURVE_SIGMA,
+    PGS_DOT_PT,
+    PGS_VALUE_GAP_EM,
+    PGS_VALUE_HALO_PT,
+    PGS_VALUE_LINE_EM,
     QUADRANT_FONT_SCALE,
     SEPARATOR_COLOR,
     UNKNOWN_FILL,
@@ -83,7 +96,9 @@ from pypedigree.phenotypes import (
     legend_slot_count,
     outline_color,
     pgs_caption_above,
+    pgs_marker_values,
     pgs_tail_positions,
+    pgs_values_width,
     pregnancy_loss_fill,
     quadrant_box,
     quadrant_cell,
@@ -91,6 +106,8 @@ from pypedigree.phenotypes import (
     quadrant_key_geometry,
     quadrant_room,
     resolve_phenotype_render,
+    spread_dots,
+    spread_labels,
     text_color_on,
     validate_style_colors,
     with_quadrants,
@@ -146,7 +163,11 @@ def render_pedigree(
     # Fill in palette colors (idempotent, so harmless if the caller already
     # resolved), then widen for PGS curves — this is the only place that
     # applies the PGS spacing, so it can never be applied twice.
-    style = apply_pgs_spacing(resolve_style(style, pheno_names), pheno_names)
+    style = resolve_style(style, pheno_names)
+    pgs_cols = [n for n in pheno_names if is_pgs_column(n)]
+    values_width = pgs_values_width(pedigree.individuals(), pgs_cols, style)
+    # The only place the PGS spacing is applied (see `apply_pgs_spacing`).
+    style = apply_pgs_spacing(style, pheno_names, values_width)
     # A subset is drawn as in the whole file (`Pedigree.column_scope`).
     scope = pedigree.column_scope
     pheno_render = resolve_phenotype_render(scope, pheno_names or [], display_modes, style)
@@ -1862,7 +1883,7 @@ def _draw_pgs_ridge(
         (box_left, box_bottom),
         box_width,
         box_height,
-        boxstyle="round,pad=0.02",
+        boxstyle=f"round,pad={PGS_BOX_PAD}",
         facecolor=(1, 1, 1, 0.5),
         edgecolor="#cccccc",
         linewidth=0.5,
@@ -1901,10 +1922,10 @@ def _draw_pgs_ridge(
             zorder=4,
         )
 
-    # One colored marker per PGS trait
+    # One colored marker per PGS trait: a dashed line at its exact height,
+    # and a dot, set beside the others' when they would hide each other (#54).
     for pgs_name, norm_val in active:
         marker_color = style.pgs_colors.get(pgs_name, DEFAULT_PGS_COLOR)
-
         marker_y = box_bottom + norm_val * box_height
         ax.plot(
             [box_left, box_left + box_width],
@@ -1914,14 +1935,7 @@ def _draw_pgs_ridge(
             linestyle="--",
             zorder=5,
         )
-        ax.plot(
-            box_left + box_width * 0.5,
-            marker_y,
-            "o",
-            color=marker_color,
-            markersize=3,
-            zorder=6,
-        )
+    ax.add_artist(_PgsMarks(ax, node, active, style, box_left, box_width, box_bottom, box_height))
 
     # Single "PGS" caption, below the curve, or above it when the proband
     # marker takes the place below.
@@ -1937,6 +1951,100 @@ def _draw_pgs_ridge(
         color="#666666",
         zorder=4,
     )
+
+
+class _PgsMarks(Artist):
+    """The dots of a PGS curve's markers, and their values, placed when drawn.
+
+    Whether two dots would hide each other, and how far apart two values
+    must be, is a matter of points, while their heights are in layout units:
+    both are known only at the finished figure's scale (as for
+    `_RadialLabels`). Each time the figure is drawn, dots closer than their
+    diameter are set side by side (`phenotypes.spread_dots`) and, with
+    ``show_pgs_values``, the values left of the box are spread so they do
+    not overlap (`spread_labels`), as the SVG does at its own scale.
+    """
+
+    def __init__(
+        self,
+        ax: Axes,
+        node: NodeLayout,
+        active: list[tuple[str, float]],
+        style: PedigreeStyle,
+        box_left: float,
+        box_width: float,
+        box_bottom: float,
+        box_height: float,
+    ) -> None:
+        super().__init__()
+        self.set_zorder(6)
+        self._ax = ax
+        self._box = (box_left, box_width, box_bottom, box_height)
+        self._ys = [box_bottom + value * box_height for _name, value in active]
+        self._size = style.text_size(symbols.PGS_CAPTION_SCALE)
+        self._dots: list[Line2D] = []
+        self._texts: list[Text | None] = []
+        values = (
+            pgs_marker_values(node, [n for n, _ in active], style.pgs_scale)
+            if style.show_pgs_values
+            else {}
+        )
+        for name, _value in active:
+            color = style.pgs_colors.get(name, DEFAULT_PGS_COLOR)
+            dot = Line2D([], [], marker="o", color=color, markersize=PGS_DOT_PT, linestyle="none")
+            dot.set_figure(ax.figure)
+            dot.set_transform(ax.transData)
+            self._dots.append(dot)
+            text = None
+            if name in values:
+                text = Text(
+                    text=values[name],
+                    fontsize=self._size,
+                    fontfamily=style.font_family,
+                    color=color,
+                    ha="right",
+                    va="center",
+                    path_effects=[
+                        patheffects.withStroke(linewidth=PGS_VALUE_HALO_PT, foreground="white")
+                    ],
+                )
+                text.set_figure(ax.figure)
+                text.set_transform(ax.transData)
+            self._texts.append(text)
+
+    def _place(self, renderer: Any) -> None:
+        box_left, box_width, box_bottom, box_height = self._box
+        origin, unit = self._ax.transData.transform([(0.0, 0.0), (1.0, 0.0)])
+        pixels_per_unit = abs(unit[0] - origin[0]) or 1.0
+        pt = renderer.points_to_pixels(1.0) / pixels_per_unit  # layout units per point
+        offsets = spread_dots(self._ys, PGS_DOT_PT * pt)
+        for dot, y, dx in zip(self._dots, self._ys, offsets, strict=True):
+            dot.set_data([box_left + box_width / 2 + dx], [y])
+        step = PGS_VALUE_LINE_EM * self._size * pt
+        top = box_bottom + box_height
+        placed = spread_labels(self._ys, step, box_bottom + step / 2, top - step / 2)
+        x = box_left - PGS_BOX_PAD - PGS_VALUE_GAP_EM * self._size * pt
+        for text, y in zip(self._texts, placed, strict=True):
+            if text is not None:
+                text.set_position((x, y))
+
+    def get_children(self) -> list[Artist]:
+        """The dots and values, so `findobj` and the like see them."""
+        return [*self._dots, *(t for t in self._texts if t is not None)]
+
+    def draw(self, renderer: Any) -> None:
+        if not self.get_visible():
+            return
+        self._place(renderer)
+        for child in self.get_children():
+            child.draw(renderer)
+
+    def get_window_extent(self, renderer: Any = None) -> Bbox:
+        if renderer is None:
+            renderer = self._ax.figure.canvas.get_renderer()  # type: ignore[attr-defined]
+        self._place(renderer)
+        boxes = [child.get_window_extent(renderer) for child in self.get_children()]
+        return Bbox.union(boxes) if boxes else Bbox.null()
 
 
 def _legend_swatch(

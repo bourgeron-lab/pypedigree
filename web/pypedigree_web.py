@@ -46,8 +46,8 @@ def render(text: str, options_json: str = "{}") -> str:
         options_json: JSON object with any of: ``family`` (an ID, or empty
             for all), ``phenotype_layout``, ``pgs_scale``,
             ``carrier_notation``, ``min_font_size`` (points, or empty for
-            none), ``show_labels``, ``show_legend``, ``show_na_labels`` and
-            ``style`` (a JSON object of
+            none), ``show_labels``, ``show_legend``, ``show_na_labels``,
+            ``show_pgs_values`` and ``style`` (a JSON object of
             `PedigreeStyle` fields, as in a ``--style`` file).
 
     Returns:
@@ -119,6 +119,8 @@ def _style(options: dict[str, Any]) -> PedigreeStyle:
         setattr(style, name, value)
     if "show_na_labels" in options:
         style.show_na_labels = bool(options["show_na_labels"])
+    if "show_pgs_values" in options:
+        style.show_pgs_values = bool(options["show_pgs_values"])
     size = options.get("min_font_size")
     if size not in (None, ""):
         try:

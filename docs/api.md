@@ -681,6 +681,7 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `show_na_labels` | `True` | Write "NA" in bands with no data (`-9`, `NA`, empty). When `False` they stay grey with no text, so they look like an "unknown" (`0`) band |
 | `band_text` | `"auto"` | Text in bands and quadrants. `"auto"`: "name: value", or the value alone, or the value smaller (down to `min_font_size`, or half `font_size`), whichever fits; else none. `"name_value"`: always "name: value" (before 0.7.0). `"value"`: the value alone. `"none"`: no value ("NA" still follows `show_na_labels`) |
 | `pgs_scale` | `"minmax"` | Position of a PGS value on its curve: `"minmax"` (between the pedigree's lowest and highest score), `"zscore"` (a z-score on the drawn standard normal, clipped at about ±2.8 SD) or `"percentile"` (a population percentile, 0-100). On the fixed scales the ±2 SD tails are marked and the SVG tooltip gives z and percentile. Any other value raises `PedigreeError` |
+| `show_pgs_values` | `False` | Write each PGS value beside its marker, in its color, left of the curve: "+2.1" / "−0.4" on `"zscore"`, the rounded percentile on `"percentile"`, three significant digits on `"minmax"`. Close values are spread apart; the layout widens the gaps by the widest value. CLI: `--show-pgs-values` |
 | `pgs_colors` | `{}` | Map of PGS column name to hex color for the marker line. Unset: `#e74c3c` for a single PGS column; with several, distinct colors (known phenotypes' for `PGS_autism` and the like) |
 | `gradient_range` | `{}` | Custom min/max for gradient normalization, e.g. `{"SRS": [40, 90]}` |
 | `gradient_diverging` | `{}` | Tricolor diverging gradient config, e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}` |
@@ -769,17 +770,18 @@ function is idempotent.
 
 ---
 
-### `apply_pgs_spacing(style, phenotype_names=None)`
+### `apply_pgs_spacing(style, phenotype_names=None, values_width=0.0)`
 
 Widen `couple_gap` and `sibling_gap` to leave room for PGS distribution
-curves drawn beside each node. Returns `style` unchanged when no PGS column
-is present.
+curves drawn beside each node, and by `values_width` (layout units) for the
+values written left of them with `show_pgs_values` (the renderers pass the
+widest value's width). Returns `style` unchanged when no PGS column is present.
 
 Unlike `resolve_style()` this is **not** idempotent — each call widens
 further. `render_pedigree()` is its only caller; do not apply it yourself
 before calling `render_pedigree()`.
 
-**Args**: `style` — `PedigreeStyle`. `phenotype_names` — ordered phenotype column names.
+**Args**: `style` — `PedigreeStyle`. `phenotype_names` — ordered phenotype column names. `values_width` — room for the PGS values, in layout units.
 
 **Returns**: a new `PedigreeStyle`, or the input unchanged.
 

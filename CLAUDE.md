@@ -322,6 +322,15 @@ Multi-phenotype support:
   `active_pgs(node, names, scale)`, `pgs_position(z) = 0.5 + z * PGS_CURVE_SIGMA` on fixed scales,
   `pgs_tail_positions()` (±2 SD dotted lines), `pgs_value_text()` for the SVG tooltip. Curves (and the
   legend) are drawn even with no other phenotype column. `tests/test_pgs_scale.py`
+- PGS markers (#54): dots closer than `PGS_DOT_PT` are set side by side (`phenotypes.spread_dots`,
+  `PGS_DOT_SPREAD` diameters apart); with `show_pgs_values` each value (`pgs_marker_text`:
+  "+2.1"/U+2212 minus, percentile, 3 significant digits) is written left of the box, right-aligned,
+  in the marker's color with a white halo (`PGS_VALUE_HALO_PT`; SVG `paint-order="stroke"`, PNG
+  `patheffects.withStroke`), spread by `spread_labels` within the box height. The SVG decides at `_PT`
+  (`_svg_pgs_values`); the PNG draws `renderer._PgsMarks`, an artist placing its dots and texts at
+  draw time (its `get_children()` lets `findobj` see them). `pgs_values_width` (widest value +
+  gap + `PGS_BOX_PAD`, at the SVG's scale) is passed to `apply_pgs_spacing(..., values_width)` and
+  to the SVG viewBox. `tests/test_pgs_values.py`
 - PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve. Multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) show colored markers on a single curve. Marker colors via `pgs_colors` style option; unset ones are filled by `config._assign_pgs_colors` when there are several PGS columns (#53): a known phenotype's color (its column's in the figure if any), else the first of `DEFAULT_PGS_COLOR` + palette + extras not `_alike` any other score or band. One PGS column keeps `DEFAULT_PGS_COLOR` (now in `config.py`). `couple_gap` and `sibling_gap` auto-increase when PGS present.
 - Colors from `phenotype_colors` in style JSON, or auto-assigned from palette
   (`config.resolve_style`): by position among all columns, lookalikes of known
@@ -352,6 +361,7 @@ Additional PedigreeStyle fields:
 - `zero_pad_ids: int` — zero-pad IDs to this width (0 = no padding)
 - `min_font_size: float | None` — smallest size of any text in points (None = no minimum, #51)
 - `band_text: str` — "auto" (fit, default), "name_value", "value" or "none" (#55)
+- `show_pgs_values: bool` — write PGS values beside their markers (#54)
 Warnings and errors:
 - `PedigreeWarning` (base), `PedigreeStyleWarning`, `PedigreeDataWarning`
 - Unknown keys in a style JSON warn with a suggested spelling (they are still ignored)
@@ -389,6 +399,7 @@ pypedigree INPUT.ped [OPTIONS]
 --show-phenotype-labels  Show YES/NO text inside binary phenotype bands
 --no-na-labels           Do not write "NA" in bands with no data (style `show_na_labels`)
 --pgs-scale [minmax|zscore|percentile]  PGS position: min-max over the pedigree (default), z-score or percentile
+--show-pgs-values        Write each PGS value beside its marker (style `show_pgs_values`)
 --phenotype-layout [auto|quadrants|bands]  Quadrants up to four phenotypes, bands beyond (auto, default), or one of them
 --interactive            Generate interactive SVG with tooltips and click highlighting
 --no-script              With --interactive: same SVG, no script or tooltip (`render_svg`)

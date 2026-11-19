@@ -220,6 +220,9 @@ _CHAR_EM_BOLD = {
     )
     for ch in chars
 }
+# The typographic minus of the PGS values (#54), in both weights.
+_CHAR_EM["\u2212"] = 0.838
+_CHAR_EM_BOLD["\u2212"] = 0.838
 _OTHER_CHAR_EM = 0.7
 _WIDE_CHAR_EM = 1.0
 
