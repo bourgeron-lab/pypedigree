@@ -66,12 +66,17 @@ from pypedigree.phenotypes import (
     LegendMetrics,
     LegendRow,
     PhenotypeRender,
+    Room,
     active_pgs,
     all_bands_na,
     band_cell,
+    band_room,
+    cell_texts,
+    check_band_text,
     check_min_font_size,
     check_pgs_scale,
     check_phenotype_layout,
+    fit_text,
     legend_metrics,
     legend_row_centers,
     legend_rows,
@@ -84,6 +89,7 @@ from pypedigree.phenotypes import (
     quadrant_cell,
     quadrant_center,
     quadrant_key_geometry,
+    quadrant_room,
     resolve_phenotype_render,
     text_color_on,
     validate_style_colors,
@@ -153,6 +159,7 @@ def render_pedigree(
     check_phenotype_layout(style)
     check_pgs_scale(style)
     check_min_font_size(style)
+    check_band_text(style)
     pheno_render = with_quadrants(
         pheno_render, pheno_render.band_names(pheno_names or []), carriers, style
     )
@@ -1513,15 +1520,15 @@ def _draw_banded_node(
 
     # If all bands are NA, draw a single centered "NA" label
     if all_na and band_names and style.show_na_labels:
-        ax.text(
+        _fitted_text(
+            ax,
             cx,
             cy,
-            "NA",
-            fontsize=style.text_size(symbols.NA_TEXT_SCALE),
-            fontfamily=style.font_family,
-            fontweight="bold",
-            ha="center",
-            va="center",
+            ("NA",),
+            style.text_size(symbols.NA_TEXT_SCALE),
+            style,
+            band_room(node.sex, half, 0.0),
+            2 * half,
             color=NA_TEXT_COLOR,
             zorder=6,
         )
@@ -1613,15 +1620,16 @@ def _draw_bands(
         # Text inside the band; a symbol with no data at all gets a single
         # centred "NA" instead (drawn below).
         if cell.text is not None and not (cell.is_na and all_na):
-            ax.text(
+            yc = band_top - band_height / 2
+            _fitted_text(
+                ax,
                 cx,
-                band_top - band_height / 2,
-                cell.text,
-                fontsize=style.text_size(symbols.BAND_TEXT_SCALE),
-                fontfamily=style.font_family,
-                fontweight="bold",
-                ha="center",
-                va="center",
+                yc,
+                cell_texts(cell, style.band_text),
+                style.text_size(symbols.BAND_TEXT_SCALE),
+                style,
+                band_room(node.sex, half, yc - cy),
+                band_height,
                 color=cell.text_color,
                 zorder=6,
             )
@@ -1654,15 +1662,16 @@ def _draw_bands(
             clip_on=True,
         )
         if state is None and style.show_na_labels:
-            ax.text(
+            yc = band_top - band_height / 2
+            _fitted_text(
+                ax,
                 cx,
-                band_top - band_height / 2,
-                "NA",
-                fontsize=style.text_size(symbols.BAND_TEXT_SCALE),
-                fontfamily=style.font_family,
-                fontweight="bold",
-                ha="center",
-                va="center",
+                yc,
+                ("NA",),
+                style.text_size(symbols.BAND_TEXT_SCALE),
+                style,
+                band_room(node.sex, half, yc - cy),
+                band_height,
                 color=NA_TEXT_COLOR,
                 zorder=6,
             )
@@ -1704,12 +1713,12 @@ def _draw_quadrants(
             if state in (CARRIER, OBLIGATE_CARRIER):
                 hatch = _hatch(carriers.pattern(name), state == OBLIGATE_CARRIER)
             fill: Any = NA_FILL if state is None else "white"
-            text = "NA" if state is None and style.show_na_labels else None
+            texts: tuple[str, ...] = ("NA",) if state is None and style.show_na_labels else ()
             text_color = NA_TEXT_COLOR
         else:
             cell = quadrant_cell(node, name, style, pheno_render, display_modes)
             fill = cell.color
-            text = None if (cell.is_na and all_na) else cell.text
+            texts = () if (cell.is_na and all_na) else cell_texts(cell, style.band_text)
             text_color = cell.text_color
         rect = mpatches.Rectangle(
             (x, y),
@@ -1723,21 +1732,104 @@ def _draw_quadrants(
         )
         rect.set_clip_path(clip_patch)
         ax.add_patch(rect)
-        if text is not None:
+        if texts:
             tx, ty = quadrant_center(position, cx, cy, half)
-            ax.text(
+            _fitted_text(
+                ax,
                 tx,
                 ty,
-                text,
-                fontsize=fontsize,
-                fontfamily=style.font_family,
-                fontweight="bold",
-                ha="center",
-                va="center",
+                texts,
+                fontsize,
+                style,
+                quadrant_room(node.sex, half, position),
+                half,
                 color=text_color,
                 zorder=6,
             )
     return all_na
+
+
+class _FittedText(Text):
+    """Band or quadrant text that fits its place, chosen when the figure is drawn.
+
+    The text is in points and the symbol in layout units, so how much room
+    the text has depends on the scale of the finished figure (it can be
+    drawn into a journal-sized `ax`, or resized after `render_pedigree`).
+    Each time the figure is drawn, `phenotypes.fit_text` picks the text and
+    size at that scale, as the SVG does at its own (#55); when nothing fits
+    the text is empty.
+    """
+
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        texts: tuple[str, ...],
+        size: float,
+        style: PedigreeStyle,
+        room: Room,
+        height: float,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(x, y, texts[0], fontsize=size, **kwargs)
+        self._texts = texts
+        self._size = size
+        self._style = style
+        self._room = room
+        self._height = height
+
+    def _fit(self, renderer: Any) -> None:
+        axes = self.axes
+        if axes is None:
+            return
+        origin, unit = axes.transData.transform([(0.0, 0.0), (1.0, 0.0)])
+        pixels_per_unit = abs(unit[0] - origin[0])
+        if pixels_per_unit <= 0:
+            return
+        pt = renderer.points_to_pixels(1.0) / pixels_per_unit
+        fit = fit_text(self._texts, self._size, self._style, pt, self._room, self._height)
+        self.set_text("" if fit is None else fit.text)
+        self.set_fontsize(self._size if fit is None else fit.size)
+
+    def draw(self, renderer: Any) -> None:
+        self._fit(renderer)
+        super().draw(renderer)
+
+    def get_window_extent(self, renderer: Any = None, dpi: Any = None) -> Bbox:
+        if renderer is not None:
+            self._fit(renderer)
+        return super().get_window_extent(renderer, dpi)
+
+
+def _fitted_text(
+    ax: Axes,
+    x: float,
+    y: float,
+    texts: tuple[str, ...],
+    size: float,
+    style: PedigreeStyle,
+    room: Room,
+    height: float,
+    **kwargs: Any,
+) -> None:
+    """Write a band's or quadrant's text, fitted to its place (`_FittedText`).
+
+    With ``band_text`` other than "auto" nothing needs fitting: the first
+    text is written at ``size``.
+    """
+    if not texts:
+        return
+    kwargs = {
+        "fontfamily": style.font_family,
+        "fontweight": "bold",
+        "ha": "center",
+        "va": "center",
+        **kwargs,
+    }
+    if style.band_text != "auto":
+        ax.text(x, y, texts[0], fontsize=size, **kwargs)
+        return
+    ax.add_artist(_FittedText(x, y, texts, size, style, room, height, **kwargs))
 
 
 def _draw_pgs_ridge(

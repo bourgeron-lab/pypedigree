@@ -110,7 +110,8 @@ class TestEveryTextReachesTheMinimum:
 
     def test_secondary_text_keeps_its_size_above_the_minimum(self):
         ped = pp.parse_pedigree(TEST_DATA_DIR / "phenotype/test_all.ped")
-        style = pp.PedigreeStyle(font_size=20.0, min_font_size=6.0)
+        # "name_value": the quadrant text is not fitted (#55), only raised.
+        style = pp.PedigreeStyle(font_size=20.0, min_font_size=6.0, band_text="name_value")
         sizes = _sizes_svg(pp.render_svg(ped, style=style))
         quadrant = 20.0 * QUADRANT_FONT_SCALE * symbols.UNITS_PER_POINT
         assert any(s == pytest.approx(quadrant, abs=1e-3) for s in sizes)

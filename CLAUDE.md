@@ -56,7 +56,8 @@ src/pypedigree/
   symbols.py   -> Standard notation (pregnancies, adoption, childlessness, donors, gender, consultand):
                   decisions and geometry shared by layout and both renderers, no matplotlib (depends on: models)
   phenotypes.py -> Phenotype display decisions shared by both renderers: column modes, band colors/text,
-                   legend rows and geometry; no matplotlib (depends on: models, config, colors, carriers, errors)
+                   legend rows and geometry, text fitted to bands; no matplotlib (depends on: models,
+                   config, colors, carriers, symbols, errors)
   renderer.py      -> Matplotlib drawing (depends on: models, config, layout, carriers, phenotypes, symbols)
   svg_renderer.py  -> Interactive SVG rendering (depends on: models, config, layout, carriers, phenotypes, symbols)
   api.py           -> PedigreeBuilder fluent API (depends on: models, config, renderer, svg_renderer)
@@ -330,7 +331,16 @@ Multi-phenotype support:
   `EXTRA_PHENOTYPE_COLORS`. With none fixed the palette order is kept exactly (no
   figure changes). Columns are never left grey since 0.6.1.
 - Comma decimal separator: parser accepts `0,712` as `0.712` (European locale)
-- Gradient band values always displayed regardless of intensity
+- Gradient band values always written, fitted to their place (#55, `band_text`, default "auto"):
+  `phenotypes.cell_texts` gives the candidates ("name: value", then `BandCell.short`, the value),
+  `band_room` / `quadrant_room` the width inside the symbol at the text's height
+  (`symbols.shape_half_width_at`), and `fit_text` picks the first that fits, else the last
+  smaller down to `min_font_size` or `FIT_FLOOR_SCALE` x `font_size`, else None. Widths in
+  DejaVu Sans Bold (`symbols._CHAR_EM_BOLD`, `text_width(bold=True)`). The SVG calls it with
+  `_PT`; the PNG draws `renderer._FittedText`, a `Text` that fits itself in `draw` and
+  `get_window_extent` from the axes' transform (works with a caller's `ax`, a resize, a tight
+  bbox). Same for quadrant text and every "NA". `tests/test_band_text.py` checks no SVG band
+  text leaves its symbol or quadrant.
 - AUTO mode (no prefix) is resolved **once per column** from all of its values:
   any string value -> categorical, any numeric value outside 0/1/2 -> gradient,
   otherwise binary. Never per individual, so a column cannot mix band types.
@@ -341,6 +351,7 @@ Additional PedigreeStyle fields:
 - `gradient_diverging: dict[str, dict]` — tricolor diverging gradient config (e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}`)
 - `zero_pad_ids: int` — zero-pad IDs to this width (0 = no padding)
 - `min_font_size: float | None` — smallest size of any text in points (None = no minimum, #51)
+- `band_text: str` — "auto" (fit, default), "name_value", "value" or "none" (#55)
 Warnings and errors:
 - `PedigreeWarning` (base), `PedigreeStyleWarning`, `PedigreeDataWarning`
 - Unknown keys in a style JSON warn with a suggested spelling (they are still ignored)

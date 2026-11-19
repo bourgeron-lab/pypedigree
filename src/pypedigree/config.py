@@ -178,6 +178,13 @@ class PedigreeStyle:
     # with no data is the same plain grey as an "unknown" (0) one.
     show_na_labels: bool = True
 
+    # Text in phenotype bands and quadrants (#55): "auto" writes "name: value",
+    # or the value alone, or the value smaller (down to `min_font_size`, or
+    # half `font_size`), whichever first fits the place; otherwise nothing.
+    # "name_value" always writes "name: value" (before 0.7), "value" the value
+    # alone, "none" no value (an "NA" still follows `show_na_labels`).
+    band_text: str = "auto"
+
     # PGS curve colors (PGS column name -> hex color, e.g. {"PGS_autism": "#3498db"})
     pgs_colors: dict[str, str] = field(default_factory=dict)
 

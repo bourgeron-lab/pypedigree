@@ -79,9 +79,13 @@ from pypedigree.phenotypes import (
     active_pgs,
     all_bands_na,
     band_cell,
+    band_room,
+    cell_texts,
+    check_band_text,
     check_min_font_size,
     check_pgs_scale,
     check_phenotype_layout,
+    fit_text,
     legend_metrics,
     legend_row_centers,
     legend_rows,
@@ -96,6 +100,7 @@ from pypedigree.phenotypes import (
     quadrant_cell,
     quadrant_center,
     quadrant_key_geometry,
+    quadrant_room,
     resolve_phenotype_render,
     text_color_on,
     to_hex,
@@ -213,6 +218,7 @@ def _render(
     check_phenotype_layout(style)
     check_pgs_scale(style)
     check_min_font_size(style)
+    check_band_text(style)
     render = with_quadrants(render, render.band_names(names), carriers, style)
     # Bands need colors; PGS curves need none (see renderer._render_layout).
     banded = bool(
@@ -1024,7 +1030,15 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
     clip = f"bands-{uid}"
     clip_attr = f'clip-path="url(#{clip})"'
     sep = f'stroke="{SEPARATOR_COLOR}" stroke-width="{0.5 * _PT:.3f}" {clip_attr}'
-    band_fs = style.text_size(symbols.BAND_TEXT_SCALE) * _PT
+    band_fs = style.text_size(symbols.BAND_TEXT_SCALE)
+
+    def fitted(texts: tuple[str, ...], yc: float, size: float, color: str) -> str | None:
+        """The text of a band, fitted to its width at the SVG's scale (#55)."""
+        room = band_room(node.sex, half, yc - cy)
+        fit = fit_text(texts, size, style, _PT, room, band_h if n_bands else 2 * half)
+        if fit is None:
+            return None
+        return _svg_text(cx, yc, fit.text, fit.size * _PT, style, color=color, weight="bold")
 
     def separator(y: float) -> str:
         return f'<line x1="{left:.3f}" y1="{y:.3f}" x2="{left + width:.3f}" y2="{y:.3f}" {sep}/>'
@@ -1053,17 +1067,9 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
                 f'<line x1="{left:.3f}" y1="{y:.3f}" x2="{left + width:.3f}" y2="{y:.3f}" {sep}/>'
             )
         if cell.text is not None and not (cell.is_na and all_na):
-            out.append(
-                _svg_text(
-                    cx,
-                    y + band_h / 2,
-                    cell.text,
-                    band_fs,
-                    style,
-                    color=cell.text_color,
-                    weight="bold",
-                )
-            )
+            texts = cell_texts(cell, style.band_text)
+            if (svg := fitted(texts, y + band_h / 2, band_fs, cell.text_color)) is not None:
+                out.append(svg)
 
     for j, key in enumerate(keys):
         y = top + (len(band_names) + j) * band_h
@@ -1077,25 +1083,23 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
         out.append(
             f'<line x1="{left:.3f}" y1="{y:.3f}" x2="{left + width:.3f}" y2="{y:.3f}" {sep}/>'
         )
-        if state is None and style.show_na_labels:
-            out.append(
-                _svg_text(
-                    cx, y + band_h / 2, "NA", band_fs, style, color=NA_TEXT_COLOR, weight="bold"
-                )
-            )
+        na_band = state is None and style.show_na_labels
+        if na_band and (svg := fitted(("NA",), y + band_h / 2, band_fs, NA_TEXT_COLOR)):
+            out.append(svg)
 
     if all_na and style.show_na_labels:
-        out.append(
-            _svg_text(
-                cx,
-                cy,
-                "NA",
-                style.text_size(symbols.NA_TEXT_SCALE) * _PT,
-                style,
-                color=NA_TEXT_COLOR,
-                weight="bold",
-            )
+        na = fit_text(
+            ("NA",),
+            style.text_size(symbols.NA_TEXT_SCALE),
+            style,
+            _PT,
+            band_room(node.sex, half, 0.0),
+            2 * half,
         )
+        if na is not None:
+            out.append(
+                _svg_text(cx, cy, na.text, na.size * _PT, style, color=NA_TEXT_COLOR, weight="bold")
+            )
 
     border = outline_color(node, ctx.outline_names, style)
     sw = style.shape_line_width * _PT * (2.5 if border else 1.0)
@@ -1122,12 +1126,12 @@ def _svg_quadrants(node: NodeLayout, ctx: _SvgContext, clip_attr: str) -> tuple[
     columns = [n for n in ctx.render.quadrants if n not in carriers.keys]
     has_carriers = any(n in carriers.keys for n in ctx.render.quadrants)
     all_na = not has_carriers and all_bands_na(node, columns)
-    fs = style.text_size(QUADRANT_FONT_SCALE) * _PT
+    fs = style.text_size(QUADRANT_FONT_SCALE)
     out: list[str] = []
     for name, position in ctx.render.quadrants.items():
         x, y, w, h = quadrant_box(position, cx, cy, half, up=-1.0)
         geometry = f'x="{x:.3f}" y="{y:.3f}" width="{w:.3f}" height="{h:.3f}"'
-        text: str | None = None
+        texts: tuple[str, ...] = ()
         color = NA_TEXT_COLOR
         if name in carriers.keys:
             state = carrier_state(node, name)
@@ -1137,15 +1141,18 @@ def _svg_quadrants(node: NodeLayout, ctx: _SvgContext, clip_attr: str) -> tuple[
                 pid = _svg_pattern_id(carriers.pattern(name), state == OBLIGATE_CARRIER)
                 out.append(f'<rect {geometry} fill="url(#{pid})" {clip_attr}/>')
             if state is None and style.show_na_labels:
-                text = "NA"
+                texts = ("NA",)
         else:
             cell = quadrant_cell(node, name, style, ctx.render, ctx.display_modes)
             out.append(f'<rect class="band" {geometry} fill="{to_hex(cell.color)}" {clip_attr}/>')
             if cell.text is not None and not (cell.is_na and all_na):
-                text, color = cell.text, cell.text_color
-        if text is not None:
+                texts, color = cell_texts(cell, style.band_text), cell.text_color
+        room = quadrant_room(node.sex, half, position)
+        fit = fit_text(texts, fs, style, _PT, room, half)
+        if fit is not None:
             tx, ty = quadrant_center(position, cx, cy, half, up=-1.0)
-            out.append(_svg_text(tx, ty, text, fs, style, color=color, weight="bold"))
+            size = fit.size * _PT
+            out.append(_svg_text(tx, ty, fit.text, size, style, color=color, weight="bold"))
     return out, all_na
 
 

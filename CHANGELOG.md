@@ -18,6 +18,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   grows with its text. Without the option nothing changes.
 - `PedigreeStyle.text_size(scale)`: the size of a text drawn at `scale` times `font_size`, never
   below `min_font_size`; both renderers take every text size from it.
+- `band_text` style option: `"auto"` (default), `"name_value"`, `"value"` or `"none"` (#55).
+
+### Changed
+
+- Text in phenotype bands and quadrants no longer runs outside the symbol (#55). A gradient band
+  wrote "name: value" whatever the room, so in the narrow top and bottom bands of a circle, with
+  long column names, or in a figure drawn small for a journal, the text crossed the outline.
+  Now each text is measured (DejaVu Sans Bold widths) against the width of the symbol at its
+  height: "name: value" if it fits, else the value alone, else the value smaller, down to
+  `min_font_size` or half `font_size`, else no text. The same goes for quadrant text and "NA".
+  The PNG chooses when the figure is drawn, at its final scale (also into your own `ax`, or
+  after a resize), the SVG at its own scale. `band_text: "name_value"` restores the previous
+  text. Only the golden image with three-digit values in circle quadrants changed.
 
 ## [0.6.2] - 2026-11-19
 
