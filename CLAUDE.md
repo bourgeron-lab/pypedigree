@@ -256,7 +256,13 @@ src/pypedigree/
     (`symbols.SMALL_TEXT_SCALE` notes/annotations, `BAND_TEXT_SCALE`, `NA_TEXT_SCALE`,
     `PGS_CAPTION_SCALE`, `phenotypes.QUADRANT_FONT_SCALE`, `LEG_TEXT_SCALE`); never write
     `style.font_size * 0.7` in a renderer. The layout measures labels with the same sizes
-    (`symbols.label_width(label, below, size, below_size)`). `check_min_font_size()` runs
+    (`symbols.label_width(label, below, size, below_size)`). Gaps around text follow its drawn size
+    too (#66): the lines below a label start at `symbols.below_label_offsets` (each step the larger
+    of `TEXT_LINE_STEP` and `TEXT_LINE_HEIGHT_EM` of the line above + `TEXT_LINE_GAP_EM` of its
+    own), the "PGS" caption at `phenotypes.pgs_caption_offset` (the larger of 0.15 × half and half
+    a dot + `PGS_CAPTION_GAP_EM`); the SVG converts with `_PT`, the PNG draws `renderer._OffsetText`,
+    which moves itself at draw time at the figure's scale, and the layout's `_room_below_labels`
+    uses the same offsets. At default sizes the fixed distances win, so nothing moves. `check_min_font_size()` runs
     with the other style checks. `tests/test_min_font_size.py` checks that no text of the
     PNG or SVG is below the minimum, on fixtures with every kind of text.
 

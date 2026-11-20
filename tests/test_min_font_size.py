@@ -19,6 +19,7 @@ from pypedigree.cli import main
 from pypedigree.errors import PedigreeError
 from pypedigree.layout import compute_layout
 from pypedigree.phenotypes import QUADRANT_FONT_SCALE, legend_metrics
+from pypedigree.svg_renderer import _BASELINE_SHIFT
 
 # Every kind of text: quadrants and bands, gradient values, "NA", PGS
 # captions, annotations, notation notes and letters, evaluation marks, carrier
@@ -167,3 +168,126 @@ class TestCli:
         result = CliRunner().invoke(main, [*args, "--min-font-size", bad])
         assert result.exit_code == 2
         assert "--min-font-size" in result.output
+
+
+# --- Gaps around enlarged text (#66) -----------------------------------------
+
+_NOTE_PED = (
+    "family_id\tsample_id\tpaternal_id\tmaternal_id\tsex\tphenotype\tgender_identity\n"
+    "F1\tP1\t0\t0\t1\t1\t0\n"
+    "F1\tP2\t0\t0\t2\t1\t0\n"
+    "F1\tC2\tP1\tP2\t2\t1\tman\n"
+)
+# GF1's score is the family's lowest (its dot on the box's bottom edge, under
+# which the caption goes); A1, the proband, has the highest (its dot on the
+# top edge, above which its caption goes).
+_PGS_PED = (
+    "family_id\tsample_id\tpaternal_id\tmaternal_id\tsex\tphenotype\tproband\tPGS_autism\n"
+    "F1\tGF1\t0\t0\t1\t1\t0\t-0.4\n"
+    "F1\tGM1\t0\t0\t2\t1\t0\t0.3\n"
+    "F1\tA1\tGF1\tGM1\t1\t2\t1\t1.8\n"
+)
+
+
+def _write(tmp_path, text: str, name: str) -> pp.Pedigree:
+    path = tmp_path / name
+    path.write_text(text)
+    return pp.parse_pedigree(path)
+
+
+def _extents(fig) -> dict[str, list]:
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    out: dict[str, list] = {}
+    for t in fig.findobj(Text):
+        if t.get_text().strip():
+            out.setdefault(t.get_text(), []).append(t.get_window_extent(renderer))
+    return out
+
+
+class TestGapsFollowText:
+    """The gaps around notes and PGS captions grow with their drawn size (#66)."""
+
+    def test_offsets_unchanged_at_default_sizes(self):
+        style = pp.PedigreeStyle()
+        small = style.text_size(symbols.SMALL_TEXT_SCALE)
+        offsets = symbols.below_label_offsets(
+            style.text_size(), [small] * 3, symbols.UNITS_PER_POINT
+        )
+        assert offsets == pytest.approx([symbols.TEXT_LINE_STEP * k for k in (1, 2, 3)])
+
+    def test_offsets_leave_room_for_large_text(self):
+        pt = symbols.UNITS_PER_POINT
+        offsets = symbols.below_label_offsets(14.0, [12.0, 12.0], pt)
+        first = (symbols.TEXT_LINE_HEIGHT_EM * 14.0 + symbols.TEXT_LINE_GAP_EM * 12.0) * pt
+        second = (symbols.TEXT_LINE_HEIGHT_EM + symbols.TEXT_LINE_GAP_EM) * 12.0 * pt
+        assert offsets == pytest.approx([first, first + second])
+        assert first > symbols.TEXT_LINE_STEP
+
+    @pytest.mark.parametrize("minimum", [None, 6.0])
+    @pytest.mark.parametrize("width", [0.5, 1.2])
+    def test_png_note_clear_of_label_in_small_axes(self, tmp_path, minimum, width):
+        """Drawn into a journal panel's axes, the note neither touches nor overlaps the label."""
+        family = next(iter(_write(tmp_path, _NOTE_PED, "note.ped").families.values()))
+        style = pp.PedigreeStyle(font_size=6.0, min_font_size=minimum)
+        fig, ax = plt.subplots(figsize=(width, width), dpi=300)
+        pp.render_family(family, style, ax=ax)
+        boxes = _extents(fig)
+        plt.close(fig)
+        gap = (boxes["C2"][0].y0 - boxes["AFAB"][0].y1) * 72 / fig.dpi
+        note_size = style.text_size(symbols.SMALL_TEXT_SCALE)
+        assert gap >= 0.3 * note_size
+
+    def test_svg_note_gap_grows_with_the_note(self, tmp_path):
+        ped = _write(tmp_path, _NOTE_PED, "note.ped")
+        big = pp.PedigreeStyle(font_size=14.0, min_font_size=12.0)
+        svg = pp.render_interactive_svg(ped, style=big)
+        y = {
+            m[1]: float(m[0])
+            for m in re.findall(r'<text [^>]*y="([0-9.\-]+)"[^>]*>(C2|AFAB)</text>', svg)
+        }
+        pt = symbols.UNITS_PER_POINT
+        # Baselines: the label's top, then the note's top a step below, each
+        # moved down to its baseline by the same fraction of its size.
+        shift = _BASELINE_SHIFT["hanging"]
+        step = (symbols.TEXT_LINE_HEIGHT_EM * 14.0 + symbols.TEXT_LINE_GAP_EM * 12.0) * pt
+        expected = step + shift * (12.0 - 14.0) * pt
+        assert y["AFAB"] - y["C2"] == pytest.approx(expected, abs=1e-3)
+        assert step > symbols.TEXT_LINE_STEP
+
+    def test_layout_room_follows_the_notes(self, tmp_path):
+        family = next(iter(_write(tmp_path, _NOTE_PED, "note.ped").families.values()))
+
+        def depth(style: pp.PedigreeStyle) -> float:
+            ys = [n.y for n in compute_layout(family, style).nodes]
+            return max(ys) - min(ys)
+
+        base = pp.PedigreeStyle(font_size=14.0)
+        assert depth(pp.PedigreeStyle(font_size=14.0, min_font_size=14.0)) > depth(base)
+
+    @pytest.mark.parametrize("minimum", [None, 6.0])
+    def test_png_caption_clear_of_edge_dots(self, tmp_path, minimum):
+        """A dot on the box's edge does not touch the "PGS" caption, below or above."""
+        from matplotlib.lines import Line2D
+
+        ped = _write(tmp_path, _PGS_PED, "pgs.ped")
+        style = pp.PedigreeStyle(
+            font_size=6.0, min_font_size=minimum, dpi=300, fig_width=1.6, fig_height=1.6
+        )
+        fig = pp.render_pedigree(ped, style=style)
+        boxes = _extents(fig)
+        renderer = fig.canvas.get_renderer()
+        dots = [
+            line.get_window_extent(renderer)
+            for line in fig.findobj(Line2D)
+            if line.get_marker() == "o" and len(line.get_xdata())
+        ]
+        px = 72 / fig.dpi  # points per pixel
+        plt.close(fig)
+        size = style.text_size(symbols.PGS_CAPTION_SCALE)
+        for caption in boxes["PGS"]:
+            dot = min(dots, key=lambda d: abs(d.x0 - caption.x0) + abs(d.x1 - caption.x1))
+            # Below the dot (GF1) or above it (A1, the proband): either way
+            # clear of it by a quarter of an em at least.
+            gap = max(dot.y0 - caption.y1, caption.y0 - dot.y1) * px
+            assert gap >= 0.25 * size
