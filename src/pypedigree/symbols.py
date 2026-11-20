@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import math
 import unicodedata
+from collections.abc import Sequence
 
 from pypedigree.models import (
     Childlessness,
@@ -58,8 +59,16 @@ BRACKET_GAP = 0.08
 BRACKET_TICK = 0.1
 BRACKET_OVERHANG = 0.08
 
-# Vertical step between lines of text below the label (notes, annotations).
+# Vertical step between lines of text below the label (notes, annotations),
+# in layout units: the least step, kept whatever the text's size.
 TEXT_LINE_STEP = 0.25
+
+# The step also leaves room for the text as drawn (#66): the line above, at
+# `TEXT_LINE_HEIGHT_EM` of its size (DejaVu Sans' ascent plus descent), then
+# `TEXT_LINE_GAP_EM` of the next line's size, so text enlarged by
+# `min_font_size` keeps its gaps.
+TEXT_LINE_HEIGHT_EM = 1.17
+TEXT_LINE_GAP_EM = 0.3
 
 # Documented evaluation: an asterisk this far outside the symbol's lower
 # right, at this size relative to the style's font size.
@@ -266,6 +275,33 @@ def text_width(text: str, font_size: float, *, bold: bool = False) -> float:
                 width = _OTHER_CHAR_EM
         em += width
     return em * font_size * UNITS_PER_POINT
+
+
+def below_label_offsets(
+    label_size: float, below_sizes: Sequence[float], units_per_point: float
+) -> list[float]:
+    """How far below the ID label's top each line under it starts, in layout units.
+
+    Each step is `TEXT_LINE_STEP`, or more when the text needs it (#66): the
+    height of the line above plus a gap in ems of the line's own size,
+    converted with ``units_per_point`` (`UNITS_PER_POINT` in the SVG, the
+    figure's scale when the PNG is drawn). At the default sizes the text
+    always fits the fixed step, so nothing moves.
+
+    Args:
+        label_size: The ID label's font size, in points.
+        below_sizes: The size of each line below it (notes, then annotations),
+            in points.
+        units_per_point: Layout units per point at the scale drawn.
+    """
+    offsets: list[float] = []
+    offset, above = 0.0, label_size
+    for size in below_sizes:
+        needed = (TEXT_LINE_HEIGHT_EM * above + TEXT_LINE_GAP_EM * size) * units_per_point
+        offset += max(TEXT_LINE_STEP, needed)
+        offsets.append(offset)
+        above = size
+    return offsets
 
 
 def label_width(

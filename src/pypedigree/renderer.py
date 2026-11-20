@@ -7,7 +7,7 @@ Never computes positions — only draws from pre-computed layout data.
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
@@ -18,6 +18,7 @@ import numpy as np
 from matplotlib import patheffects
 from matplotlib.artist import Artist
 from matplotlib.axes import Axes
+from matplotlib.axes._base import _AxesBase
 from matplotlib.figure import Figure, SubFigure
 from matplotlib.lines import Line2D
 from matplotlib.text import Text
@@ -105,6 +106,7 @@ from pypedigree.phenotypes import (
     outline_reach,
     outline_ring_offsets,
     pgs_caption_above,
+    pgs_caption_offset,
     pgs_marker_values,
     pgs_tail_positions,
     pgs_values_width,
@@ -1281,19 +1283,29 @@ def _draw_label(ax: Axes, node: NodeLayout, style: PedigreeStyle) -> None:
         color=style.line_color,
         **text_kwargs,
     )
-    # Notation notes ("SB", "AMAB"...), then annotations, below the ID label
-    for text, kwargs in _lines_below_label(node, style):
-        y_cursor -= symbols.TEXT_LINE_STEP
-        ax.text(
-            node.x,
-            y_cursor,
-            text,
-            fontsize=style.text_size(symbols.SMALL_TEXT_SCALE),
-            fontfamily=style.font_family,
-            ha="center",
-            va="top",
-            **kwargs,
-            **text_kwargs,
+    # Notation notes ("SB", "AMAB"...), then annotations, below the ID label,
+    # each as far down as its text needs at the figure's scale (#66).
+    lines = _lines_below_label(node, style)
+    small = style.text_size(symbols.SMALL_TEXT_SCALE)
+    for index, (text, kwargs) in enumerate(lines):
+
+        def offset(pt: float, index: int = index) -> float:
+            sizes = [small] * (index + 1)
+            return -symbols.below_label_offsets(style.text_size(), sizes, pt)[-1]
+
+        ax.add_artist(
+            _OffsetText(
+                node.x,
+                y_cursor,
+                offset,
+                text=text,
+                fontsize=small,
+                fontfamily=style.font_family,
+                ha="center",
+                va="top",
+                **kwargs,
+                **text_kwargs,
+            )
         )
 
 
@@ -1810,6 +1822,51 @@ def _draw_quadrants(
     return all_na
 
 
+def _units_per_point(axes: _AxesBase, renderer: Any) -> float | None:
+    """Layout units per point in this figure as drawn (None before it has a size)."""
+    origin, unit = axes.transData.transform([(0.0, 0.0), (1.0, 0.0)])
+    pixels_per_unit = float(abs(unit[0] - origin[0]))
+    if pixels_per_unit <= 0:
+        return None
+    return float(renderer.points_to_pixels(1.0)) / pixels_per_unit
+
+
+class _OffsetText(Text):
+    """Text set a distance above or below a point, decided when the figure is drawn.
+
+    The distance depends on the text's size in points, while the point is in
+    layout units, so it is known only at the finished figure's scale (as for
+    `_FittedText`): ``offset(units_per_point)`` gives it in layout units
+    (negative: down), and the text moves there each time the figure is
+    drawn. Used for the lines below a label and the "PGS" caption (#66).
+    """
+
+    def __init__(self, x: float, y: float, offset: Callable[[float], float], **kwargs: Any) -> None:
+        # Until drawn, where it would be at the SVG's scale; not clipped to
+        # the axes, as with `Axes.text`.
+        kwargs.setdefault("clip_on", False)
+        super().__init__(x, y + offset(symbols.UNITS_PER_POINT), **kwargs)
+        self._anchor_y = y
+        self._offset = offset
+
+    def _place(self, renderer: Any) -> None:
+        axes = self.axes
+        if axes is None:
+            return
+        pt = _units_per_point(axes, renderer)
+        if pt is not None:
+            self.set_y(self._anchor_y + self._offset(pt))
+
+    def draw(self, renderer: Any) -> None:
+        self._place(renderer)
+        super().draw(renderer)
+
+    def get_window_extent(self, renderer: Any = None, dpi: Any = None) -> Bbox:
+        if renderer is not None:
+            self._place(renderer)
+        return super().get_window_extent(renderer, dpi)
+
+
 class _FittedText(Text):
     """Band or quadrant text that fits its place, chosen when the figure is drawn.
 
@@ -1981,17 +2038,27 @@ def _draw_pgs_ridge(
 
     # Single "PGS" caption, below the curve, or above it when the proband
     # marker takes the place below.
+    # Its gap is decided when drawn, from the caption's size in points (#66).
     above = pgs_caption_above(node)
-    ax.text(
-        box_left + box_width / 2,
-        box_bottom + box_height + half * 0.15 if above else box_bottom - half * 0.15,
-        "PGS",
-        fontsize=style.text_size(symbols.PGS_CAPTION_SCALE),
-        fontfamily=style.font_family,
-        ha="center",
-        va="bottom" if above else "top",
-        color="#666666",
-        zorder=4,
+    caption_size = style.text_size(symbols.PGS_CAPTION_SCALE)
+
+    def caption_offset(pt: float) -> float:
+        gap = pgs_caption_offset(half, caption_size, pt)
+        return gap if above else -gap
+
+    ax.add_artist(
+        _OffsetText(
+            box_left + box_width / 2,
+            box_bottom + box_height if above else box_bottom,
+            caption_offset,
+            text="PGS",
+            fontsize=caption_size,
+            fontfamily=style.font_family,
+            ha="center",
+            va="bottom" if above else "top",
+            color="#666666",
+            zorder=4,
+        )
     )
 
 

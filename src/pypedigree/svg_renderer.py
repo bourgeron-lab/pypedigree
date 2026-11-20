@@ -107,6 +107,7 @@ from pypedigree.phenotypes import (
     outline_reach,
     outline_ring_offsets,
     pgs_caption_above,
+    pgs_caption_offset,
     pgs_curve,
     pgs_marker_values,
     pgs_tail_positions,
@@ -430,7 +431,7 @@ def _family_extent(layout: FamilyLayout, ctx: _SvgContext) -> _Extent:
             + style.label_offset
             + n.marker_depth
             + style.text_size() * _PT * 1.2
-            + (len(n.notes) + len(n.annotations)) * _ANNOTATION_STEP
+            + (_label_line_offsets(n, style) or [0.0])[-1]
             for n in layout.nodes
         )
         y1 = max(y1, label_bottom)
@@ -1299,12 +1300,14 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
     if style.show_pgs_values:
         out.extend(_svg_pgs_values(node, active, ys, left, bottom - box_h, bottom, style))
     above = pgs_caption_above(node)
+    caption_size = style.text_size(symbols.PGS_CAPTION_SCALE)
+    gap = pgs_caption_offset(half, caption_size, _PT)
     out.append(
         _svg_text(
             left + box_w / 2,
-            bottom - box_h - half * 0.15 if above else bottom + half * 0.15,
+            bottom - box_h - gap if above else bottom + gap,
             "PGS",
-            style.text_size(symbols.PGS_CAPTION_SCALE) * _PT,
+            caption_size * _PT,
             style,
             baseline="auto" if above else "hanging",
             color="#666666",
@@ -1349,8 +1352,11 @@ def _svg_pgs_values(
     return out
 
 
-# Vertical step between annotation lines under a label, in layout units.
-_ANNOTATION_STEP = symbols.TEXT_LINE_STEP
+def _label_line_offsets(node: NodeLayout, style: PedigreeStyle) -> list[float]:
+    """Where each note and annotation starts below the label's top (#66)."""
+    small = style.text_size(symbols.SMALL_TEXT_SCALE)
+    lines = len(node.notes) + len(node.annotations)
+    return symbols.below_label_offsets(style.text_size(), [small] * lines, _PT)
 
 
 def _svg_labels(node: NodeLayout, style: PedigreeStyle) -> str:
@@ -1367,33 +1373,22 @@ def _svg_labels(node: NodeLayout, style: PedigreeStyle) -> str:
             color=style.line_color,
         )
     ]
-    for text in node.notes:
-        y += _ANNOTATION_STEP
+    below = [(text, style.line_color, False, "note") for text in node.notes]
+    below += [(text, "#666666", True, "annotation") for text in node.annotations]
+    for (text, color, italic, cls), offset in zip(
+        below, _label_line_offsets(node, style), strict=True
+    ):
         out.append(
             _svg_text(
                 node.x,
-                y,
+                y + offset,
                 text,
                 style.text_size(symbols.SMALL_TEXT_SCALE) * _PT,
                 style,
                 baseline="hanging",
-                color=style.line_color,
-                cls="note",
-            )
-        )
-    for text in node.annotations:
-        y += _ANNOTATION_STEP
-        out.append(
-            _svg_text(
-                node.x,
-                y,
-                text,
-                style.text_size(symbols.SMALL_TEXT_SCALE) * _PT,
-                style,
-                baseline="hanging",
-                color="#666666",
-                italic=True,
-                cls="annotation",
+                color=color,
+                italic=italic,
+                cls=cls,
             )
         )
     return "\n".join(out)

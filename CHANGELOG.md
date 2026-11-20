@@ -19,6 +19,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unknown") instead of a row of swatches, also with a single binary column. Every option
   defaults to the legend drawn before: no figure changes.
 
+### Fixed
+
+- Text enlarged by `min_font_size` keeps its gaps (#66). The notes and annotations below an ID
+  label ("AFAB", "SB", `a_` columns) are spaced by their drawn size: each line starts at least
+  the height of the line above plus 0.3 em below it, so they no longer read as one block with
+  the label (or overlap it, when a pedigree is drawn into a small `ax`); the generation gap
+  follows. The "PGS" caption keeps half a marker dot plus 0.3 em from the curve's box, so a
+  dot on the box's edge (the family's lowest or highest score) no longer touches it. The PNG
+  sets both gaps when the figure is drawn, at its scale, as the SVG does at its own. At the
+  default sizes the fixed distances used before are larger, so figures are unchanged.
+
 ## [0.8.1] - 2026-11-19
 
 ### Added
