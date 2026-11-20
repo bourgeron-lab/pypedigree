@@ -73,6 +73,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The deceased line no longer reaches into the PGS box (#80): it overshoots the symbol by 0.2
+  half-sizes at each end, while the box sat 0.15 beside it, so its end met the box's corner,
+  where a low score's marker sits. Beside a struck-through symbol the box now keeps 0.12
+  half-sizes clear of the line's end, on either side, and the layout counts the extra.
+  Other symbols' boxes do not move.
 - The right-hand partner's PGS curve and its values are drawn on their right, not on the line
   between the partners, which crossed the box, the curve, the dots and the values (#78). The
   layout already chose a side (`NodeLayout.pgs_side`); both renderers now follow it, the values
