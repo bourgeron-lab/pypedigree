@@ -97,8 +97,7 @@ from pypedigree.phenotypes import (
     check_phenotype_layout,
     display_name,
     fit_text,
-    legend_key_items,
-    legend_metrics,
+    legend_layout,
     legend_row_centers,
     legend_rows,
     legend_slot_count,
@@ -110,6 +109,7 @@ from pypedigree.phenotypes import (
     pgs_caption_offset,
     pgs_curve,
     pgs_marker_values,
+    pgs_row_layout,
     pgs_tail_positions,
     pgs_value_text,
     pgs_values_width,
@@ -1472,7 +1472,7 @@ def _svg_legend(
         The SVG group and its bounding box.
     """
     binary_headers = any(r.kind in ("binary", "binary_shared") for r in rows)
-    m = legend_metrics(legend_slot_count(rows), style, binary_headers=binary_headers)
+    rows, m = legend_layout(rows, style)
     ux = LEG_UNIT_X_EM * m.font * _PT
     uy = LEG_UNIT_Y_EM * m.font * _PT
     fs = m.fs * _PT
@@ -1677,15 +1677,22 @@ def _svg_legend(
 
         swatch_rows = ("gradient", "categorical", "binary", "binary_shared")
         label_u = m.text_x if row.kind in swatch_rows else m.icon_text_x
-        text(label_u, vc, row.label, fs, baseline="central")
-        # The PGS key: each score's name after a dash of its color (#56).
-        for item in legend_key_items(row, label_u, m):
+        if row.kind != "pgs":
+            text(label_u, vc, row.label, fs, baseline="central")
+            continue
+        # The caption, then the PGS key: each score's name after a dash of its
+        # color (#56), on the lines below when too long for one (#68).
+        layout = pgs_row_layout(row, label_u, m)
+        for k, line in enumerate(layout.captions):
+            text(label_u, vc - k * m.line_h, line, fs, baseline="central")
+        for item in layout.items:
+            v = vc - item.line * m.line_h
             body.append(
-                f'<line x1="{X(item.dash_x0):.3f}" y1="{Y(vc):.3f}" x2="{X(item.dash_x1):.3f}" '
-                f'y2="{Y(vc):.3f}" stroke="{html.escape(item.color)}" '
+                f'<line x1="{X(item.dash_x0):.3f}" y1="{Y(v):.3f}" x2="{X(item.dash_x1):.3f}" '
+                f'y2="{Y(v):.3f}" stroke="{html.escape(item.color)}" '
                 f'stroke-width="{_PT:.3f}" stroke-dasharray="0.06 0.03"/>'
             )
-            text(item.text_x, vc, item.name, fs, baseline="central")
+            text(item.text_x, v, item.name, fs, baseline="central")
 
     width = (right + LEG_X0 - 0.1) * ux
     border = (

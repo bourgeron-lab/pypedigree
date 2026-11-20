@@ -214,6 +214,13 @@ class PedigreeStyle:
     legend_sex_symbols: bool = True
     legend_spacing: float = 1.0
 
+    # Widest the legend panel may be (#68): a number in centimetres, or text
+    # with its unit ("85mm", "8.5cm", "3.3in"). The PGS row's key wraps
+    # between scores to fit it (its caption between words if need be), but
+    # never before the widest other row ends, since the others do not wrap.
+    # None: the PGS row wraps where the legend's widest other row ends.
+    legend_max_width: float | str | None = None
+
     # PGS curve colors (PGS column name -> hex color, e.g. {"PGS_autism": "#3498db"})
     pgs_colors: dict[str, str] = field(default_factory=dict)
 

@@ -97,8 +97,7 @@ from pypedigree.phenotypes import (
     check_pgs_scale,
     check_phenotype_layout,
     fit_text,
-    legend_key_items,
-    legend_metrics,
+    legend_layout,
     legend_row_centers,
     legend_rows,
     legend_slot_count,
@@ -108,6 +107,7 @@ from pypedigree.phenotypes import (
     pgs_caption_above,
     pgs_caption_offset,
     pgs_marker_values,
+    pgs_row_layout,
     pgs_tail_positions,
     pgs_values_width,
     pregnancy_loss_fill,
@@ -2584,17 +2584,21 @@ def _draw_legend_pgs_row(
             linestyle="--",
         )
 
-    _legend_row_label(ax, y_center, row.label, m.icon_text_x, m, style)
-    # The key: each score's name after a dash of its color (#56).
-    for item in legend_key_items(row, m.icon_text_x, m):
+    # The caption, then the key: each score's name after a dash of its color
+    # (#56), on the lines below when the row is too long for one (#68).
+    layout = pgs_row_layout(row, m.icon_text_x, m)
+    for k, caption in enumerate(layout.captions):
+        _legend_row_label(ax, y_center - k * m.line_h, caption, m.icon_text_x, m, style)
+    for item in layout.items:
+        y = y_center - item.line * m.line_h
         ax.plot(
             [item.dash_x0, item.dash_x1],
-            [y_center, y_center],
+            [y, y],
             color=item.color,
             linewidth=1.0,
             linestyle="--",
         )
-        _legend_row_label(ax, y_center, item.name, item.text_x, m, style)
+        _legend_row_label(ax, y, item.name, item.text_x, m, style)
 
 
 def _draw_legend_carrier_row(
@@ -2770,7 +2774,7 @@ def _draw_legend(
         return
 
     binary_headers = any(r.kind in ("binary", "binary_shared") for r in rows)
-    m = legend_metrics(legend_slot_count(rows), style, binary_headers=binary_headers)
+    rows, m = legend_layout(rows, style)
     ax = _add_legend_axes(fig, m)
     y_top = _draw_legend_header(ax, m, style)
 

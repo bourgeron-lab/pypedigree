@@ -243,7 +243,13 @@ src/pypedigree/
     gradient and category captions keep clear of the next row (at 1.0 that floor is never
     reached). With "minimal" the quadrant key has one symbol (`LegendRow.single_symbol`,
     `QuadrantKeyGeometry.circle` None) and its binary columns get no row, only a `key_note` row
-    (`KEY_ROW_KINDS`, drawn with the key) under it.
+    (`KEY_ROW_KINDS`, drawn with the key) under it. The PGS row wraps (#68): both renderers get
+    their rows and metrics from `legend_layout(rows, style)`, which sets the row's `wrap_right`
+    (the widest other row's end, `legend_row_right`, or up to `legend_max_width`, never less) and
+    its `lines`, and counts the extra lines (`legend_metrics(..., extra_lines)`, `m.line_h`).
+    `pgs_row_layout` gives the caption's lines and each key item's `line`: one line when it fits,
+    else caption first (wrapped between words if too long), then the key under its text, broken
+    between scores. `legend_row_centers` returns a wrapped row's first-line centre.
 
 14. **Every text size comes from `PedigreeStyle.text_size(scale)`** (#51): `font_size`
     times the text's fraction, never below `min_font_size`. Fractions are named
@@ -401,6 +407,8 @@ Additional PedigreeStyle fields:
 - `legend_title: str | None`, `legend_sex_symbols: bool`, `legend_spacing: float` (0.6–3) — the legend's
   header and spacing (#67). Read only through `phenotypes.legend_title()` / `legend_sex_symbols()` /
   `legend_spacing()`, which apply "minimal"'s defaults (no title, no sex row, 0.7) to options left at theirs
+- `legend_max_width: float | str | None` — widest the legend may be (cm, or "85mm"/"8.5cm"/"3.3in";
+  `legend_max_width_inches()`); the PGS row wraps at it or at the widest other row (#68)
 Warnings and errors:
 - `PedigreeWarning` (base), `PedigreeStyleWarning`, `PedigreeDataWarning`
 - Unknown keys in a style JSON warn with a suggested spelling (they are still ignored)
@@ -537,6 +545,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   rotation, edge composition, arc waypoints, rendering across 15 fixtures
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)
+- `tests/test_legend_wrap.py` — The PGS legend row wrapped at the other rows or `legend_max_width` (#68)
 - `tests/test_legend_labels.py` — Names shown (`phenotype_labels`, `_` as spaces), compact legend
   with quadrants, the PGS key (#56)
 - `tests/test_outline_rings.py` — One border per `o_` column (#46): order, spacing, labels level,
