@@ -39,7 +39,7 @@ from pypedigree.config import (
     PedigreeStyle,
     apply_outline_spacing,
     apply_pgs_spacing,
-    is_pgs_column,
+    is_curve_column,
     resolve_style,
 )
 from pypedigree.errors import PedigreeError
@@ -98,6 +98,7 @@ from pypedigree.phenotypes import (
     check_min_font_size,
     check_pgs_scale,
     check_phenotype_layout,
+    curve_caption,
     fit_text,
     legend_layout,
     legend_row_centers,
@@ -124,6 +125,7 @@ from pypedigree.phenotypes import (
     text_color_on,
     to_hex,
     validate_style_colors,
+    warn_mixed_curves,
     with_outline_rings,
     with_quadrants,
 )
@@ -179,7 +181,8 @@ def render_pedigree(
     # resolved), then widen for PGS curves — this is the only place that
     # applies the PGS spacing, so it can never be applied twice.
     style = resolve_style(style, pheno_names)
-    pgs_cols = [n for n in pheno_names if is_pgs_column(n)]
+    pgs_cols = [n for n in pheno_names if is_curve_column(n)]
+    warn_mixed_curves(pedigree.individuals(), pgs_cols)
     values_width = pgs_values_width(pedigree.individuals(), pgs_cols, style)
     # The only place the PGS spacing is applied (see `apply_pgs_spacing`).
     style = apply_pgs_spacing(style, pheno_names, values_width)
@@ -2054,7 +2057,7 @@ def _draw_pgs_ridge(
             box_left + box_width / 2,
             box_bottom + box_height if above else box_bottom,
             caption_offset,
-            text="PGS",
+            text=curve_caption(active),
             fontsize=caption_size,
             fontfamily=style.font_family,
             ha="center",

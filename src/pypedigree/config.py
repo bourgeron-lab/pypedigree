@@ -318,6 +318,30 @@ def is_pgs_column(name: str) -> bool:
     return name.upper().startswith("PGS")
 
 
+PTDT_PREFIX = "PTDT"  # a pTDT deviation column (#52), case-insensitive: pTDT_autism
+
+
+def is_ptdt_column(name: str) -> bool:
+    """Whether a column holds pTDT deviations (#52): a name starting with "pTDT".
+
+    Each value is a child's (PGS_child - PGS_mid-parent) / SD(PGS_mid-parent),
+    N(0, 1) without over-transmission (Weiner et al. 2017). It is drawn as a
+    PGS is, on the z scale, captioned "pTDT".
+    """
+    return name.upper().startswith(PTDT_PREFIX)
+
+
+def is_curve_column(name: str) -> bool:
+    """Whether a column is drawn as a distribution curve: a PGS or a pTDT column."""
+    return is_pgs_column(name) or is_ptdt_column(name)
+
+
+def curve_trait(name: str) -> str:
+    """A curve column's name without its "PGS" or "pTDT" prefix ("_autism")."""
+    prefix = PTDT_PREFIX if is_ptdt_column(name) else "PGS" if is_pgs_column(name) else ""
+    return name[len(prefix) :]
+
+
 def resolve_style(
     style: PedigreeStyle | None,
     phenotype_names: Sequence[str] | None = None,
@@ -351,7 +375,7 @@ def resolve_style(
     resolved.gradient_bins = {k: list(v) for k, v in resolved.gradient_bins.items()}
 
     all_names = list(phenotype_names or [])
-    names = [n for n in all_names if not is_pgs_column(n)]
+    names = [n for n in all_names if not is_curve_column(n)]
 
     # Conventional colors for known phenotypes (autism, ID, ADHD, epilepsy),
     # unless the user chose one.
@@ -397,6 +421,10 @@ def _assign_pgs_colors(
 ) -> None:
     """Give each PGS column of a figure with several a distinct marker color.
 
+    PGS and pTDT columns (#52) are colored apart, each kind as below: an
+    individual's curve shows one kind only, so ``pTDT_autism`` may take the
+    autism color ``PGS_autism`` has.
+
     A score named after a known phenotype (``PGS_autism``) takes that
     phenotype's color, the one its column has in the figure if there is one;
     the others take the first color unlike every PGS color and phenotype
@@ -409,19 +437,27 @@ def _assign_pgs_colors(
         all_names: Ordered phenotype column names of the pedigree.
         known: Non-PGS columns standing for a known phenotype, with its key.
     """
-    pgs = [n for n in all_names if is_pgs_column(n)]
-    if len(pgs) < 2:
-        return
     bands = {
         n: style.phenotype_colors[n]
         for n in all_names
-        if not is_pgs_column(n) and n in style.phenotype_colors
+        if not is_curve_column(n) and n in style.phenotype_colors
     }
+    for kind in (is_pgs_column, is_ptdt_column):
+        group = [n for n in all_names if kind(n)]
+        _assign_curve_colors(style, group, bands, known)
+
+
+def _assign_curve_colors(
+    style: PedigreeStyle, pgs: Sequence[str], bands: dict[str, str], known: dict[str, str]
+) -> None:
+    """`_assign_pgs_colors` for one kind of curve column."""
+    if len(pgs) < 2:
+        return
     column_color = {key: bands[n] for n, key in reversed(known.items()) if n in bands}
     used = [style.pgs_colors[n] for n in pgs if n in style.pgs_colors]
     pending = [n for n in pgs if n not in style.pgs_colors]
     for name in list(pending):
-        key = known_phenotype(name[len("PGS") :])
+        key = known_phenotype(curve_trait(name))
         if key is None:
             continue
         color = column_color.get(key, KNOWN_PHENOTYPE_COLORS[key])
@@ -495,7 +531,7 @@ def apply_pgs_spacing(
         A new PedigreeStyle, widened if any PGS column is present, else
         `style` unchanged.
     """
-    if not any(is_pgs_column(n) for n in (phenotype_names or [])):
+    if not any(is_curve_column(n) for n in (phenotype_names or [])):
         return style
 
     pgs_extra = style.shape_size * 0.55 + values_width

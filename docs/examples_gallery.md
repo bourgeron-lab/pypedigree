@@ -266,6 +266,20 @@ pypedigree family.ped --style style.json -o diverging.png
 
 ---
 
+## ptdt.ped (pTDT deviations)
+
+![The parents' PGS, the children's pTDT](imgs/examples/ptdt.png)
+
+**Description**: Synthetic family with two autistic children and two unaffected siblings. The parents have an autism PGS (`PGS_autism`), the children their pTDT deviation (`pTDT_autism`): (PGS_child − PGS_mid-parent) / SD(PGS_mid-parent), +2.1 and +1.4 for the autistic children, about 0 for their siblings (`ptdt.json`: `pgs_scale` "zscore", `show_pgs_values`).
+
+**Features**: a `pTDT_` column is drawn with the PGS curve, on the z scale whatever `pgs_scale`, and captioned "pTDT", so the reader sees what each curve shows. The legend has a row for each kind; the SVG tooltip reads "pTDT = +2.10". An individual's curve shows its pTDT deviations if it has any, otherwise its PGS.
+
+```bash
+pypedigree tests/data/phenotype/ptdt.ped --style tests/data/phenotype/ptdt.json -o ptdt.png
+```
+
+---
+
 ## Multiple PGS columns
 
 **Description**: Any column starting with `PGS` (case-insensitive) is treated as a PGS column. Multiple PGS values are displayed on a single gaussian curve with distinct colored markers.

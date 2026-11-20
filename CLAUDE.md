@@ -369,6 +369,13 @@ Multi-phenotype support:
   (zorder 5) so it is drawn whole, as wide as the others. Legend row `"outline_rings"`
   (`LEG_OUTLINE_RINGS_LABEL`), tooltip "Borders: …". Nothing changes when nobody has two.
   `tests/test_outline_rings.py`
+- pTDT columns (#52): `config.is_ptdt_column` (`pTDT` prefix), `is_curve_column` (PGS or pTDT: effective
+  mode "pgs", palette, spacing; `is_pgs_column` stays PGS-only). `phenotypes.column_scale` puts pTDT on
+  "zscore" whatever `pgs_scale`; `active_pgs` returns one kind per individual (its pTDT if any, else PGS)
+  and `curve_caption` captions it; `warn_mixed_curves` warns for an individual with both. Legend: a
+  second "pgs" row, `ptdt_legend_description()`; tooltip `curve_value_text` ("pTDT = +2.12").
+  `_assign_pgs_colors` colors each kind apart (pTDT_autism may share PGS_autism's color). Captions keep
+  "±2 SD" and the pTDT formula together with no-break spaces (`NBSP`, `TWO_SD`) when a row wraps
 - PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve. Multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) show colored markers on a single curve. Marker colors via `pgs_colors` style option; unset ones are filled by `config._assign_pgs_colors` when there are several PGS columns (#53): a known phenotype's color (its column's in the figure if any), else the first of `DEFAULT_PGS_COLOR` + palette + extras not `_alike` any other score or band. One PGS column keeps `DEFAULT_PGS_COLOR` (now in `config.py`). `couple_gap` and `sibling_gap` auto-increase when PGS present.
 - Colors from `phenotype_colors` in style JSON, or auto-assigned from palette
   (`config.resolve_style`): by position among all columns, lookalikes of known
@@ -551,6 +558,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   rotation, edge composition, arc waypoints, rendering across 15 fixtures
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)
+- `tests/test_ptdt.py` — pTDT deviation columns: z scale, captions, legend row, tooltip, colors (#52)
 - `tests/test_legend_wrap.py` — The PGS legend row wrapped at the other rows or `legend_max_width` (#68)
 - `tests/test_gradient_bins.py` — Clinical thresholds (`gradient_bins`) and a range's legend ends (#57)
 - `tests/test_legend_labels.py` — Names shown (`phenotype_labels`, `_` as spaces), compact legend

@@ -24,8 +24,15 @@ from typing import Any, Protocol
 from pypedigree import symbols
 from pypedigree.carriers import CarrierScheme
 from pypedigree.colors import parse_rgb, rgb_to_hex
-from pypedigree.config import DEFAULT_PGS_COLOR, PedigreeStyle, is_pgs_column, known_phenotype
-from pypedigree.errors import PedigreeError, PedigreeStyleWarning
+from pypedigree.config import (
+    DEFAULT_PGS_COLOR,
+    PedigreeStyle,
+    curve_trait,
+    is_curve_column,
+    is_ptdt_column,
+    known_phenotype,
+)
+from pypedigree.errors import PedigreeDataWarning, PedigreeError, PedigreeStyleWarning
 from pypedigree.models import (
     Individual,
     NodeLayout,
@@ -414,7 +421,7 @@ def resolve_phenotype_render(
 
     for name in phenotype_names:
         mode = display_modes.get(name, PhenotypeDisplayMode.AUTO)
-        if is_pgs_column(name):
+        if is_curve_column(name):  # a PGS or a pTDT column (#52)
             effective_modes[name] = "pgs"
             continue
         if mode == PhenotypeDisplayMode.OUTLINE:
@@ -460,12 +467,14 @@ def display_name(name: str, style: PedigreeStyle) -> str:
 
 
 def pgs_trait_name(name: str, style: PedigreeStyle) -> str:
-    """A PGS column's name in the legend's key: its label, or its name
-    without "PGS_" ("PGS_autism" -> "autism")."""
+    """A PGS or pTDT column's name in the legend's key: its label, or its
+    name without "PGS_" / "pTDT_" ("PGS_autism" -> "autism")."""
     label = style.phenotype_labels.get(name)
     if label is not None:
         return label
-    trait = name[4:] if name.upper().startswith("PGS_") else name
+    trait = curve_trait(name)
+    # Only a prefix followed by "_" goes: "PGSautism" keeps its name.
+    trait = trait[1:] if trait.startswith("_") and len(trait) > 1 else name
     return trait.replace("_", " ")
 
 
@@ -1080,31 +1089,95 @@ def pgs_caption_offset(half: float, size: float, units_per_point: float) -> floa
     return max(half * PGS_CAPTION_OFFSET, needed)
 
 
+def column_scale(name: str, scale: str) -> str:
+    """The scale a curve column is placed on: ``pgs_scale``, or "zscore" for
+    a pTDT column, whose deviations are N(0, 1) by construction (#52)."""
+    return "zscore" if is_ptdt_column(name) else scale
+
+
+PTDT_CAPTION = "pTDT"
+
+
+def curve_caption(active: Sequence[tuple[str, float]]) -> str:
+    """The caption of an individual's curve: "pTDT" when it shows pTDT
+    deviations (`active_pgs`), "PGS" otherwise."""
+    return PTDT_CAPTION if active and is_ptdt_column(active[0][0]) else "PGS"
+
+
 def active_pgs(
     node: _HasPhenotypes, pgs_names: Sequence[str], scale: str = "minmax"
 ) -> list[tuple[str, float]]:
-    """PGS columns with a value for this individual, with their [0, 1] position.
+    """Curve columns with a value for this individual, with their [0, 1] position.
 
     On "minmax" the position is the value normalised over the pedigree; on
     "zscore" and "percentile" it is the value's z-score on the drawn
-    normal curve (`pgs_position`), the same for every pedigree.
+    normal curve (`pgs_position`), the same for every pedigree. A pTDT
+    column is always on the z scale (#52).
+
+    An individual's curve shows one kind of score: its pTDT deviations if
+    it has any, otherwise its PGS (`warn_mixed_curves` reports individuals
+    with both), so the parents' PGS and the children's pTDT can share a
+    figure, each curve captioned by `curve_caption`.
     """
+    ptdt = [n for n in pgs_names if is_ptdt_column(n)]
+    if ptdt:
+        shown = _active_curves(node, ptdt, scale)
+        if shown:
+            return shown
+    return _active_curves(node, [n for n in pgs_names if not is_ptdt_column(n)], scale)
+
+
+def warn_mixed_curves(individuals: Iterable[_HasPhenotypes], names: Sequence[str]) -> None:
+    """Warn when some individual has both PGS and pTDT values (#52): its
+    curve shows the pTDT deviations only."""
+    ptdt = [n for n in names if is_ptdt_column(n)]
+    pgs = [n for n in names if is_curve_column(n) and not is_ptdt_column(n)]
+    if not ptdt or not pgs:
+        return
+
+    def has(ind: _HasPhenotypes, cols: list[str]) -> bool:
+        raw = ind.extra_phenotypes_raw
+        return any(n in raw and not is_na_value(raw[n]) for n in cols)
+
+    both = [getattr(i, "sample_id", "?") for i in individuals if has(i, ptdt) and has(i, pgs)]
+    if both:
+        shown = ", ".join(both[:5]) + (", ..." if len(both) > 5 else "")
+        warnings.warn(
+            f"{len(both)} individual(s) have both PGS and pTDT values ({shown}): their curve "
+            "shows the pTDT deviations only. Give the PGS to the parents and the pTDT "
+            "deviation to the children.",
+            PedigreeDataWarning,
+            stacklevel=2,
+        )
+
+
+def _active_curves(
+    node: _HasPhenotypes, pgs_names: Sequence[str], scale: str
+) -> list[tuple[str, float]]:
     out = []
     for name in pgs_names:
-        if scale == "minmax":
+        if column_scale(name, scale) == "minmax":
             value = node.extra_phenotypes.get(name)
             if not is_na_value(value):
                 out.append((name, value or 0.0))
             continue
         raw = node.extra_phenotypes_raw.get(name)
         if not is_na_value(raw) and raw is not None:
-            out.append((name, pgs_position(pgs_zscore(raw, scale))))
+            out.append((name, pgs_position(pgs_zscore(raw, column_scale(name, scale)))))
     return out
 
 
 def _ordinal(n: int) -> str:
     suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
     return f"{n}{suffix}"
+
+
+def curve_value_text(name: str, raw: float, scale: str) -> str:
+    """A curve column's value as the tooltip writes it: `pgs_value_text`, or
+    "pTDT = +2.12" for a pTDT deviation, which has no percentile (#52)."""
+    if is_ptdt_column(name):
+        return f"{PTDT_CAPTION} = {raw:+.2f}".replace("-", MINUS)
+    return pgs_value_text(raw, scale)
 
 
 def pgs_value_text(raw: float, scale: str) -> str:
@@ -1156,7 +1229,7 @@ def pgs_marker_values(node: _HasPhenotypes, pgs_names: Sequence[str], scale: str
     for name in pgs_names:
         raw = node.extra_phenotypes_raw.get(name)
         if raw is not None and not is_na_value(raw):
-            out[name] = pgs_marker_text(raw, scale)
+            out[name] = pgs_marker_text(raw, column_scale(name, scale))
     return out
 
 
@@ -1174,7 +1247,9 @@ def pgs_values_width(
     widths = [
         symbols.text_width(text, size)
         for ind in nodes
-        for text in pgs_marker_values(ind, pgs_names, style.pgs_scale).values()
+        for text in pgs_marker_values(
+            ind, [n for n, _ in active_pgs(ind, pgs_names, style.pgs_scale)], style.pgs_scale
+        ).values()
     ]
     if not widths:
         return 0.0
@@ -1831,6 +1906,16 @@ def legend_layout(
     return out, m
 
 
+# Words a wrapped legend row keeps together (#68): joined by a no-break space.
+NBSP = "\u00a0"
+TWO_SD = f"\u00b12{NBSP}SD"
+
+
+def ptdt_legend_description() -> str:
+    """Caption of the pTDT row (#52), followed by its key."""
+    return f"pTDT deviation, (child{NBSP}{MINUS}{NBSP}mid-parent){NBSP}/{NBSP}SD, {TWO_SD} marked:"
+
+
 def pgs_legend_description(pgs_names: Sequence[str], scale: str = "minmax") -> str:
     """Caption of the PGS row, from its column names and the scale.
 
@@ -1843,9 +1928,9 @@ def pgs_legend_description(pgs_names: Sequence[str], scale: str = "minmax") -> s
     else:
         caption, keyed = "PGS distribution", True
     if scale == "zscore":
-        caption += ", z-score, \u00b12 SD marked"
+        caption += f", z-score, {TWO_SD} marked"
     elif scale == "percentile":
-        caption += ", population percentile, \u00b12 SD marked"
+        caption += f", population percentile, {TWO_SD} marked"
     return f"{caption}:" if keyed else caption
 
 
@@ -1965,7 +2050,9 @@ def legend_rows(
             )
         )
 
-    pgs_names = render.pgs_names(names)
+    curve_names = render.pgs_names(names)
+    pgs_names = [n for n in curve_names if not is_ptdt_column(n)]
+    ptdt_names = [n for n in curve_names if is_ptdt_column(n)]
     if pgs_names:
         colors = {n: style.pgs_colors.get(n, DEFAULT_PGS_COLOR) for n in pgs_names}
         plain = len(pgs_names) == 1 and pgs_names[0].upper() == "PGS"
@@ -1977,6 +2064,17 @@ def legend_rows(
                 key=()
                 if plain
                 else tuple((pgs_trait_name(n, style), colors[n]) for n in pgs_names),
+            )
+        )
+    if ptdt_names:
+        # pTDT deviations (#52): their own row, on the z scale whatever pgs_scale.
+        colors = {n: style.pgs_colors.get(n, DEFAULT_PGS_COLOR) for n in ptdt_names}
+        rows.append(
+            LegendRow(
+                "pgs",
+                ptdt_legend_description(),
+                pgs=colors,
+                key=tuple((pgs_trait_name(n, style), colors[n]) for n in ptdt_names),
             )
         )
 

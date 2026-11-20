@@ -875,6 +875,9 @@ produce the same figure for the same input.</p>
 <h4>Multiple PGS Columns</h4>
 <p>Any column starting with <code>PGS</code> (case-insensitive) is treated as a PGS column. For example: <code>PGS_autism</code>, <code>PGS_IQ</code>, <code>PGS_ADHD</code>. All PGS columns share a single gaussian curve, with each trait's individual score marked by a colored dashed line. Colors are set via the <code>pgs_colors</code> style option. Without it, a single PGS column is red (<code>#e74c3c</code>) and several get distinct colors: a score named after a known phenotype (<code>PGS_autism</code>, <code>PGS_ADHD</code>, <code>PGS_ID</code>, <code>PGS_epilepsy</code>) takes that phenotype's color, the one its column has in the figure if there is one; the others take the first color unlike the other scores and the phenotype bands.</p>
 
+<h4>pTDT Deviations</h4>
+<p>A column whose name starts with <code>pTDT</code> (case-insensitive, e.g. <code>pTDT_autism</code>) holds each child&rsquo;s polygenic transmission deviation, (PGS<sub>child</sub> &minus; PGS<sub>mid-parent</sub>) / SD(PGS<sub>mid-parent</sub>) (Weiner et al. 2017). It is drawn with the PGS curve, always on the z scale, captioned &ldquo;pTDT&rdquo;; the legend has its own row and the tooltip reads &ldquo;pTDT = +2.12&rdquo;. An individual&rsquo;s curve shows its pTDT deviations if it has any, otherwise its PGS, so the parents&rsquo; PGS and the children&rsquo;s pTDT share a figure. pypedigree does not compute the deviations: give them in the file.</p>
+
 <h4>Custom Gradient Ranges</h4>
 <p>By default, gradient values are normalized to [0,1] using the data's min/max. You can override this with the <code>gradient_range</code> style option to define fixed scales:</p>
 <pre><code>{
