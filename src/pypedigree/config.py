@@ -200,8 +200,19 @@ class PedigreeStyle:
     # Legend layout (#56): "auto" (compact with the quadrant layout, full with
     # bands), "compact" (with quadrants, one shared Affected / Unaffected /
     # Unknown row for the binary columns, whose colors the quadrant key
-    # gives) or "full" (one row per column).
+    # gives) or "full" (one row per column), or "minimal" (#67): compact, with
+    # a one-symbol quadrant key whose binary columns are read from a caption
+    # under it instead of an Affected / Unaffected / Unknown row.
     legend: str = "auto"
+
+    # Legend header and spacing (#67), for journal figures: the panel's title
+    # (None or "" for none), the "= Male / = Female" row, and a factor on the
+    # row height and the gaps (header, captions, padding), e.g. 0.7 for print
+    # (0.6 to 3). With legend "minimal", those left at their defaults become
+    # no title, no sex symbols and 0.7.
+    legend_title: str | None = "Legend"
+    legend_sex_symbols: bool = True
+    legend_spacing: float = 1.0
 
     # PGS curve colors (PGS column name -> hex color, e.g. {"PGS_autism": "#3498db"})
     pgs_colors: dict[str, str] = field(default_factory=dict)

@@ -61,11 +61,11 @@ from pypedigree.models import (
 )
 from pypedigree.phenotypes import (
     FALLBACK_COLOR,
-    LEG_BINARY_HEADER_H,
+    KEY_ROW_KINDS,
     LEG_CAPTION_COLOR,
+    LEG_CAPTION_GAP,
     LEG_CATEGORY_COLOR,
     LEG_GRAD_W,
-    LEG_PAD,
     LEG_RING_INSET_PT,
     LEG_RING_WIDTH_PT,
     LEG_SWATCH_EDGE,
@@ -1517,45 +1517,51 @@ def _svg_legend(
         size = m.caption_fs(kw.pop("size_factor", 1.0)) * _PT
         text(u, v, s, size, anchor, baseline="hanging", **kw)
 
-    # Header: title and sex symbols.
-    v = m.total_h - LEG_PAD
-    text(
-        LEG_X0,
-        v,
-        "Legend",
-        m.title_fs * _PT,
-        baseline="hanging",
-        weight="bold",
-    )
-    v -= 1.0
-    side = m.marker_size * _PT
-    body.append(
-        f'<rect x="{X(0.6) - side / 2:.3f}" y="{Y(v) - side / 2:.3f}" width="{side:.3f}" '
-        f'height="{side:.3f}" fill="white" stroke="black" stroke-width="{_PT:.3f}"/>'
-    )
-    body.append(
-        f'<circle cx="{X(2.5):.3f}" cy="{Y(v):.3f}" r="{side / 2:.3f}" fill="white" '
-        f'stroke="black" stroke-width="{_PT:.3f}"/>'
-    )
-    text(0.6 + 0.25, v, "= Male", fs)
-    text(2.5 + 0.25, v, "= Female", fs)
-    y_top = v - 0.8
+    # Header: title and sex symbols, each if the style has it (#67).
+    if m.title:
+        text(
+            LEG_X0,
+            m.title_y,
+            m.title,
+            m.title_fs * _PT,
+            baseline="hanging",
+            weight="bold",
+        )
+    if m.sex_y is not None:
+        v = m.sex_y
+        side = m.marker_size * _PT
+        body.append(
+            f'<rect x="{X(0.6) - side / 2:.3f}" y="{Y(v) - side / 2:.3f}" width="{side:.3f}" '
+            f'height="{side:.3f}" fill="white" stroke="black" stroke-width="{_PT:.3f}"/>'
+        )
+        body.append(
+            f'<circle cx="{X(2.5):.3f}" cy="{Y(v):.3f}" r="{side / 2:.3f}" fill="white" '
+            f'stroke="black" stroke-width="{_PT:.3f}"/>'
+        )
+        text(0.6 + 0.25, v, "= Male", fs)
+        text(2.5 + 0.25, v, "= Female", fs)
+    y_top = m.content_top
 
-    # The quadrant key first, so the captions sit above the swatch rows.
-    keys = [r for r in rows if r.kind == "quadrants"]
+    # The quadrant key first (and its note, #67), so the captions sit above
+    # the swatch rows.
+    keys = [r for r in rows if r.kind in KEY_ROW_KINDS]
     for row, vc in zip(keys, legend_row_centers(keys, m, y_top), strict=True):
+        if row.kind == "key_note":
+            size = m.caption_fs() * _PT
+            text(LEG_X0, vc, row.label, size, baseline="central", color=LEG_CATEGORY_COLOR)
+            continue
         g = quadrant_key_geometry(row, m, vc)
         sx, sy, sw, sh = g.square
-        ccx, ccy, rx, _ry = g.circle
         square = (
             f'<rect x="{X(sx):.3f}" y="{Y(sy + sh / 2):.3f}" width="{sw * ux:.3f}" '
             f'height="{sh * uy:.3f}"'
         )
-        circle = f'<circle cx="{X(ccx):.3f}" cy="{Y(ccy):.3f}" r="{rx * ux:.3f}"'
-        for shape_id, outline, (u0, v_top) in (
-            ("legend-key-square", square, (sx, sy + sh / 2)),
-            ("legend-key-circle", circle, (ccx - rx, ccy + sh / 2)),
-        ):
+        shapes = [("legend-key-square", square, (sx, sy + sh / 2))]
+        if g.circle is not None:
+            ccx, ccy, rx, _ry = g.circle
+            circle = f'<circle cx="{X(ccx):.3f}" cy="{Y(ccy):.3f}" r="{rx * ux:.3f}"'
+            shapes.append(("legend-key-circle", circle, (ccx - rx, ccy + sh / 2)))
+        for shape_id, outline, (u0, v_top) in shapes:
             body.append(f'<defs><clipPath id="{shape_id}">{outline}/></clipPath></defs>')
             for cell in row.quadrants:
                 qx = X(u0 + (sw / 2 if cell.position.endswith("right") else 0.0))
@@ -1572,12 +1578,12 @@ def _svg_legend(
         for u, v, label, anchor in g.labels:
             text(u, v, label, fs, anchor)
     y_top -= legend_slot_count(keys) * m.row_h
-    rows = [r for r in rows if r.kind != "quadrants"]
+    rows = [r for r in rows if r.kind not in KEY_ROW_KINDS]
 
     if binary_headers:
         for i, s in enumerate(("Affected", "Unaffected", "Unknown")):
             caption(m.swatch_x(i) + m.sw_w / 2, y_top, s, "middle")
-        y_top -= LEG_BINARY_HEADER_H
+        y_top -= m.binary_header_h
 
     for row, vc in zip(rows, legend_row_centers(rows, m, y_top), strict=True):
         if row.kind == "gradient":
@@ -1585,7 +1591,7 @@ def _svg_legend(
             for k, rgb in enumerate(row.colors):
                 swatch(LEG_X0 + k * step, vc, step * 1.02, m.sw_h, to_hex(rgb), stroke="none")
             swatch(LEG_X0, vc, LEG_GRAD_W, m.sw_h, "none")
-            cap_v = vc - m.sw_h / 2 - 0.05
+            cap_v = vc - m.sw_h / 2 - LEG_CAPTION_GAP
             caption(LEG_X0, cap_v, row.low)
             caption(LEG_X0 + LEG_GRAD_W, cap_v, row.high, "end")
         elif row.kind == "categorical":
@@ -1594,7 +1600,7 @@ def _svg_legend(
                 swatch(u, vc, m.sw_w * 0.8, m.sw_h, color)
                 caption(
                     u + m.sw_w * 0.4,
-                    vc - m.sw_h / 2 - 0.05,
+                    vc - m.sw_h / 2 - LEG_CAPTION_GAP,
                     value,
                     "middle",
                     color=LEG_CATEGORY_COLOR,

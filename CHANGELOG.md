@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A more compact legend for journal figures (#67). New style options: `legend_title` (`None`
+  or `""` drops the "Legend" title), `legend_sex_symbols` (`false` drops the "= Male / =
+  Female" row) and `legend_spacing` (a factor on the row height and the gaps, 0.6 to 3, e.g.
+  0.7 for print; a row never gets shorter than its swatch and the captions under it). The
+  figure is as much shorter as its legend. `legend: "minimal"` sets all three (no title, no
+  sex symbols, 0.7, unless given) and draws the quadrant key with one symbol, the key's binary
+  columns read from a caption under it ("Colored: affected · white: unaffected · grey:
+  unknown") instead of a row of swatches, also with a single binary column. Every option
+  defaults to the legend drawn before: no figure changes.
+
 ### Fixed
 
 - Text enlarged by `min_font_size` keeps its gaps (#66). The notes and annotations below an ID

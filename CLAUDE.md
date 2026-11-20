@@ -236,7 +236,14 @@ src/pypedigree/
     `binary_shared` row (first swatch striped with their colors, #56). The PGS
     row's `key` (score name, color) is placed by `legend_key_items()`: a dash
     then the name, measured with `symbols.text_width`, after the label. Legend geometry constants
-    (`LEG_*`) are not user-tunable style. `TestLegendPhysicalSize` checks it.
+    (`LEG_*`) are not user-tunable style. `TestLegendPhysicalSize` checks it. The header
+    (#67) is placed by `legend_metrics` too (`title`, `title_y`, `sex_y`, `content_top`): the
+    title and the sex row are optional, and `legend_spacing` multiplies the row height and every
+    gap, but a row is never shorter than its swatch, `LEG_CAPTION_GAP` and a caption line, so
+    gradient and category captions keep clear of the next row (at 1.0 that floor is never
+    reached). With "minimal" the quadrant key has one symbol (`LegendRow.single_symbol`,
+    `QuadrantKeyGeometry.circle` None) and its binary columns get no row, only a `key_note` row
+    (`KEY_ROW_KINDS`, drawn with the key) under it.
 
 14. **Every text size comes from `PedigreeStyle.text_size(scale)`** (#51): `font_size`
     times the text's fraction, never below `min_font_size`. Fractions are named
@@ -390,7 +397,10 @@ Additional PedigreeStyle fields:
 - `phenotype_labels: dict[str, str]` — names shown for columns (#56); everything shown goes through
   `phenotypes.display_name()` (label, else `_` as spaces) or `pgs_trait_name()` (the PGS key), never
   the raw column name: legend, quadrant key, band text, SVG tooltips, `carriers.label(..., shown)`
-- `legend: str` — "auto" (compact with quadrants), "compact" or "full" (#56); `check_legend()`
+- `legend: str` — "auto" (compact with quadrants), "compact", "full" (#56) or "minimal" (#67); `check_legend()`
+- `legend_title: str | None`, `legend_sex_symbols: bool`, `legend_spacing: float` (0.6–3) — the legend's
+  header and spacing (#67). Read only through `phenotypes.legend_title()` / `legend_sex_symbols()` /
+  `legend_spacing()`, which apply "minimal"'s defaults (no title, no sex row, 0.7) to options left at theirs
 Warnings and errors:
 - `PedigreeWarning` (base), `PedigreeStyleWarning`, `PedigreeDataWarning`
 - Unknown keys in a style JSON warn with a suggested spelling (they are still ignored)
@@ -526,6 +536,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_layout_circular.py` — Circular layout: ring geometry, spacing,
   rotation, edge composition, arc waypoints, rendering across 15 fixtures
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
+- `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)
 - `tests/test_legend_labels.py` — Names shown (`phenotype_labels`, `_` as spaces), compact legend
   with quadrants, the PGS key (#56)
 - `tests/test_outline_rings.py` — One border per `o_` column (#46): order, spacing, labels level,

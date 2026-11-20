@@ -61,11 +61,11 @@ from pypedigree.models import (
 )
 from pypedigree.phenotypes import (
     FALLBACK_COLOR,
-    LEG_BINARY_HEADER_H,
+    KEY_ROW_KINDS,
     LEG_CAPTION_COLOR,
+    LEG_CAPTION_GAP,
     LEG_CATEGORY_COLOR,
     LEG_GRAD_W,
-    LEG_PAD,
     LEG_RING_INSET_PT,
     LEG_RING_WIDTH_PT,
     LEG_SWATCH_EDGE,
@@ -2295,17 +2295,18 @@ def _legend_caption(
     style: PedigreeStyle,
     *,
     ha: str = "left",
+    va: str = "top",
     color: str = LEG_CAPTION_COLOR,
     size_factor: float = 1.0,
 ) -> None:
-    """Add a small grey caption (column header, scale end, category name)."""
+    """Add a small grey caption (column header, scale end, category name, key note)."""
     ax.text(
         x,
         y,
         text,
         fontsize=m.caption_fs(size_factor),
         fontfamily=style.font_family,
-        va="top",
+        va=va,
         ha=ha,
         color=color,
     )
@@ -2349,7 +2350,7 @@ def _add_legend_axes(fig: Figure, m: LegendMetrics) -> Axes:
 
 
 def _draw_legend_header(ax: Axes, m: LegendMetrics, style: PedigreeStyle) -> float:
-    """Draw the panel title and the sex symbols.
+    """Draw the panel title and the sex symbols, each if the style has it (#67).
 
     Args:
         ax: Legend axes.
@@ -2359,21 +2360,23 @@ def _draw_legend_header(ax: Axes, m: LegendMetrics, style: PedigreeStyle) -> flo
     Returns:
         The y cursor just below the header.
     """
-    y = m.total_h - LEG_PAD
-    ax.text(
-        LEG_X0,
-        y,
-        "Legend",
-        fontsize=m.title_fs,
-        fontfamily=style.font_family,
-        fontweight="bold",
-        va="top",
-    )
-    y -= 1.0
+    if m.title:
+        ax.text(
+            LEG_X0,
+            m.title_y,
+            m.title,
+            fontsize=m.title_fs,
+            fontfamily=style.font_family,
+            fontweight="bold",
+            va="top",
+        )
+    if m.sex_y is None:
+        return m.content_top
 
     # Male / female reference symbols, drawn as plot markers so they stay
     # circular/square regardless of the axes aspect ratio.
     sym_gap = 0.25
+    y = m.sex_y
     for x, marker, label in [(0.6, "s", "= Male"), (2.5, "o", "= Female")]:
         ax.plot(
             x,
@@ -2394,7 +2397,7 @@ def _draw_legend_header(ax: Axes, m: LegendMetrics, style: PedigreeStyle) -> flo
             va="center",
         )
 
-    return y - 0.8
+    return m.content_top
 
 
 def _draw_legend_border(ax: Axes, m: LegendMetrics) -> None:
@@ -2438,7 +2441,7 @@ def _draw_legend_binary_headers(
     """
     for i, text in enumerate(("Affected", "Unaffected", "Unknown")):
         _legend_caption(ax, m.swatch_x(i) + m.sw_w / 2, y, text, m, style, ha="center")
-    return y - LEG_BINARY_HEADER_H
+    return y - m.binary_header_h
 
 
 def _draw_legend_gradient_bar(
@@ -2467,7 +2470,7 @@ def _draw_legend_gradient_bar(
     # Single border drawn over the seamless fill.
     _legend_swatch(ax, LEG_X0, y_center, LEG_GRAD_W, m.sw_h, "none")
 
-    caption_y = y_center - m.sw_h / 2 - 0.05
+    caption_y = y_center - m.sw_h / 2 - LEG_CAPTION_GAP
     _legend_caption(ax, LEG_X0, caption_y, low_label, m, style)
     _legend_caption(ax, LEG_X0 + LEG_GRAD_W, caption_y, high_label, m, style, ha="right")
 
@@ -2486,7 +2489,7 @@ def _draw_legend_categorical_row(
         _legend_caption(
             ax,
             x + m.sw_w * 0.4,
-            y_center - m.sw_h / 2 - 0.05,
+            y_center - m.sw_h / 2 - LEG_CAPTION_GAP,
             value,
             m,
             style,
@@ -2676,22 +2679,34 @@ def _draw_legend_quadrant_key(
     """
     g = quadrant_key_geometry(row, m, y_center)
     sx, sy, sw, sh = g.square
-    ccx, ccy, rx, ry = g.circle
     square = mpatches.Rectangle(
         (sx, sy - sh / 2), sw, sh, facecolor="none", edgecolor="black", linewidth=1, zorder=3
     )
-    circle = mpatches.Ellipse(
-        (ccx, ccy), 2 * rx, 2 * ry, facecolor="none", edgecolor="black", linewidth=1, zorder=3
-    )
-    for outline, (x0, y0, hw, hh) in (
-        (square, (sx, sy - sh / 2, sw / 2, sh / 2)),
-        (circle, (ccx - rx, ccy - ry, rx, ry)),
-    ):
-        clip: mpatches.Patch = (
-            mpatches.Ellipse((ccx, ccy), 2 * rx, 2 * ry, transform=ax.transData)
-            if outline is circle
-            else mpatches.Rectangle((x0, y0), 2 * hw, 2 * hh, transform=ax.transData)
+    shapes: list[tuple[mpatches.Patch, mpatches.Patch, tuple[float, float, float, float]]] = [
+        (
+            square,
+            mpatches.Rectangle((sx, sy - sh / 2), sw, sh, transform=ax.transData),
+            (sx, sy - sh / 2, sw / 2, sh / 2),
         )
+    ]
+    if g.circle is not None:
+        ccx, ccy, rx, ry = g.circle
+        shapes.append(
+            (
+                mpatches.Ellipse(
+                    (ccx, ccy),
+                    2 * rx,
+                    2 * ry,
+                    facecolor="none",
+                    edgecolor="black",
+                    linewidth=1,
+                    zorder=3,
+                ),
+                mpatches.Ellipse((ccx, ccy), 2 * rx, 2 * ry, transform=ax.transData),
+                (ccx - rx, ccy - ry, rx, ry),
+            )
+        )
+    for outline, clip, (x0, y0, hw, hh) in shapes:
         for cell in row.quadrants:
             qx = x0 + (hw if cell.position.endswith("right") else 0.0)
             qy = y0 + (hh if cell.position.startswith("top") else 0.0)
@@ -2759,13 +2774,18 @@ def _draw_legend(
     ax = _add_legend_axes(fig, m)
     y_top = _draw_legend_header(ax, m, style)
 
-    # The quadrant key first, so the Affected / Unaffected / Unknown captions
-    # sit right above the swatch rows they head.
-    keys = [r for r in rows if r.kind == "quadrants"]
+    # The quadrant key first (and its note, #67), so the Affected /
+    # Unaffected / Unknown captions sit right above the swatch rows they head.
+    keys = [r for r in rows if r.kind in KEY_ROW_KINDS]
     for row, y_center in zip(keys, legend_row_centers(keys, m, y_top), strict=True):
-        _draw_legend_quadrant_key(ax, y_center, row, m, style)
+        if row.kind == "quadrants":
+            _draw_legend_quadrant_key(ax, y_center, row, m, style)
+        else:
+            _legend_caption(
+                ax, LEG_X0, y_center, row.label, m, style, color=LEG_CATEGORY_COLOR, va="center"
+            )
     y_top -= legend_slot_count(keys) * m.row_h
-    rows = [r for r in rows if r.kind != "quadrants"]
+    rows = [r for r in rows if r.kind not in KEY_ROW_KINDS]
 
     if binary_headers:
         y_top = _draw_legend_binary_headers(ax, y_top, m, style)
