@@ -1,0 +1,6 @@
+FID	IID	Father	Mother	Sex	Phenotype	b_autism	g_SRS	gi_IQ	g_ADHD_RS
+FAM1	F	0	0	1	1	1	52	104	12
+FAM1	M	0	0	2	1	1	63	96	20
+FAM1	C1	F	M	1	2	2	81	64	38
+FAM1	C2	F	M	2	1	1	70	88	25
+FAM1	C3	F	M	1	1	1	66	71	9

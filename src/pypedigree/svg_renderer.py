@@ -89,8 +89,11 @@ from pypedigree.phenotypes import (
     all_bands_na,
     band_cell,
     band_room,
+    bin_text,
+    binned_row_geometry,
     cell_texts,
     check_band_text,
+    check_gradient_bins,
     check_legend,
     check_min_font_size,
     check_pgs_scale,
@@ -245,6 +248,7 @@ def _render(
     check_min_font_size(style)
     check_band_text(style)
     check_legend(style)
+    check_gradient_bins(style)
     render = with_quadrants(render, render.band_names(names), carriers, style)
     # Several o_ borders (#46): room around every symbol, applied once here.
     render = with_outline_rings(render, pedigree.individuals(), names)
@@ -838,7 +842,9 @@ def _tooltip(
         elif value is not None and is_pgs_column(name):
             lines.append(f"{shown}: {pgs_value_text(value, style.pgs_scale)}")
         elif value is not None:
-            lines.append(f"{shown}: {value:g}")
+            # With clinical thresholds, the step it falls in (#57).
+            step = bin_text(name, value, style)
+            lines.append(f"{shown}: {value:g}" + (f" ({step})" if step else ""))
     return " | ".join(lines)
 
 
@@ -1594,6 +1600,14 @@ def _svg_legend(
             cap_v = vc - m.sw_h / 2 - LEG_CAPTION_GAP
             caption(LEG_X0, cap_v, row.low)
             caption(LEG_X0 + LEG_GRAD_W, cap_v, row.high, "end")
+        elif row.kind == "binned":
+            # A gradient's steps (`gradient_bins`, #57), each with its limits.
+            steps = binned_row_geometry(row, m)
+            for k, (rgb, limits) in enumerate(zip(row.colors, row.bins, strict=True)):
+                u = LEG_X0 + k * steps.step_w
+                swatch(u, vc, steps.step_w * 1.01, m.sw_h, to_hex(rgb), stroke="none")
+                caption(u + steps.step_w / 2, vc - m.sw_h / 2 - LEG_CAPTION_GAP, limits, "middle")
+            swatch(LEG_X0, vc, steps.step_w * len(row.colors), m.sw_h, "none")
         elif row.kind == "categorical":
             u = LEG_X0
             for value, color in row.categories.items():
@@ -1677,6 +1691,8 @@ def _svg_legend(
 
         swatch_rows = ("gradient", "categorical", "binary", "binary_shared")
         label_u = m.text_x if row.kind in swatch_rows else m.icon_text_x
+        if row.kind == "binned":
+            label_u = binned_row_geometry(row, m).label_x
         if row.kind != "pgs":
             text(label_u, vc, row.label, fs, baseline="central")
             continue

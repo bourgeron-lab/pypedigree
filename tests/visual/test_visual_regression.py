@@ -218,6 +218,16 @@ class TestVisualExtended:
         fig = render_pedigree(ped)
         _assert_visual_match(fig, "outline_rings", regen_golden)
 
+    def test_gradient_bins(self, regen_golden: bool) -> None:
+        """Clinical thresholds (#57): stepped SRS and inverted IQ, a range's ends."""
+        ped = parse_pedigree(DATA_DIR / "phenotype/gradient_bins.ped")
+        style = PedigreeStyle(
+            gradient_bins={"SRS": [60, 66, 76], "IQ": [70]},
+            gradient_range={"ADHD_RS": [0, 54]},
+        )
+        fig = render_pedigree(ped, style=style)
+        _assert_visual_match(fig, "gradient_bins", regen_golden)
+
     def test_legend_minimal(self, regen_golden: bool) -> None:
         """The minimal legend (#67): no title or sex row, one-symbol key and its caption."""
         ped = parse_pedigree(DATA_DIR / "phenotype/legend_minimal.ped")

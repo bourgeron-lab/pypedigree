@@ -395,6 +395,12 @@ Multi-phenotype support:
 Additional PedigreeStyle fields:
 - `pgs_colors: dict[str, str]` — PGS column name → hex color for marker line (default: `#e74c3c` for one PGS column, distinct colors for several)
 - `gradient_range: dict[str, list[float]]` — custom min/max for gradient normalization (e.g. `{"SRS": [40, 90]}`)
+- `gradient_bins: dict[str, list[float]]` — clinical thresholds (#57): `phenotypes.bin_index` (a value
+  at a cut-off goes up), `bin_color` (white to the column color in `len + 1` even steps, reversed for
+  `gi_`), `bin_labels` ("< 60", "60–65", "≥ 76"); `band_cell` uses them before diverging and range;
+  legend row kind `"binned"` (`LegendRow.bins`, `binned_row_geometry`: steps as wide as their limits,
+  label after the bar); SVG tooltip "SRS: 70 (66–75)" (`bin_text`); `check_gradient_bins()` with the
+  other style checks. With `gradient_range`, the gradient legend row writes its ends, not Low / High
 - `gradient_diverging: dict[str, dict]` — tricolor diverging gradient config (e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}`)
 - `zero_pad_ids: int` — zero-pad IDs to this width (0 = no padding)
 - `min_font_size: float | None` — smallest size of any text in points (None = no minimum, #51)
@@ -546,6 +552,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)
 - `tests/test_legend_wrap.py` — The PGS legend row wrapped at the other rows or `legend_max_width` (#68)
+- `tests/test_gradient_bins.py` — Clinical thresholds (`gradient_bins`) and a range's legend ends (#57)
 - `tests/test_legend_labels.py` — Names shown (`phenotype_labels`, `_` as spaces), compact legend
   with quadrants, the PGS key (#56)
 - `tests/test_outline_rings.py` — One border per `o_` column (#46): order, spacing, labels level,

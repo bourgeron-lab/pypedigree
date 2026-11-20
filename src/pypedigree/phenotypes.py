@@ -12,6 +12,7 @@ the same color names in both outputs and this module needs no matplotlib.
 
 from __future__ import annotations
 
+import bisect
 import math
 import re
 import warnings
@@ -189,6 +190,74 @@ def diverging_color_for_value(conf: Mapping[str, Any], value: float) -> RGB:
     return diverging_color_at(conf, t)
 
 
+# --- Clinical thresholds (#57) -----------------------------------------------
+
+
+def bin_index(value: float, cutoffs: Sequence[float]) -> int:
+    """Which step of ``gradient_bins`` a value falls in: 0 below the first
+    cut-off; a value at a cut-off goes to the step above it."""
+    return bisect.bisect_right(list(cutoffs), value)
+
+
+def bin_color(rgb: Sequence[float], index: int, cutoffs: Sequence[float], inverted: bool) -> RGB:
+    """Color of step ``index``: white to the column's color in even steps,
+    the other way for a ``gi_`` column (low = atypical, as its gradient)."""
+    t = index / len(cutoffs)  # len(cutoffs) + 1 steps
+    return blend_with_white(rgb, 1.0 - t if inverted else t)
+
+
+def bin_labels(cutoffs: Sequence[float]) -> tuple[str, ...]:
+    """The steps' limits, as the legend writes them under each step.
+
+    "< 60", "60–65", "66–75", "≥ 76" for the cut-offs 60, 66, 76: with
+    whole-number cut-offs a step ends one below the next; otherwise it is
+    written up to the next cut-off ("1.5–2.5"), which it excludes.
+    """
+    whole = all(float(c).is_integer() for c in cutoffs)
+    labels = [f"< {cutoffs[0]:g}"]
+    for low, high in zip(cutoffs, cutoffs[1:], strict=False):
+        if whole and high - low == 1:
+            labels.append(f"{low:g}")
+        else:
+            labels.append(f"{low:g}\u2013{high - 1 if whole else high:g}")
+    labels.append(f"\u2265 {cutoffs[-1]:g}")
+    return tuple(labels)
+
+
+def bin_text(name: str, value: float, style: PedigreeStyle) -> str | None:
+    """The step a value falls in, as the legend writes it, or None without bins."""
+    cutoffs = style.gradient_bins.get(name)
+    if not cutoffs:
+        return None
+    return bin_labels(cutoffs)[bin_index(value, cutoffs)]
+
+
+def check_gradient_bins(style: PedigreeStyle) -> None:
+    """Reject ``gradient_bins`` that are not lists of ascending numbers.
+
+    Raises:
+        PedigreeError: Naming each column whose cut-offs are not a non-empty
+            list of strictly increasing numbers.
+    """
+    bad = []
+    for name, cutoffs in style.gradient_bins.items():
+        numbers = isinstance(cutoffs, list | tuple) and all(
+            isinstance(c, int | float) and not isinstance(c, bool) and math.isfinite(c)
+            for c in cutoffs
+        )
+        if (
+            not numbers
+            or not cutoffs
+            or any(b <= a for a, b in zip(cutoffs, cutoffs[1:], strict=False))
+        ):
+            bad.append(f"{name!r}: {cutoffs!r}")
+    if bad:
+        raise PedigreeError(
+            "gradient_bins must map each column to ascending cut-offs, e.g. "
+            f'{{"SRS": [60, 66, 76]}}; not for {", ".join(bad)}'
+        )
+
+
 def text_color_on(background: Color) -> str:
     """Dark or white text, whichever reads on a band of this color."""
     if background == "white":
@@ -361,7 +430,11 @@ def resolve_phenotype_render(
             effective = "gradient"
         elif mode == PhenotypeDisplayMode.BINARY:
             effective = "binary"
-        elif name in style.gradient_diverging or name in style.gradient_range:
+        elif (
+            name in style.gradient_diverging
+            or name in style.gradient_range
+            or name in style.gradient_bins
+        ):
             # An explicit gradient configuration implies a continuous column.
             effective = "gradient"
         else:
@@ -523,6 +596,9 @@ def band_cell(
         rv = raw_val if raw_val is not None else 0
         if norm_val is None and raw_val is None:
             color = UNKNOWN_FILL
+        elif style.gradient_bins.get(name):
+            cutoffs = style.gradient_bins[name]
+            color = bin_color(rgb, bin_index(rv, cutoffs), cutoffs, inverted)
         elif name in style.gradient_diverging:
             color = diverging_color_for_value(style.gradient_diverging[name], rv)
         elif name in style.gradient_range:
@@ -1417,7 +1493,8 @@ class LegendRow:
 
     Attributes:
         kind: "binary", "binary_shared" (the binary columns of the quadrant
-            key, compact legend), "gradient", "categorical", "outline",
+            key, compact legend), "gradient", "binned" (a gradient cut into
+            steps by ``gradient_bins``, #57), "categorical", "outline",
             "outline_rings" (how to read several borders, #46), "pgs",
             "legacy_carrier" (half-fill / dot) or "carrier" (patterned).
         label: Row text.
@@ -1436,6 +1513,8 @@ class LegendRow:
             ("pgs", #56).
         single_symbol: The quadrant key shows one symbol, not a square and
             a circle ("quadrants", legend "minimal", #67).
+        bins: The steps' limits ("binned", clinical thresholds, #57), under
+            the swatches of `colors`.
         wrap_right: Where a "pgs" row's text must end, in legend units, or
             None: one line whatever its length (#68). Set by `legend_layout`.
         lines: Lines of text the row takes (more than one when wrapped).
@@ -1457,6 +1536,7 @@ class LegendRow:
     quadrants: tuple[QuadrantKeyCell, ...] = ()
     key: tuple[tuple[str, str], ...] = ()
     single_symbol: bool = False
+    bins: tuple[str, ...] = ()
     wrap_right: float | None = None
     lines: int = 1
 
@@ -1646,6 +1726,32 @@ def legend_key_items(row: LegendRow, label_x: float, m: LegendMetrics) -> list[L
     return list(pgs_row_layout(row, label_x, m).items)
 
 
+LEG_BIN_GAP_EM = 0.6  # between two steps' limits, in ems of the caption
+LEG_LABEL_GAP = 0.3  # between a bar and its row's label, in legend units
+
+
+@dataclass(frozen=True)
+class BinnedGeometry:
+    """Where a "binned" row's steps and label go, in legend units (#57).
+
+    The steps share a bar as wide as a gradient's, or wider when their
+    limits need it; the row's label follows the bar.
+    """
+
+    step_w: float
+    label_x: float
+
+
+def binned_row_geometry(row: LegendRow, m: LegendMetrics) -> BinnedGeometry:
+    """Lay out a "binned" row: each step wide enough for its caption."""
+    size = m.caption_fs()
+    widest = max((_legend_text_width(b, size, m) for b in row.bins), default=0.0)
+    gap = LEG_BIN_GAP_EM * size / 72 / m.unit_x
+    step_w = max(LEG_GRAD_W / max(len(row.colors), 1), widest + gap)
+    bar_end = LEG_X0 + step_w * len(row.colors)
+    return BinnedGeometry(step_w, max(m.text_x, bar_end + LEG_LABEL_GAP))
+
+
 def legend_row_right(row: LegendRow, m: LegendMetrics) -> float:
     """Where a row's content ends, in legend units (DejaVu Sans widths).
 
@@ -1661,6 +1767,8 @@ def legend_row_right(row: LegendRow, m: LegendMetrics) -> float:
         return right
     if row.kind == "key_note":
         return LEG_X0 + _legend_text_width(row.label, m.caption_fs(), m)
+    if row.kind == "binned":
+        return binned_row_geometry(row, m).label_x + _legend_text_width(row.label, m.fs, m)
     if row.kind in ("gradient", "categorical", "binary", "binary_shared"):
         right = m.text_x + _legend_text_width(row.label, m.fs, m)
         if row.kind == "categorical":
@@ -1764,7 +1872,22 @@ def legend_rows(
     for name in render.band_names(names):
         color = style.phenotype_colors.get(name, FALLBACK_COLOR)
         effective = render.effective(name)
-        if name in style.gradient_diverging:
+        inverted = display_modes.get(name) == PhenotypeDisplayMode.GRADIENT_INVERTED
+        if effective == "gradient" and style.gradient_bins.get(name):
+            # Clinical thresholds (#57): the steps, each with its limits.
+            cutoffs = style.gradient_bins[name]
+            rows.append(
+                LegendRow(
+                    "binned",
+                    display_name(name, style),
+                    colors=tuple(
+                        bin_color(to_rgb(color), i, cutoffs, inverted)
+                        for i in range(len(cutoffs) + 1)
+                    ),
+                    bins=bin_labels(cutoffs),
+                )
+            )
+        elif name in style.gradient_diverging:
             conf = style.gradient_diverging[name]
             rows.append(
                 LegendRow(
@@ -1776,15 +1899,16 @@ def legend_rows(
                 )
             )
         elif effective == "gradient":
-            inverted = display_modes.get(name) == PhenotypeDisplayMode.GRADIENT_INVERTED
             rgb = to_rgb(color)
+            # With `gradient_range` the bar's ends are the range's (#57).
+            ends = style.gradient_range.get(name)
             rows.append(
                 LegendRow(
                     "gradient",
                     display_name(name, style),
                     colors=tuple(blend_with_white(rgb, 1.0 - t if inverted else t) for t in steps),
-                    low="Low",
-                    high="High",
+                    low=f"{ends[0]:g}" if ends else "Low",
+                    high=f"{ends[1]:g}" if ends else "High",
                 )
             )
         elif effective == "categorical":

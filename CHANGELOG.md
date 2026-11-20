@@ -22,7 +22,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a unit (`"85mm"`, `"8.5cm"`, `"3.3in"`), up to which the PGS row may grow before it wraps
   (#68).
 
+- `gradient_bins` style option, for scores read against clinical cut-offs (#57): column →
+  ascending cut-offs, e.g. `{"SRS": [60, 66, 76], "IQ": [70]}`. The band is filled with one of
+  `len(cut-offs) + 1` steps of the column's color instead of a continuous shade (a value at a
+  cut-off goes to the step above; a `gi_` column such as IQ, where low is atypical, bins the
+  other way), and the legend shows the steps with their limits ("< 60", "60–65", "66–75",
+  "≥ 76"). The value is still written in the band; the SVG tooltip adds its step ("SRS: 70
+  (66–75)"). New gallery example: `tests/data/phenotype/gradient_bins.ped`.
+
 ### Changed
+
+- With `gradient_range`, the legend's gradient bar writes the range's ends instead of "Low" /
+  "High" (#57).
 
 - The PGS legend row wraps instead of widening the legend (#68): when the caption and the
   score key are longer than the legend's widest other row (or than `legend_max_width`), the key
