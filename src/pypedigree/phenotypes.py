@@ -13,6 +13,7 @@ the same color names in both outputs and this module needs no matplotlib.
 from __future__ import annotations
 
 import math
+import re
 import warnings
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -424,6 +425,18 @@ def check_legend(style: PedigreeStyle) -> None:
         raise PedigreeError(
             f"legend_spacing must be a number from {low} to {high}, not {spacing!r}"
         )
+    width = style.legend_max_width
+    if width is not None:
+        valid = (
+            isinstance(width, str)
+            and re.fullmatch(r"\s*([0-9]*\.?[0-9]+)\s*(cm|mm|in)\s*", width) is not None
+            and legend_max_width_inches(style) != 0
+        ) or (not isinstance(width, bool | str) and isinstance(width, int | float) and width > 0)
+        if not valid:
+            raise PedigreeError(
+                "legend_max_width must be a width in centimetres, or text with its unit "
+                f'("85mm", "8.5cm", "3.3in"), not {width!r}'
+            )
     bad = [k for k, v in style.phenotype_labels.items() if not isinstance(v, str)]
     if bad:
         raise PedigreeError(f"phenotype_labels must map names to text; not for {bad!r}")
@@ -1175,6 +1188,8 @@ LEG_KEY_NOTE_LABEL = "Colored: affected \u00b7 white: unaffected \u00b7 grey: un
 LEG_CAPTION_GAP = 0.05
 LEG_ROW_MARGIN = 0.08
 LEG_LINE_EM = 1.17  # a line of text's height, in ems (DejaVu Sans)
+LEG_WRAP_LINE_EM = 1.25  # between the lines of a wrapped PGS row (#68), in ems of its text
+LEG_WIDTH_UNITS = {"cm": 1 / 2.54, "mm": 1 / 25.4, "in": 1.0}  # `legend_max_width` -> inches
 KEY_ROW_KINDS = ("quadrants", "key_note")  # drawn first, above the binary captions
 
 
@@ -1232,6 +1247,7 @@ class LegendMetrics:
         content_top: Top of the first row (the quadrant key's, or the binary
             captions above the swatch rows), below the header.
         binary_header_h: Height of the Affected / Unaffected / Unknown captions.
+        line_h: Distance between two lines of a wrapped row (#68).
     """
 
     n_rows: int
@@ -1257,6 +1273,7 @@ class LegendMetrics:
     sex_y: float | None = None
     content_top: float = 0.0
     binary_header_h: float = LEG_BINARY_HEADER_H
+    line_h: float = 0.5
 
     def caption_fs(self, size_factor: float = 1.0) -> float:
         """Size of a caption at ``size_factor`` times `label_fs`, never below `min_fs`."""
@@ -1272,7 +1289,11 @@ class LegendMetrics:
 
 
 def legend_metrics(
-    n_pheno_rows: int, style: PedigreeStyle, *, binary_headers: bool = False
+    n_pheno_rows: int,
+    style: PedigreeStyle,
+    *,
+    binary_headers: bool = False,
+    extra_lines: int = 0,
 ) -> LegendMetrics:
     """Compute the legend panel geometry for a given number of rows.
 
@@ -1287,6 +1308,7 @@ def legend_metrics(
         style: Style supplying the base font size and family.
         binary_headers: Whether the Affected / Unaffected / Unknown captions
             are drawn above the rows.
+        extra_lines: Lines added by wrapped rows, beyond their first (#68).
 
     Returns:
         The derived metrics.
@@ -1325,7 +1347,13 @@ def legend_metrics(
     sex_below = LEG_SEX_BELOW * spacing if sex else 0.0
     header_h = top + title_h + sex_above + sex_below
     binary_header_h = LEG_BINARY_HEADER_H * spacing
-    total_h = header_h + (binary_header_h if binary_headers else 0.0) + n_rows * row_h
+    line_h = LEG_WRAP_LINE_EM * fs / (LEG_UNIT_Y_EM * font)
+    total_h = (
+        header_h
+        + (binary_header_h if binary_headers else 0.0)
+        + n_rows * row_h
+        + extra_lines * line_h
+    )
     title_y = total_h - top
     sex_y = title_y - title_h - sex_above if sex else None
 
@@ -1353,6 +1381,7 @@ def legend_metrics(
         sex_y=sex_y,
         content_top=total_h - header_h,
         binary_header_h=binary_header_h,
+        line_h=line_h,
     )
 
 
@@ -1381,6 +1410,9 @@ class LegendRow:
             ("pgs", #56).
         single_symbol: The quadrant key shows one symbol, not a square and
             a circle ("quadrants", legend "minimal", #67).
+        wrap_right: Where a "pgs" row's text must end, in legend units, or
+            None: one line whatever its length (#68). Set by `legend_layout`.
+        lines: Lines of text the row takes (more than one when wrapped).
 
     A "key_note" row is a caption under the quadrant key, saying how to read
     its binary columns (legend "minimal").
@@ -1399,6 +1431,8 @@ class LegendRow:
     quadrants: tuple[QuadrantKeyCell, ...] = ()
     key: tuple[tuple[str, str], ...] = ()
     single_symbol: bool = False
+    wrap_right: float | None = None
+    lines: int = 1
 
     @property
     def slots(self) -> int:
@@ -1445,12 +1479,16 @@ class QuadrantKeyGeometry:
 
 
 def legend_row_centers(rows: Sequence[LegendRow], m: LegendMetrics, y_top: float) -> list[float]:
-    """Vertical centre of each row, counting down from `y_top`."""
+    """Vertical centre of each row, counting down from `y_top`.
+
+    A row of several lines (a wrapped PGS row, #68) has the centre of its
+    first line, where its icon goes; its other lines follow `m.line_h` apart.
+    """
     centers = []
-    slot = 0
+    y = y_top
     for row in rows:
-        centers.append(y_top - (slot + row.slots / 2) * m.row_h)
-        slot += row.slots
+        centers.append(y - (m.row_h / 2 if row.lines > 1 else row.slots * m.row_h / 2))
+        y -= row.slots * m.row_h + (row.lines - 1) * m.line_h
     return centers
 
 
@@ -1495,28 +1533,168 @@ class LegendKeyItem:
     text_x: float
     name: str
     color: str
+    line: int = 0  # the row's line it is on, 0 for the first (#68)
+
+
+@dataclass(frozen=True)
+class PgsRowLayout:
+    """The text of a PGS row: its caption's lines, then its key (#68).
+
+    Attributes:
+        captions: The caption, one entry per line (one when it fits).
+        items: The key's scores, each with the line it is on.
+        lines: Lines the row takes.
+    """
+
+    captions: tuple[str, ...]
+    items: tuple[LegendKeyItem, ...]
+    lines: int
+
+
+def _legend_text_width(text: str, size: float, m: LegendMetrics) -> float:
+    """Width of `text` at `size` points, in horizontal legend units (DejaVu Sans)."""
+    return symbols.text_width(text, size) / symbols.UNITS_PER_POINT / 72 / m.unit_x
+
+
+def _wrap_words(text: str, x: float, right: float, m: LegendMetrics) -> list[str]:
+    """`text` from `x` in lines ending before `right`, broken between words."""
+    lines: list[str] = []
+    for word in text.split(" "):
+        if lines and _legend_text_width(f"{lines[-1]} {word}", m.fs, m) <= right - x:
+            lines[-1] = f"{lines[-1]} {word}"
+        else:
+            lines.append(word)
+    return lines
+
+
+def pgs_row_layout(row: LegendRow, label_x: float, m: LegendMetrics) -> PgsRowLayout:
+    """Where a PGS row's caption and key go, its text starting at ``label_x``.
+
+    On one line when it ends before `LegendRow.wrap_right` (or that is
+    None): the caption, then each score's name after a dash of its color
+    (#56). Otherwise (#68) the caption on the first line, wrapped between
+    words if it is itself too long, and the key on the lines below,
+    starting under the caption's text and wrapped between scores, never
+    inside a name. Text is measured in DejaVu Sans at the row's size
+    (`symbols.text_width`), so both renderers break at the same places.
+    """
+    em = m.fs / 72 / m.unit_x  # one em of the row's text, in legend units
+
+    def place(x: float, name: str, color: str, line: int) -> LegendKeyItem:
+        dash_x1 = x + LEG_KEY_DASH_EM * em
+        text_x = dash_x1 + LEG_KEY_GAP_EM * em
+        return LegendKeyItem(x, dash_x1, text_x, name, color, line)
+
+    def end(item: LegendKeyItem) -> float:
+        return item.text_x + _legend_text_width(item.name, m.fs, m)
+
+    # One line, as before #68.
+    items: list[LegendKeyItem] = []
+    x = label_x + _legend_text_width(row.label, m.fs, m)
+    for name, color in row.key:
+        items.append(place(x + LEG_KEY_SPACE_EM * em, name, color, 0))
+        x = end(items[-1])
+    right = row.wrap_right
+    if right is None or x <= right:
+        return PgsRowLayout((row.label,), tuple(items), 1)
+
+    captions = _wrap_words(row.label, label_x, right, m)
+    line = len(captions)
+    items = []
+    x = label_x
+    for name, color in row.key:
+        item = place(x, name, color, line)
+        if x > label_x and end(item) > right:
+            line += 1
+            item = place(label_x, name, color, line)
+        items.append(item)
+        x = end(item) + LEG_KEY_SPACE_EM * em
+    return PgsRowLayout(tuple(captions), tuple(items), line + 1 if items else line)
 
 
 def legend_key_items(row: LegendRow, label_x: float, m: LegendMetrics) -> list[LegendKeyItem]:
     """Where the PGS row's key goes, after its label written from ``label_x`` (#56).
 
-    Text is measured in DejaVu Sans at the row's size (`symbols.text_width`),
-    so both renderers set the dashes and names at the same places.
+    See `pgs_row_layout`, which also gives the caption's lines.
     """
+    return list(pgs_row_layout(row, label_x, m).items)
 
-    def units(points: float) -> float:
-        return points / 72 / m.unit_x
 
-    em = units(m.fs)
-    x = label_x + units(symbols.text_width(row.label, m.fs) / symbols.UNITS_PER_POINT)
-    items = []
-    for name, color in row.key:
-        x += LEG_KEY_SPACE_EM * em
-        dash_x1 = x + LEG_KEY_DASH_EM * em
-        text_x = dash_x1 + LEG_KEY_GAP_EM * em
-        items.append(LegendKeyItem(x, dash_x1, text_x, name, color))
-        x = text_x + units(symbols.text_width(name, m.fs) / symbols.UNITS_PER_POINT)
-    return items
+def legend_row_right(row: LegendRow, m: LegendMetrics) -> float:
+    """Where a row's content ends, in legend units (DejaVu Sans widths).
+
+    Used to wrap the PGS row at the widest other row (#68).
+    """
+    if row.kind == "quadrants":
+        g = quadrant_key_geometry(row, m, 0.0)
+        sx, _sy, sw, _sh = g.square
+        right = sx + sw if g.circle is None else g.circle[0] + g.circle[2]
+        for x, _y, text, anchor in g.labels:
+            if anchor == "start":
+                right = max(right, x + _legend_text_width(text, m.fs, m))
+        return right
+    if row.kind == "key_note":
+        return LEG_X0 + _legend_text_width(row.label, m.caption_fs(), m)
+    if row.kind in ("gradient", "categorical", "binary", "binary_shared"):
+        right = m.text_x + _legend_text_width(row.label, m.fs, m)
+        if row.kind == "categorical":
+            right = max(right, LEG_X0 + len(row.categories) * (m.sw_w + m.sw_gap * 0.5))
+        return right
+    if row.kind == "pgs":
+        layout = pgs_row_layout(row, m.icon_text_x, m)
+        ends = [m.icon_text_x + _legend_text_width(c, m.fs, m) for c in layout.captions]
+        ends += [i.text_x + _legend_text_width(i.name, m.fs, m) for i in layout.items]
+        return max(ends)
+    return m.icon_text_x + _legend_text_width(row.label, m.fs, m)
+
+
+def legend_max_width_inches(style: PedigreeStyle) -> float | None:
+    """``legend_max_width`` in inches: a number is in centimetres, or text
+    with its unit ("85mm", "8.5cm", "3.3in"); None when unset."""
+    value = style.legend_max_width
+    if value is None:
+        return None
+    if isinstance(value, str):
+        match = re.fullmatch(r"\s*([0-9]*\.?[0-9]+)\s*(cm|mm|in)\s*", value)
+        assert match is not None  # checked by `check_legend`
+        return float(match.group(1)) * LEG_WIDTH_UNITS[match.group(2)]
+    return float(value) * LEG_WIDTH_UNITS["cm"]
+
+
+def legend_layout(
+    rows: Sequence[LegendRow], style: PedigreeStyle
+) -> tuple[list[LegendRow], LegendMetrics]:
+    """The legend's rows, PGS row wrapped (#68), and the panel's metrics.
+
+    The PGS row wraps where the widest other row ends, or, with
+    ``legend_max_width``, where the panel reaches that width (never before
+    the widest other row: they do not wrap). Its height then counts each
+    extra line. Both renderers call this, so they wrap at the same places.
+    """
+    binary_headers = any(r.kind in ("binary", "binary_shared") for r in rows)
+    m = legend_metrics(legend_slot_count(rows), style, binary_headers=binary_headers)
+    others = [legend_row_right(r, m) for r in rows if r.kind != "pgs"]
+    right = max(others) if others else None
+    max_in = legend_max_width_inches(style)
+    if max_in is not None:
+        # The border runs from 0 to `right + LEG_X0 + 0.1` (its rounded pad).
+        # Never narrower than the other rows, which do not wrap: the panel
+        # would be as wide, only taller.
+        right = max(max_in / m.unit_x - LEG_X0 - 0.1, right or 0.0)
+    if right is None:
+        return list(rows), m
+    out = []
+    for row in rows:
+        if row.kind == "pgs":
+            row = replace(row, wrap_right=right)
+            row = replace(row, lines=pgs_row_layout(row, m.icon_text_x, m).lines)
+        out.append(row)
+    extra = sum(r.lines - 1 for r in out)
+    if extra:
+        m = legend_metrics(
+            legend_slot_count(out), style, binary_headers=binary_headers, extra_lines=extra
+        )
+    return out, m
 
 
 def pgs_legend_description(pgs_names: Sequence[str], scale: str = "minmax") -> str:

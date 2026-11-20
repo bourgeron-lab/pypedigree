@@ -22,12 +22,15 @@ class TestPedigreeStyleDefaults:
         assert s.dpi == 150
 
     def test_all_defaults_are_set(self):
-        """Every option has a default; only `min_font_size` is None ("no minimum")."""
+        """Every option has a default; only `min_font_size` ("no minimum") and
+        `legend_max_width` ("no maximum", #68) are None."""
         s = PedigreeStyle()
+        unset = {"min_font_size", "legend_max_width"}
         for f in fields(s):
-            if f.name != "min_font_size":
+            if f.name not in unset:
                 assert getattr(s, f.name) is not None
         assert s.min_font_size is None
+        assert s.legend_max_width is None
 
 
 class TestFromDict:

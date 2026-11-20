@@ -18,6 +18,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   columns read from a caption under it ("Colored: affected · white: unaffected · grey:
   unknown") instead of a row of swatches, also with a single binary column. Every option
   defaults to the legend drawn before: no figure changes.
+- `legend_max_width` style option: the widest the legend may be, in centimetres (`8.5`) or with
+  a unit (`"85mm"`, `"8.5cm"`, `"3.3in"`), up to which the PGS row may grow before it wraps
+  (#68).
+
+### Changed
+
+- The PGS legend row wraps instead of widening the legend (#68): when the caption and the
+  score key are longer than the legend's widest other row (or than `legend_max_width`), the key
+  goes on the lines below the caption, under its text, wrapped between scores (never inside a
+  name), and a caption longer than that width wraps between words. The legend is that much
+  taller. With four scores at 6 pt the legend of the issue's example is 8.3 cm wide instead of
+  12.2 cm, so it fits a journal column. A row that fits, such as a single short score, is
+  drawn on one line as before. PNG and SVG break at the same places (DejaVu Sans widths). Two
+  goldens change (`multi_phenotype_pgs`, `circular_test_all`), and the gallery's
+  `annotations.png`.
 
 ## [0.8.1] - 2026-11-19
 
