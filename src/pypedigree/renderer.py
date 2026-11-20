@@ -68,6 +68,7 @@ from pypedigree.phenotypes import (
     LEG_GRAD_W,
     LEG_RING_INSET_PT,
     LEG_RING_WIDTH_PT,
+    LEG_SEX_SYMBOL_GAP,
     LEG_SWATCH_EDGE,
     LEG_X0,
     NA_FILL,
@@ -100,9 +101,12 @@ from pypedigree.phenotypes import (
     check_phenotype_layout,
     curve_caption,
     fit_text,
+    legend_binary_captions,
     legend_layout,
+    legend_min_right,
     legend_row_centers,
     legend_rows,
+    legend_sex_items,
     legend_slot_count,
     outline_colors,
     outline_reach,
@@ -2380,14 +2384,14 @@ def _draw_legend_header(ax: Axes, m: LegendMetrics, style: PedigreeStyle) -> flo
         return m.content_top
 
     # Male / female reference symbols, drawn as plot markers so they stay
-    # circular/square regardless of the axes aspect ratio.
-    sym_gap = 0.25
+    # circular/square regardless of the axes aspect ratio; their text and
+    # place from `legend_sex_items` (#79).
     y = m.sex_y
-    for x, marker, label in [(0.6, "s", "= Male"), (2.5, "o", "= Female")]:
+    for x, shape, label in legend_sex_items(style, m):
         ax.plot(
             x,
             y,
-            marker=marker,
+            marker="s" if shape == "square" else "o",
             markersize=m.marker_size,
             markerfacecolor="white",
             markeredgecolor="black",
@@ -2395,7 +2399,7 @@ def _draw_legend_header(ax: Axes, m: LegendMetrics, style: PedigreeStyle) -> flo
             linestyle="none",
         )
         ax.text(
-            x + sym_gap,
+            x + LEG_SEX_SYMBOL_GAP,
             y,
             label,
             fontsize=m.fs,
@@ -2406,7 +2410,7 @@ def _draw_legend_header(ax: Axes, m: LegendMetrics, style: PedigreeStyle) -> flo
     return m.content_top
 
 
-def _draw_legend_border(ax: Axes, m: LegendMetrics) -> None:
+def _draw_legend_border(ax: Axes, m: LegendMetrics, style: PedigreeStyle) -> None:
     """Frame the panel content, which is drawn first so it can be measured.
 
     The border hugs the content horizontally rather than spanning the whole
@@ -2418,7 +2422,7 @@ def _draw_legend_border(ax: Axes, m: LegendMetrics) -> None:
     extents = [
         e for e in (a.get_window_extent() for a in artists) if np.isfinite([e.x0, e.x1]).all()
     ]
-    right = LEG_X0 + 4.0
+    right = legend_min_right(style)  # none with "minimal": the frame hugs it (#79)
     if extents:
         content = Bbox.union(extents)
         right = max(right, ax.transData.inverted().transform((content.x1, 0))[0])
@@ -2445,7 +2449,7 @@ def _draw_legend_binary_headers(
     Returns:
         The y cursor below the headers.
     """
-    for i, text in enumerate(("Affected", "Unaffected", "Unknown")):
+    for i, text in enumerate(legend_binary_captions(style)):
         _legend_caption(ax, m.swatch_x(i) + m.sw_w / 2, y, text, m, style, ha="center")
     return y - m.binary_header_h
 
@@ -2854,7 +2858,7 @@ def _draw_legend(
             # Colors are self-explanatory, so the row label is just the name.
             _legend_row_label(ax, y_center, row.label, m.text_x, m, style)
 
-    _draw_legend_border(ax, m)
+    _draw_legend_border(ax, m, style)
 
 
 def _finalize_axes(ax: Axes) -> None:
