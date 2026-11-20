@@ -184,8 +184,11 @@ class TestDrawing:
             fig.canvas.draw()
             ax = fig.axes[0]
             star = next(t for t in ax.texts if t.get_text() == "*").get_window_extent()
+            # The PGS boxes: rounded, narrower than a symbol (squares are too).
             boxes = [
-                p.get_window_extent() for p in ax.patches if type(p).__name__ == "FancyBboxPatch"
+                p.get_window_extent()
+                for p in ax.patches
+                if type(p).__name__ == "FancyBboxPatch" and p.get_width() < 0.5
             ]
             assert boxes
             for box in boxes:

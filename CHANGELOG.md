@@ -39,8 +39,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   "≥ 76"). The value is still written in the band; the SVG tooltip adds its step ("SRS: 70
   (66–75)"). New gallery example: `tests/data/phenotype/gradient_bins.ped`.
 
+- `gradient_bin_labels` style option (#81): names for the steps of `gradient_bins`, one per step
+  from the lowest up, e.g. `{"SRS": [null, "mild", "moderate", "severe"]}` (`null` or `""` for an
+  unnamed step; a `gi_` column lists them from its lowest step up too). The legend writes each
+  name under its step's limits, the step as wide as its name; the SVG tooltip gives it with the
+  step ("SRS: 81 (≥ 76, severe)"). The gallery's `gradient_bins` example names its steps.
+
+- `legend_text` style option (#79): the legend's fixed wording by role (`key_note`,
+  `shared_binary`, `affected`, `unaffected`, `unknown`, `pgs`, `ptdt`, `male`, `female`, `low`,
+  `high`), for British spelling ("Coloured") or a figure in another language, in the PNG and
+  SVG legends; a wrapped PGS row measures the new text, and a longer "male" text moves the
+  female symbol along. An unknown role raises `PedigreeError` with a suggested spelling. The
+  default wording is unchanged: it follows the documentation's spelling ("color", "grey").
+
 ### Changed
 
+- With `legend: "minimal"`, the legend's frame hugs its content: no minimum width (#79). A
+  minimal legend with one short row gets a frame as narrow as that row.
 - A wrapped legend row keeps "±2 SD" on one line (#68 follow-up): its words are joined by a
   no-break space.
 - With `gradient_range`, the legend's gradient bar writes the range's ends instead of "Low" /
@@ -58,6 +73,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The deceased line no longer reaches into the PGS box (#80): it overshoots the symbol by 0.2
+  half-sizes at each end, while the box sat 0.15 beside it, so its end met the box's corner,
+  where a low score's marker sits. Beside a struck-through symbol the box now keeps 0.12
+  half-sizes clear of the line's end, on either side, and the layout counts the extra.
+  Other symbols' boxes do not move.
 - The right-hand partner's PGS curve and its values are drawn on their right, not on the line
   between the partners, which crossed the box, the curve, the dots and the values (#78). The
   layout already chose a side (`NodeLayout.pgs_side`); both renderers now follow it, the values

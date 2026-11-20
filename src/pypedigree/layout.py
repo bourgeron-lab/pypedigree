@@ -364,27 +364,38 @@ class _HierarchicalPlacer:
         each side adds to it: two neighbours with long labels end up at
         least the sum of their labels' reaches apart. A right-hand partner,
         whose PGS box is drawn on their right (#78), keeps its room there:
-        the sibling gap already holds the next symbol's box, on its left.
+        the sibling gap already holds the next symbol's box, on its left. A
+        box moved further out than usual (past the evaluation asterisk, or a
+        deceased line's end, #80) keeps the extra on its side.
         """
         label = self._label_room(sid)
         marker = max(0.0, self.marker_room.get(sid, 0.0) - self.style.sibling_gap)
-        right = label
-        if pgs_right and self.style.pgs_box_room > 0:
-            right = max(right, self._pgs_room(sid))
-        block.add(sid, x, gen, max(marker, label), right)
+        left, right = max(marker, label), label
+        if self.style.pgs_box_room > 0:
+            if pgs_right:
+                right = max(right, self.style.pgs_box_room + self._pgs_extra(sid, "right"))
+            else:
+                left += self._pgs_extra(sid, "left")
+        block.add(sid, x, gen, left, right)
 
-    def _pgs_room(self, sid: str) -> float:
-        """Room a PGS box drawn on the right of ``sid`` takes (#78)."""
+    def _pgs_extra(self, sid: str, side: str) -> float:
+        """How much further out than usual the PGS box of ``sid`` is drawn on
+        ``side``: past the evaluation asterisk (#78) or a deceased line's end
+        (#80)."""
         style = self.style
         ind = self.family.individuals[sid]
         half = style.shape_size / 2
         size = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
         sex = symbols.symbol_sex(ind.sex, ind.notation)
-        evaluated = ind.notation.is_evaluated
-        extra = symbols.pgs_box_near(half, sex, evaluated, size, "right") - symbols.pgs_box_near(
-            half, sex, False, size, "right"
+        near = symbols.pgs_box_near(
+            half,
+            sex,
+            ind.notation.is_evaluated,
+            size,
+            side,
+            struck=symbols.is_struck_through(ind),
         )
-        return style.pgs_box_room + extra
+        return near - symbols.pgs_box_near(half, sex, False, size, side)
 
     def _line(self, sid: str) -> frozenset[str]:
         """``sid`` and all their descendants."""

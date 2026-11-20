@@ -1,4 +1,5 @@
 {
   "gradient_bins": {"SRS": [60, 66, 76], "IQ": [70]},
+  "gradient_bin_labels": {"SRS": [null, "mild", "moderate", "severe"], "IQ": ["intellectual disability", null]},
   "gradient_range": {"ADHD_RS": [0, 54]}
 }

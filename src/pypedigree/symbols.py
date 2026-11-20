@@ -612,13 +612,29 @@ def unknown_offspring_anchor(
 PGS_BOX_WIDTH = 0.8
 PGS_BOX_GAP = 0.15
 
+# The deceased line runs corner to corner and this far past each corner, in
+# half-sizes; a PGS box beside a struck-through symbol keeps this much more
+# from it, so the line's end does not reach the box (#80).
+DECEASED_OVERSHOOT = 0.2
+PGS_DECEASED_MARGIN = 0.12
 
-def pgs_box_near(half: float, sex: Sex, evaluated: bool, mark_size: float, side: str) -> float:
+
+def pgs_box_near(
+    half: float,
+    sex: Sex,
+    evaluated: bool,
+    mark_size: float,
+    side: str,
+    *,
+    struck: bool = False,
+) -> float:
     """From a symbol's centre to the near edge of its PGS box, in layout units.
 
-    The gap is `PGS_BOX_GAP` half-sizes beyond the symbol. A box on the
-    right also clears the documented-evaluation asterisk at the symbol's
-    lower right (#78), measured at the SVG's scale.
+    The gap is `PGS_BOX_GAP` half-sizes beyond the symbol. Beside a
+    struck-through (deceased) symbol, the box also clears the line's end,
+    `DECEASED_OVERSHOOT` past the corner, by `PGS_DECEASED_MARGIN` (#80). A
+    box on the right also clears the documented-evaluation asterisk at the
+    symbol's lower right (#78), measured at the SVG's scale.
 
     Args:
         half: Half the symbol's size.
@@ -626,8 +642,11 @@ def pgs_box_near(half: float, sex: Sex, evaluated: bool, mark_size: float, side:
         evaluated: Whether the individual has the asterisk.
         mark_size: The asterisk's font size, in points.
         side: "left" or "right" (`NodeLayout.pgs_side`).
+        struck: Whether the symbol is struck through (deceased).
     """
     near = half * (1 + PGS_BOX_GAP)
+    if struck:
+        near = max(near, half * (1 + DECEASED_OVERSHOOT + PGS_DECEASED_MARGIN))
     if side == "right" and evaluated:
         mark_x, _ = evaluation_mark_position(0.0, 0.0, half, sex)
         mark_right = mark_x + text_width(EVALUATION_MARK, mark_size, bold=True) / 2

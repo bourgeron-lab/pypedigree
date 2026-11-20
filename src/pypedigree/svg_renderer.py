@@ -68,6 +68,7 @@ from pypedigree.phenotypes import (
     LEG_GRAD_W,
     LEG_RING_INSET_PT,
     LEG_RING_WIDTH_PT,
+    LEG_SEX_SYMBOL_GAP,
     LEG_SWATCH_EDGE,
     LEG_UNIT_X_EM,
     LEG_UNIT_Y_EM,
@@ -101,9 +102,12 @@ from pypedigree.phenotypes import (
     curve_value_text,
     display_name,
     fit_text,
+    legend_binary_captions,
     legend_layout,
+    legend_min_right,
     legend_row_centers,
     legend_rows,
+    legend_sex_items,
     legend_slot_count,
     outline_colors,
     outline_columns,
@@ -909,7 +913,7 @@ def _svg_node(
     sw = style.shape_line_width * _PT
     ring = _node_ring(node, ctx) if banded else 0.0  # around several o_ borders (#46)
     if node.is_deceased and not triangle:
-        o = (half + ring) * 0.2 + ring
+        o = (half + ring) * symbols.DECEASED_OVERSHOOT + ring
         parts.append(
             f'<line x1="{node.x - half - o:.3f}" y1="{node.y + half + o:.3f}" '
             f'x2="{node.x + half + o:.3f}" y2="{node.y - half - o:.3f}" '
@@ -1497,7 +1501,7 @@ def _svg_legend(
     uy = LEG_UNIT_Y_EM * m.font * _PT
     fs = m.fs * _PT
     body: list[str] = []
-    right = LEG_X0 + 4.0  # rightmost content, in legend units
+    right = legend_min_right(style)  # rightmost content, in legend units (#79)
 
     def X(u: float) -> float:
         return x0 + u * ux
@@ -1550,16 +1554,19 @@ def _svg_legend(
     if m.sex_y is not None:
         v = m.sex_y
         side = m.marker_size * _PT
-        body.append(
-            f'<rect x="{X(0.6) - side / 2:.3f}" y="{Y(v) - side / 2:.3f}" width="{side:.3f}" '
-            f'height="{side:.3f}" fill="white" stroke="black" stroke-width="{_PT:.3f}"/>'
-        )
-        body.append(
-            f'<circle cx="{X(2.5):.3f}" cy="{Y(v):.3f}" r="{side / 2:.3f}" fill="white" '
-            f'stroke="black" stroke-width="{_PT:.3f}"/>'
-        )
-        text(0.6 + 0.25, v, "= Male", fs)
-        text(2.5 + 0.25, v, "= Female", fs)
+        for u, shape, label in legend_sex_items(style, m):
+            if shape == "square":
+                body.append(
+                    f'<rect x="{X(u) - side / 2:.3f}" y="{Y(v) - side / 2:.3f}" '
+                    f'width="{side:.3f}" height="{side:.3f}" fill="white" stroke="black" '
+                    f'stroke-width="{_PT:.3f}"/>'
+                )
+            else:
+                body.append(
+                    f'<circle cx="{X(u):.3f}" cy="{Y(v):.3f}" r="{side / 2:.3f}" fill="white" '
+                    f'stroke="black" stroke-width="{_PT:.3f}"/>'
+                )
+            text(u + LEG_SEX_SYMBOL_GAP, v, label, fs)
     y_top = m.content_top
 
     # The quadrant key first (and its note, #67), so the captions sit above
@@ -1601,7 +1608,7 @@ def _svg_legend(
     rows = [r for r in rows if r.kind not in KEY_ROW_KINDS]
 
     if binary_headers:
-        for i, s in enumerate(("Affected", "Unaffected", "Unknown")):
+        for i, s in enumerate(legend_binary_captions(style)):
             caption(m.swatch_x(i) + m.sw_w / 2, y_top, s, "middle")
         y_top -= m.binary_header_h
 
@@ -1616,11 +1623,24 @@ def _svg_legend(
             caption(LEG_X0 + LEG_GRAD_W, cap_v, row.high, "end")
         elif row.kind == "binned":
             # A gradient's steps (`gradient_bins`, #57), each with its limits.
+            # The steps' names under their limits (#81).
             steps = binned_row_geometry(row, m)
-            for k, (rgb, limits) in enumerate(zip(row.colors, row.bins, strict=True)):
+            names = row.bin_names or ("",) * len(row.bins)
+            for k, (rgb, limits, step_name) in enumerate(
+                zip(row.colors, row.bins, names, strict=True)
+            ):
                 u = LEG_X0 + k * steps.step_w
                 swatch(u, vc, steps.step_w * 1.01, m.sw_h, to_hex(rgb), stroke="none")
-                caption(u + steps.step_w / 2, vc - m.sw_h / 2 - LEG_CAPTION_GAP, limits, "middle")
+                v = vc - m.sw_h / 2 - LEG_CAPTION_GAP
+                caption(u + steps.step_w / 2, v, limits, "middle")
+                if step_name:
+                    caption(
+                        u + steps.step_w / 2,
+                        v - steps.name_dy,
+                        step_name,
+                        "middle",
+                        color=LEG_CATEGORY_COLOR,
+                    )
             swatch(LEG_X0, vc, steps.step_w * len(row.colors), m.sw_h, "none")
         elif row.kind == "categorical":
             u = LEG_X0
