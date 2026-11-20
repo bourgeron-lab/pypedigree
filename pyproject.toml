@@ -1,6 +1,6 @@
 [project]
 name = "pypedigree"
-version = "0.8.1"
+version = "0.9.0"
 description = "Generate publication-quality pedigree (family tree) diagrams from pedigree files"
 readme = "README.md"
 license = { text = "MIT" }

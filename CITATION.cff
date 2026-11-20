@@ -15,8 +15,8 @@ authors:
   - given-names: Freddy
     family-names: Cliquet
     email: freddy.cliquet@gmail.com
-version: 0.8.1
-date-released: "2026-11-19"
+version: 0.9.0
+date-released: "2026-11-20"
 # Concept DOI: every release, resolving to the latest. Each release also
 # gets its own version DOI on Zenodo (0.4.4: 10.5281/zenodo.24289472).
 doi: 10.5281/zenodo.24289471
