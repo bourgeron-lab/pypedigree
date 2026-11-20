@@ -113,7 +113,8 @@ src/pypedigree/
    level with the labels. A PGS box goes on `NodeLayout.pgs_side` (#78): "right" for the right-hand
    partner of a couple with no partner on their right (`layout._pgs_right_side`), so no box sits on a
    partner line; `phenotypes.pgs_box_left` / `pgs_values_x` place box and values (far side) for both
-   renderers, `symbols.pgs_box_near` clears the evaluation asterisk, and the placer keeps
+   renderers, `symbols.pgs_box_near` clears the evaluation asterisk and, for a struck-through symbol, the deceased
+   line's end (`DECEASED_OVERSHOOT` + `PGS_DECEASED_MARGIN`, #80; the placer counts the extra, `_pgs_extra`), and the placer keeps
    `style.pgs_box_room` (set by `apply_pgs_spacing`) right of such nodes (`_add(..., pgs_right)`). `_HierarchicalPlacer.marker_room` gives each of them
    the distance their left neighbour needs (`symbols.marker_clearance`, for the
    longest label of the generation, text converted with
@@ -573,6 +574,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_outline_rings.py` — One border per `o_` column (#46): order, spacing, labels level,
   PGS box, tooltip, legend row, PNG borders in points, warning above three
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
+- `tests/test_deceased_pgs.py` — The deceased line clear of the PGS box (#80)
 - `tests/test_pgs_side.py` — The right-hand partner's PGS box on their right, off the partner line (#78)
 - `tests/test_proband_marker.py` — The proband's "P" clear of the label on its left: room kept by
   the layout with tight spacing or large text, none at the default style, no overlap in the PNG

@@ -909,7 +909,7 @@ def _svg_node(
     sw = style.shape_line_width * _PT
     ring = _node_ring(node, ctx) if banded else 0.0  # around several o_ borders (#46)
     if node.is_deceased and not triangle:
-        o = (half + ring) * 0.2 + ring
+        o = (half + ring) * symbols.DECEASED_OVERSHOOT + ring
         parts.append(
             f'<line x1="{node.x - half - o:.3f}" y1="{node.y + half + o:.3f}" '
             f'x2="{node.x + half + o:.3f}" y2="{node.y - half - o:.3f}" '

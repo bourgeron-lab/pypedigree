@@ -868,7 +868,7 @@ def _draw_deceased_marker(
     style: PedigreeStyle,
 ) -> None:
     """Draw a diagonal line from bottom-left to top-right, extending slightly past shape."""
-    overshoot = half * 0.2
+    overshoot = half * symbols.DECEASED_OVERSHOOT
     ax.plot(
         [cx - half - overshoot, cx + half + overshoot],
         [cy - half - overshoot, cy + half + overshoot],
