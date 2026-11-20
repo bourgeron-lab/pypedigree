@@ -1075,7 +1075,12 @@ def pgs_box_left(node: NodeLayout, style: PedigreeStyle, ring: float = 0.0) -> f
     half = style.shape_size / 2
     mark = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
     near = ring + symbols.pgs_box_near(
-        half, node.sex, node.notation.is_evaluated, mark, node.pgs_side
+        half,
+        node.sex,
+        node.notation.is_evaluated,
+        mark,
+        node.pgs_side,
+        struck=node.is_deceased,
     )
     if node.pgs_side == "right":
         return node.x + near
