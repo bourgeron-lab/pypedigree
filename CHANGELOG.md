@@ -58,6 +58,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The captions under the legend's last row (a gradient's ends, a binned row's limits, category
+  names) no longer run past the legend's frame, nor the figure's edge at small sizes (#77): the
+  panel gets a bottom margin for the part of them that hangs below the row. Legends whose last
+  row has no captions keep their height. Four goldens change (`gradient_bins`,
+  `multi_phenotype_inline`, `pheno_file`, `multi_phenotype_no_labels`: a gradient last), and
+  the gallery's `gradient_bins.png`.
 - Text enlarged by `min_font_size` keeps its gaps (#66). The notes and annotations below an ID
   label ("AFAB", "SB", `a_` columns) are spaced by their drawn size: each line starts at least
   the height of the line above plus 0.3 em below it, so they no longer read as one block with
