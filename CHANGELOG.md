@@ -52,6 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   female symbol along. An unknown role raises `PedigreeError` with a suggested spelling. The
   default wording is unchanged: it follows the documentation's spelling ("color", "grey").
 
+- `gradient_bin_label_position` style option (#90): `"inside"` writes the step names of
+  `gradient_bin_labels` in the legend's colored steps, centred, in a color that reads on each
+  (as band text), the limits staying under the bar on one line, so the row is shorter than with
+  `"below"` (the default, as before). The bar grows to a line of names when it needs to, and each
+  step to its name. For all binned columns, or by column (`{"SRS": "inside"}`).
+
 ### Changed
 
 - With `legend: "minimal"`, the legend's frame hugs its content: no minimum width (#79). A

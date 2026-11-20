@@ -1630,10 +1630,21 @@ def _svg_legend(
                 zip(row.colors, row.bins, names, strict=True)
             ):
                 u = LEG_X0 + k * steps.step_w
-                swatch(u, vc, steps.step_w * 1.01, m.sw_h, to_hex(rgb), stroke="none")
-                v = vc - m.sw_h / 2 - LEG_CAPTION_GAP
+                swatch(u, vc, steps.step_w * 1.01, steps.bar_h, to_hex(rgb), stroke="none")
+                v = vc - steps.bar_h / 2 - LEG_CAPTION_GAP
                 caption(u + steps.step_w / 2, v, limits, "middle")
-                if step_name:
+                if step_name and row.names_inside:
+                    # In the step, in a color that reads on it (#90).
+                    text(
+                        u + steps.step_w / 2,
+                        vc,
+                        step_name,
+                        steps.name_size * _PT,
+                        "middle",
+                        baseline="central",
+                        color=text_color_on(to_hex(rgb)),
+                    )
+                elif step_name:
                     caption(
                         u + steps.step_w / 2,
                         v - steps.name_dy,
@@ -1641,7 +1652,7 @@ def _svg_legend(
                         "middle",
                         color=LEG_CATEGORY_COLOR,
                     )
-            swatch(LEG_X0, vc, steps.step_w * len(row.colors), m.sw_h, "none")
+            swatch(LEG_X0, vc, steps.step_w * len(row.colors), steps.bar_h, "none")
         elif row.kind == "categorical":
             u = LEG_X0
             for value, color in row.categories.items():
