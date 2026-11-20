@@ -169,17 +169,36 @@ class TestPgsCaption:
     )
 
     def _nodes(self):
+        """Laid out with the spacing the renderers apply for PGS curves."""
+        from pypedigree.config import apply_pgs_spacing
+
         family = parse_pedigree_from_string(self.PED).families["F"]
-        return {n.individual_id: n for n in compute_layout(family, PedigreeStyle()).nodes}
+        style = apply_pgs_spacing(PedigreeStyle(), ["PGS"])
+        return {n.individual_id: n for n in compute_layout(family, style).nodes}
 
     @staticmethod
     def _owner(nodes, x, y):
         """The individual whose curve the caption at (x, y) belongs to: the
-        nearest symbol on its right in the same generation. (The renderers
-        widen the gaps for PGS curves, so positions differ from
-        `compute_layout`'s by a fraction of a unit.)"""
-        (sid,) = [s for s, n in nodes.items() if 0 < n.x - x < 1.0 and abs(n.y - y) < 1.0]
+        nearest symbol in the same generation on the side of its box (#78:
+        a right-hand partner's box is on their right)."""
+
+        def side_ok(n):
+            dx = n.x - x
+            return -1.0 < dx < 0 if n.pgs_side == "right" else 0 < dx < 1.0
+
+        (sid,) = [s for s, n in nodes.items() if side_ok(n) and abs(n.y - y) < 1.0]
         return sid
+
+    @staticmethod
+    def _above(nodes, sid):
+        """A marked individual's caption goes above a box on the left, where
+        their marker is; the consultand "2" is a right-hand partner, whose box
+        and caption are on the right, clear of it (#78)."""
+        return sid in ("2", "3") and nodes[sid].pgs_side == "left"
+
+    def test_marked_individuals_on_both_sides(self):
+        nodes = self._nodes()
+        assert nodes["2"].pgs_side == "right" and nodes["3"].pgs_side == "left"
 
     def test_png_caption_above_the_curve_of_marked_individuals(self):
         nodes = self._nodes()
@@ -190,7 +209,7 @@ class TestPgsCaption:
             for caption in captions:
                 x, y = caption.get_position()
                 sid = self._owner(nodes, x, y)
-                marked = sid in ("2", "3")
+                marked = self._above(nodes, sid)
                 assert (y > nodes[sid].y) is marked, sid
                 assert caption.get_va() == ("bottom" if marked else "top")
         finally:
@@ -205,7 +224,7 @@ class TestPgsCaption:
             # The SVG's y is the layout's, negated (pointing down): above the
             # node means a smaller y.
             sid = self._owner(nodes, float(x), -float(y))
-            assert (float(y) < -nodes[sid].y) is (sid in ("2", "3")), sid
+            assert (float(y) < -nodes[sid].y) is self._above(nodes, sid), sid
 
     def test_circular_layout_still_draws_the_marker(self):
         fig = render_pedigree(parse_pedigree_from_string(_sibship()), style=TIGHT, circular=True)

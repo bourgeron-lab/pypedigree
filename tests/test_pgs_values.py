@@ -147,14 +147,23 @@ class TestSvg:
         svg = pp.render_svg(_ped(), style=pp.PedigreeStyle(pgs_scale="zscore"))
         assert 'class="pgs-value"' not in svg
 
-    def test_values_left_of_the_box_and_apart(self):
+    def test_values_beyond_the_box_and_apart(self):
+        """On the far side of the box from the symbol: left of a box on the
+        left, right of a right-hand partner's box on the right (#78)."""
         svg = pp.render_svg(_ped(), style=ZSCORE)
         size = ZSCORE.text_size(symbols.PGS_CAPTION_SCALE) * PT
         for group in _nodes(svg).values():
-            box_left = float(re.search(r'<g class="pgs">\s*<rect x="([-0-9.]+)"', group).group(1))
+            box = re.search(
+                r'<g class="pgs">\s*<rect x="([-0-9.]+)" y="[-0-9.]+" width="([0-9.]+)"', group
+            )
+            box_left, box_w = float(box.group(1)), float(box.group(2))
+            node_x = float(re.search(r'data-x="([-0-9.]+)"', group).group(1))
             values = re.findall(r'<text x="([-0-9.]+)" y="([-0-9.]+)"[^>]*class="pgs-value"', group)
             assert values
-            assert all(float(x) < box_left for x, _y in values)
+            if box_left > node_x:  # a box on the right
+                assert all(float(x) > box_left + box_w for x, _y in values)
+            else:
+                assert all(float(x) < box_left for x, _y in values)
             ys = sorted(float(y) for _x, y in values)
             assert min(b - a for a, b in itertools.pairwise(ys)) >= 1.15 * size - 2e-3
 

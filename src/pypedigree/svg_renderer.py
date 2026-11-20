@@ -75,7 +75,6 @@ from pypedigree.phenotypes import (
     NA_FILL,
     NA_TEXT_COLOR,
     OUTLINE_WIDTH_SCALE,
-    PGS_BOX_PAD,
     PGS_DOT_PT,
     PGS_VALUE_GAP_EM,
     PGS_VALUE_HALO_PT,
@@ -110,6 +109,7 @@ from pypedigree.phenotypes import (
     outline_columns,
     outline_reach,
     outline_ring_offsets,
+    pgs_box_left,
     pgs_caption_above,
     pgs_caption_offset,
     pgs_curve,
@@ -117,6 +117,7 @@ from pypedigree.phenotypes import (
     pgs_row_layout,
     pgs_tail_positions,
     pgs_values_width,
+    pgs_values_x,
     pregnancy_loss_fill,
     quadrant_box,
     quadrant_cell,
@@ -429,8 +430,15 @@ def _family_extent(layout: FamilyLayout, ctx: _SvgContext) -> _Extent:
     x0, x1 = min(xs) - reach, max(xs) + reach
     y0, y1 = min(ys) - reach, max(ys) + reach
     if ctx.pgs_names:
-        # PGS box on the left of each symbol, and its values beyond it.
-        x0 -= half * 0.95 + pgs_values_width(layout.nodes, ctx.pgs_names, style)
+        # Each PGS box, left of its symbol or right of it (#78), and its
+        # values beyond it.
+        values = pgs_values_width(layout.nodes, ctx.pgs_names, style)
+        box_w = half * symbols.PGS_BOX_WIDTH
+        for n in layout.nodes:
+            if active_pgs(n, ctx.pgs_names, style.pgs_scale):
+                box_left = pgs_box_left(n, style, _node_ring(n, ctx))
+                x0 = min(x0, box_left - values)
+                x1 = max(x1, box_left + box_w + values)
     if ctx.show_labels and layout.nodes:
         label_bottom = max(
             n.y
@@ -1268,9 +1276,9 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
     if not active:
         return ""
     half = style.shape_size / 2
-    box_w, box_h = half * 0.8, half * 2
-    # Clear of several o_ borders (#46).
-    left = node.x - half - box_w - half * 0.15 - _node_ring(node, ctx)
+    box_w, box_h = half * symbols.PGS_BOX_WIDTH, half * 2
+    # Clear of several o_ borders (#46); right of a right-hand partner (#78).
+    left = pgs_box_left(node, style, _node_ring(node, ctx))
     bottom = node.y + half
     thin = 0.5 * _PT
 
@@ -1340,7 +1348,10 @@ def _svg_pgs_values(
     size = style.text_size(symbols.PGS_CAPTION_SCALE)
     step = PGS_VALUE_LINE_EM * size * _PT
     placed = spread_labels(ys, step, top + step / 2, bottom - step / 2)
-    x = left - PGS_BOX_PAD - PGS_VALUE_GAP_EM * size * _PT
+    box_w = style.shape_size / 2 * symbols.PGS_BOX_WIDTH
+    # The far side of the box from the symbol (#78).
+    x, side = pgs_values_x(node, left, box_w, PGS_VALUE_GAP_EM * size * _PT)
+    anchor = "start" if side == "left" else "end"
     out = []
     for (name, _value), y in zip(active, placed, strict=True):
         if name in texts:
@@ -1352,7 +1363,7 @@ def _svg_pgs_values(
                     texts[name],
                     size * _PT,
                     style,
-                    anchor="end",
+                    anchor=anchor,
                     color=color,
                     cls="pgs-value",
                     halo=PGS_VALUE_HALO_PT * _PT,

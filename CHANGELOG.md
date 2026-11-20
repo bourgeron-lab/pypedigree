@@ -58,6 +58,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The right-hand partner's PGS curve and its values are drawn on their right, not on the line
+  between the partners, which crossed the box, the curve, the dots and the values (#78). The
+  layout already chose a side (`NodeLayout.pgs_side`); both renderers now follow it, the values
+  going on the far side of the box. Someone with a partner on each side keeps the left. The
+  layout keeps the box's room right of such a partner, so their right-hand neighbour's box does
+  not meet it; an evaluated partner's box clears the asterisk; a proband's caption stays below
+  a box on the right. Goldens `ptdt`, `legend_minimal`, `multi_phenotype_pgs` and
+  `circular_test_all` change, and the gallery's `annotations.png`, `legend_minimal.png` and
+  `ptdt.png`.
 - Text enlarged by `min_font_size` keeps its gaps (#66). The notes and annotations below an ID
   label ("AFAB", "SB", `a_` columns) are spaced by their drawn size: each line starts at least
   the height of the line above plus 0.3 em below it, so they no longer read as one block with

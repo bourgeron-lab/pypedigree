@@ -605,6 +605,36 @@ def unknown_offspring_anchor(
     return x, y + up * (half - UNKNOWN_OFFSPRING_GAP)
 
 
+# The PGS curve's box beside a symbol: its width and its gap from the symbol,
+# in symbol half-sizes. It goes on the left, or on the right for the
+# right-hand partner of a couple (`NodeLayout.pgs_side`, #78), off the line
+# between the partners.
+PGS_BOX_WIDTH = 0.8
+PGS_BOX_GAP = 0.15
+
+
+def pgs_box_near(half: float, sex: Sex, evaluated: bool, mark_size: float, side: str) -> float:
+    """From a symbol's centre to the near edge of its PGS box, in layout units.
+
+    The gap is `PGS_BOX_GAP` half-sizes beyond the symbol. A box on the
+    right also clears the documented-evaluation asterisk at the symbol's
+    lower right (#78), measured at the SVG's scale.
+
+    Args:
+        half: Half the symbol's size.
+        sex: The shape drawn.
+        evaluated: Whether the individual has the asterisk.
+        mark_size: The asterisk's font size, in points.
+        side: "left" or "right" (`NodeLayout.pgs_side`).
+    """
+    near = half * (1 + PGS_BOX_GAP)
+    if side == "right" and evaluated:
+        mark_x, _ = evaluation_mark_position(0.0, 0.0, half, sex)
+        mark_right = mark_x + text_width(EVALUATION_MARK, mark_size, bold=True) / 2
+        near = max(near, mark_right + half * PGS_BOX_GAP)
+    return near
+
+
 def evaluation_mark_position(
     x: float, y: float, half: float, sex: Sex, triangle: bool = False, up: float = 1.0
 ) -> tuple[float, float]:

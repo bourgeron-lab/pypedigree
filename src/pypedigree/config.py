@@ -221,6 +221,12 @@ class PedigreeStyle:
     # None: the PGS row wraps where the legend's widest other row ends.
     legend_max_width: float | str | None = None
 
+    # Room a PGS box and its values take beside a symbol, in layout units.
+    # Set by `apply_pgs_spacing` (the same room it adds to the gaps), not by
+    # hand: the layout keeps it right of a right-hand partner, whose box is
+    # drawn on that side (#78). 0 without PGS curves.
+    pgs_box_room: float = 0.0
+
     # PGS curve colors (PGS column name -> hex color, e.g. {"PGS_autism": "#3498db"})
     pgs_colors: dict[str, str] = field(default_factory=dict)
 
@@ -539,6 +545,7 @@ def apply_pgs_spacing(
         style,
         couple_gap=style.couple_gap + pgs_extra,
         sibling_gap=style.sibling_gap + pgs_extra,
+        pgs_box_room=pgs_extra,
     )
 
 

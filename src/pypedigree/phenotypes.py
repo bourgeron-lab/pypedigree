@@ -1058,9 +1058,38 @@ def pgs_caption_above(node: NodeLayout) -> bool:
     """Whether the "PGS" caption of a curve goes above it rather than below.
 
     A proband's or a consultand's marker sits at the symbol's lower left,
-    just under the curve, where the caption would otherwise be written.
+    just under a curve on that side, where the caption would otherwise be
+    written; a curve on the right (#78) keeps its caption below.
     """
-    return node.is_proband or node.notation.is_consultand
+    return (node.is_proband or node.notation.is_consultand) and node.pgs_side != "right"
+
+
+def pgs_box_left(node: NodeLayout, style: PedigreeStyle, ring: float = 0.0) -> float:
+    """Left edge of a node's PGS box, in layout units.
+
+    Left of the symbol, or right of it for a right-hand partner
+    (`NodeLayout.pgs_side`, #78), `symbols.pgs_box_near` from its centre,
+    plus ``ring``, the room of its outer borders (#46). Both renderers
+    place the box with this.
+    """
+    half = style.shape_size / 2
+    mark = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
+    near = ring + symbols.pgs_box_near(
+        half, node.sex, node.notation.is_evaluated, mark, node.pgs_side
+    )
+    if node.pgs_side == "right":
+        return node.x + near
+    return node.x - near - half * symbols.PGS_BOX_WIDTH
+
+
+def pgs_values_x(node: NodeLayout, box_left: float, box_w: float, gap: float) -> tuple[float, str]:
+    """Where a curve's values are written (#54): x and "left" / "right", the
+    side of the text at x. On the far side of the box from the symbol: left
+    of a box on the left, right of a box on the right (#78). ``gap`` is the
+    space from the box, in layout units."""
+    if node.pgs_side == "right":
+        return box_left + box_w + PGS_BOX_PAD + gap, "left"
+    return box_left - PGS_BOX_PAD - gap, "right"
 
 
 # Between a curve's box and its "PGS" caption: a fraction of the symbol's
