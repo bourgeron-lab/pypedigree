@@ -2493,15 +2493,27 @@ def _draw_legend_binned_row(
     ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics, style: PedigreeStyle
 ) -> None:
     """Draw a gradient's steps (``gradient_bins``, #57), each with its limits
-    below, and its name under them (#81)."""
+    below, and its name under them (#81) or inside the step (#90)."""
     g = binned_row_geometry(row, m)
     names = row.bin_names or ("",) * len(row.bins)
     for i, (rgb, limits, name) in enumerate(zip(row.colors, row.bins, names, strict=True)):
         x = LEG_X0 + i * g.step_w
-        _legend_swatch(ax, x, y_center, g.step_w, m.sw_h, rgb, edgecolor="none")
-        y = y_center - m.sw_h / 2 - LEG_CAPTION_GAP
+        _legend_swatch(ax, x, y_center, g.step_w, g.bar_h, rgb, edgecolor="none")
+        y = y_center - g.bar_h / 2 - LEG_CAPTION_GAP
         _legend_caption(ax, x + g.step_w / 2, y, limits, m, style, ha="center")
-        if name:
+        if name and row.names_inside:
+            # In the step, in a color that reads on it (#90).
+            ax.text(
+                x + g.step_w / 2,
+                y_center,
+                name,
+                fontsize=g.name_size,
+                fontfamily=style.font_family,
+                ha="center",
+                va="center",
+                color=text_color_on(to_hex(rgb)),
+            )
+        elif name:
             _legend_caption(
                 ax,
                 x + g.step_w / 2,
@@ -2512,8 +2524,8 @@ def _draw_legend_binned_row(
                 ha="center",
                 color=LEG_CATEGORY_COLOR,
             )
-    _legend_swatch(ax, LEG_X0, y_center, g.step_w * len(row.colors), m.sw_h, "none")
-    _legend_row_label(ax, y_center, row.label, g.label_x, m, style)
+    _legend_swatch(ax, LEG_X0, y_center, g.step_w * len(row.colors), g.bar_h, "none")
+    _legend_row_label(ax, y_center, row.label, m.name_x, m, style)  # one column (#88)
 
 
 def _draw_legend_categorical_row(
@@ -2860,7 +2872,7 @@ def _draw_legend(
             )
         if row.kind in ("gradient", "categorical", "binary", "binary_shared"):
             # Colors are self-explanatory, so the row label is just the name.
-            _legend_row_label(ax, y_center, row.label, m.text_x, m, style)
+            _legend_row_label(ax, y_center, row.label, m.name_x, m, style)
 
     _draw_legend_border(ax, m, style)
 

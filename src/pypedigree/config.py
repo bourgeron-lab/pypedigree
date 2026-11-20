@@ -258,6 +258,12 @@ class PedigreeStyle:
     # step's limits; the SVG tooltip gives it with the step.
     gradient_bin_labels: dict[str, list[str | None]] = field(default_factory=dict)
 
+    # Where the legend writes those names (#90): "below" (under the limits,
+    # the default) or "inside" (in the colored steps, in a color that reads on
+    # each, the limits staying under the bar), for every binned column or by
+    # column, e.g. {"SRS": "inside"} (unlisted columns: "below").
+    gradient_bin_label_position: str | dict[str, str] = "below"
+
     # Zero-pad individual IDs to this width (0 = no padding)
     zero_pad_ids: int = 0
 
@@ -395,6 +401,8 @@ def resolve_style(
     resolved.gradient_bins = {k: list(v) for k, v in resolved.gradient_bins.items()}
     resolved.legend_text = dict(resolved.legend_text)
     resolved.gradient_bin_labels = {k: list(v) for k, v in resolved.gradient_bin_labels.items()}
+    if isinstance(resolved.gradient_bin_label_position, dict):
+        resolved.gradient_bin_label_position = dict(resolved.gradient_bin_label_position)
 
     all_names = list(phenotype_names or [])
     names = [n for n in all_names if not is_curve_column(n)]

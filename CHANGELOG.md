@@ -52,6 +52,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   female symbol along. An unknown role raises `PedigreeError` with a suggested spelling. The
   default wording is unchanged: it follows the documentation's spelling ("color", "grey").
 
+- `gradient_bin_label_position` style option (#90): `"inside"` writes the step names of
+  `gradient_bin_labels` in the legend's colored steps, centred, in a color that reads on each
+  (as band text), the limits staying under the bar on one line, so the row is shorter than with
+  `"below"` (the default, as before). The bar grows to a line of names when it needs to, and each
+  step to its name. For all binned columns, or by column (`{"SRS": "inside"}`).
+
 ### Changed
 
 - With `legend: "minimal"`, the legend's frame hugs its content: no minimum width (#79). A
@@ -78,6 +84,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and its outer dots reached the symbol (1.7 pt past the box at 6 pt in a 16 cm figure). A
   group that would not fit is packed closer, within the box's width: its dots may overlap a
   little, each keeping its color and its dashed line. Groups that fit do not move.
+- The names of the legend's gradient, binned, categorical and binary rows start in one column
+  again (#88). Since step names (#81) widen a binned row's steps, its name followed its own bar,
+  so the names were staggered; the column is now past the widest binned bar, for every row, and
+  the legend's width and the PGS row's wrapping (#68) follow it.
 - The deceased line no longer reaches into the PGS box (#80): it overshoots the symbol by 0.2
   half-sizes at each end, while the box sat 0.15 beside it, so its end met the box's corner,
   where a low score's marker sits. Beside a struck-through symbol the box now keeps 0.12
