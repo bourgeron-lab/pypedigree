@@ -134,7 +134,9 @@ def test_bar_grows_to_hold_the_names():
     rows, m = _layout(_style(gradient_bin_label_position="inside", **SMALL))
     srs = next(r for r in rows if r.label == "SRS")
     g = binned_row_geometry(srs, m)
-    assert g.bar_h > m.sw_h and srs.extra_h == pytest.approx((g.bar_h - m.sw_h) / 2)
+    assert g.bar_h > m.sw_h and srs.extra_h == pytest.approx(
+        g.bar_h - m.sw_h
+    )  # all of it, half above (#94)
     # At the default size a swatch is nearly a line of names tall: it grows
     # far less.
     rows, d = _layout(_style(gradient_bin_label_position="inside"))

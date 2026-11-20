@@ -1664,8 +1664,8 @@ def legend_metrics(
             they would pass the frame (#77).
         bottom_lines: Lines the last row takes (its extra lines already hold
             part of its captions, #81).
-        extra_h: Room rows take below their slots (`LegendRow.extra_h`,
-            #90), which also holds the same part of their captions.
+        extra_h: Room rows take beyond their slots (`LegendRow.extra_h`,
+            #90, #94); the part below holds the same part of their captions.
 
     Returns:
         The derived metrics.
@@ -1710,7 +1710,7 @@ def legend_metrics(
     hang = (
         sw_h / 2
         + LEG_CAPTION_GAP
-        + bottom_captions * caption_h
+        + (caption_h + (bottom_captions - 1) * line_h if bottom_captions else 0.0)
         - row_h / 2
         - (bottom_lines - 1) * line_h
     )
@@ -1787,9 +1787,9 @@ class LegendRow:
             none is named, #81).
         names_inside: The names are written in the steps, not under the
             limits (``gradient_bin_label_position`` "inside", #90).
-        extra_h: Room the row takes below its slot, in legend units: half
-            of what a bar taller than a swatch adds (#90). Set by
-            `legend_layout`.
+        extra_h: Room the row takes beyond its slot, in legend units: what a
+            bar taller than a swatch adds (#90), half above it and half below
+            (#94). Set by `legend_layout`.
         wrap_right: Where a "pgs" row's text must end, in legend units, or
             None: one line whatever its length (#68). Set by `legend_layout`.
         lines: Lines of text the row takes (more than one when wrapped).
@@ -1867,11 +1867,15 @@ def legend_row_centers(rows: Sequence[LegendRow], m: LegendMetrics, y_top: float
 
     A row of several lines (a wrapped PGS row, #68) has the centre of its
     first line, where its icon goes; its other lines follow `m.line_h` apart.
+    A row with `LegendRow.extra_h` (a bar taller than a swatch, #90) takes it
+    half above and half below: its centre moves down by half (#94), so the
+    bar keeps the same gap from the row above as a swatch does.
     """
     centers = []
     y = y_top
     for row in rows:
-        centers.append(y - (m.row_h / 2 if row.lines > 1 else row.slots * m.row_h / 2))
+        first = m.row_h / 2 if row.lines > 1 else row.slots * m.row_h / 2
+        centers.append(y - row.extra_h / 2 - first)
         y -= row.slots * m.row_h + (row.lines - 1) * m.line_h + row.extra_h
     return centers
 
@@ -2006,7 +2010,8 @@ def legend_key_items(row: LegendRow, label_x: float, m: LegendMetrics) -> list[L
 
 LEG_BIN_GAP_EM = 0.6  # between two steps' limits, in ems of the caption
 LEG_LABEL_GAP = 0.3  # between a bar and its row's label, in legend units
-LEG_BIN_INSIDE_PAD_EM = 0.3  # around a step's name written inside it (#90), in ems
+LEG_BIN_INSIDE_PAD_EM = 0.3  # above and below a step's name written inside it (#90), in ems
+LEG_BIN_INSIDE_SIDE_EM = 0.5  # on each side of it (#94), in ems
 
 
 @dataclass(frozen=True)
@@ -2021,7 +2026,7 @@ class BinnedGeometry:
 
     step_w: float
     label_x: float
-    name_dy: float = 0.0  # from a step's limits down to its name (#81)
+    name_dy: float = 0.0  # from a step's limits down to its name: a row line (#81, #94)
     bar_h: float = 0.0  # the bar's height: a swatch's, or the names' inside it (#90)
     name_size: float = 0.0  # the names' font size, in points
 
@@ -2043,11 +2048,13 @@ def binned_row_geometry(row: LegendRow, m: LegendMetrics) -> BinnedGeometry:
     bar_h = m.sw_h
     if inside:
         names = max((_legend_text_width(n, size, m) for n in row.bin_names), default=0.0)
-        step_w = max(step_w, names + 2 * LEG_BIN_INSIDE_PAD_EM * em)
+        step_w = max(step_w, names + 2 * LEG_BIN_INSIDE_SIDE_EM * em)
         pad_v = LEG_BIN_INSIDE_PAD_EM * size / (LEG_UNIT_Y_EM * m.font)
         bar_h = max(bar_h, line + 2 * pad_v)
     bar_end = LEG_X0 + step_w * len(row.colors)
-    return BinnedGeometry(step_w, max(m.text_x, bar_end + LEG_LABEL_GAP), line, bar_h, size)
+    # Names below go one row line (`m.line_h`) under the limits: the line the
+    # row takes for them, so the next row keeps the usual gap (#94).
+    return BinnedGeometry(step_w, max(m.text_x, bar_end + LEG_LABEL_GAP), m.line_h, bar_h, size)
 
 
 def legend_row_right(row: LegendRow, m: LegendMetrics) -> float:
@@ -2121,12 +2128,13 @@ def legend_layout(
             extra_h=sum(r.extra_h for r in rs),
         )
 
-    # A bar taller than a swatch, for names inside its steps (#90), hangs
-    # half its extra height below the swatch: the row takes that much more,
-    # so the captions under it keep their room.
+    # A bar taller than a swatch, for names inside its steps (#90), reaches
+    # half its extra height above the swatch and half below: the row takes
+    # all of it (#94), so neither the row above nor the captions under it
+    # come closer than to a swatch.
     m0 = metrics(rows)
     rows = [
-        replace(r, extra_h=max(0.0, binned_row_geometry(r, m0).bar_h - m0.sw_h) / 2)
+        replace(r, extra_h=max(0.0, binned_row_geometry(r, m0).bar_h - m0.sw_h))
         if r.kind == "binned" and r.names_inside
         else r
         for r in rows

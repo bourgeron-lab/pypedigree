@@ -79,6 +79,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A taller bar with its step names inside (#90) no longer crowds the row above it (#94): the
+  row now takes all of the bar's extra height, half above it and half below, so the gap from
+  the previous row's captions is the same as to a plain swatch. Names below their limits now
+  sit one row line under them (0.5 pt lower at 6 pt), the line the row takes for them, so the
+  gap after such a row is the same as after any other. Names inside a step get a little more
+  room on each side (0.5 em). The gallery's `gradient_bins.png` changes.
 - Spread-out PGS dots stay inside their box (#89). Markers closer than a dot's diameter are set
   side by side, 1.5 diameters apart; a group of three or more could be wider than the box,
   and its outer dots reached the symbol (1.7 pt past the box at 6 pt in a 16 cm figure). A
