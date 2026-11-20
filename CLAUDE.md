@@ -410,6 +410,11 @@ Additional PedigreeStyle fields:
   legend row kind `"binned"` (`LegendRow.bins`, `binned_row_geometry`: steps as wide as their limits,
   label after the bar); SVG tooltip "SRS: 70 (66–75)" (`bin_text`); `check_gradient_bins()` with the
   other style checks. With `gradient_range`, the gradient legend row writes its ends, not Low / High
+- `gradient_bin_labels: dict[str, list[str | None]]` — step names (#81), lowest step up: `bin_names`
+  (() when none named), `LegendRow.bin_names`; a named binned row has `lines=2` (`legend_layout`), its
+  names one caption line under the limits (`BinnedGeometry.name_dy`), steps as wide as their names;
+  `bin_text` "≥ 76, severe"; checked by `check_gradient_bins`. `legend_metrics(bottom_lines)` lets the
+  last row's extra line hold part of its captions
 - `gradient_diverging: dict[str, dict]` — tricolor diverging gradient config (e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}`)
 - `zero_pad_ids: int` — zero-pad IDs to this width (0 = no padding)
 - `min_font_size: float | None` — smallest size of any text in points (None = no minimum, #51)
@@ -559,6 +564,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_layout_circular.py` — Circular layout: ring geometry, spacing,
   rotation, edge composition, arc waypoints, rendering across 15 fixtures
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
+- `tests/test_bin_names.py` — Names for the steps of `gradient_bins` (#81)
 - `tests/test_legend_bottom.py` — The last legend row's captions inside the frame (#77)
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)
 - `tests/test_ptdt.py` — pTDT deviation columns: z scale, captions, legend row, tooltip, colors (#52)

@@ -325,6 +325,9 @@ PLINK `.fam` files use the same 6-column format (FID, IID, PAT, MAT, SEX, PHENO)
     "gradient_bins": {
         "ADOS": [4, 6, 8]
     },
+    "gradient_bin_labels": {
+        "ADOS": [null, "low", "moderate", "high"]
+    },
     "gradient_diverging": {
         "IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}
     },

@@ -1605,11 +1605,24 @@ def _svg_legend(
             caption(LEG_X0 + LEG_GRAD_W, cap_v, row.high, "end")
         elif row.kind == "binned":
             # A gradient's steps (`gradient_bins`, #57), each with its limits.
+            # The steps' names under their limits (#81).
             steps = binned_row_geometry(row, m)
-            for k, (rgb, limits) in enumerate(zip(row.colors, row.bins, strict=True)):
+            names = row.bin_names or ("",) * len(row.bins)
+            for k, (rgb, limits, step_name) in enumerate(
+                zip(row.colors, row.bins, names, strict=True)
+            ):
                 u = LEG_X0 + k * steps.step_w
                 swatch(u, vc, steps.step_w * 1.01, m.sw_h, to_hex(rgb), stroke="none")
-                caption(u + steps.step_w / 2, vc - m.sw_h / 2 - LEG_CAPTION_GAP, limits, "middle")
+                v = vc - m.sw_h / 2 - LEG_CAPTION_GAP
+                caption(u + steps.step_w / 2, v, limits, "middle")
+                if step_name:
+                    caption(
+                        u + steps.step_w / 2,
+                        v - steps.name_dy,
+                        step_name,
+                        "middle",
+                        color=LEG_CATEGORY_COLOR,
+                    )
             swatch(LEG_X0, vc, steps.step_w * len(row.colors), m.sw_h, "none")
         elif row.kind == "categorical":
             u = LEG_X0

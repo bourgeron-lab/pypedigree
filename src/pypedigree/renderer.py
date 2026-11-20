@@ -2484,20 +2484,26 @@ def _draw_legend_gradient_bar(
 def _draw_legend_binned_row(
     ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics, style: PedigreeStyle
 ) -> None:
-    """Draw a gradient's steps (``gradient_bins``, #57), each with its limits below."""
+    """Draw a gradient's steps (``gradient_bins``, #57), each with its limits
+    below, and its name under them (#81)."""
     g = binned_row_geometry(row, m)
-    for i, (rgb, limits) in enumerate(zip(row.colors, row.bins, strict=True)):
+    names = row.bin_names or ("",) * len(row.bins)
+    for i, (rgb, limits, name) in enumerate(zip(row.colors, row.bins, names, strict=True)):
         x = LEG_X0 + i * g.step_w
         _legend_swatch(ax, x, y_center, g.step_w, m.sw_h, rgb, edgecolor="none")
-        _legend_caption(
-            ax,
-            x + g.step_w / 2,
-            y_center - m.sw_h / 2 - LEG_CAPTION_GAP,
-            limits,
-            m,
-            style,
-            ha="center",
-        )
+        y = y_center - m.sw_h / 2 - LEG_CAPTION_GAP
+        _legend_caption(ax, x + g.step_w / 2, y, limits, m, style, ha="center")
+        if name:
+            _legend_caption(
+                ax,
+                x + g.step_w / 2,
+                y - g.name_dy,
+                name,
+                m,
+                style,
+                ha="center",
+                color=LEG_CATEGORY_COLOR,
+            )
     _legend_swatch(ax, LEG_X0, y_center, g.step_w * len(row.colors), m.sw_h, "none")
     _legend_row_label(ax, y_center, row.label, g.label_x, m, style)
 

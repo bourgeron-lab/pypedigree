@@ -238,6 +238,13 @@ class PedigreeStyle:
     # gradient_diverging and gradient_range for the band's color.
     gradient_bins: dict[str, list[float]] = field(default_factory=dict)
 
+    # Names of the steps of gradient_bins (#81): column -> one name per step,
+    # from the lowest up (len(cut-offs) + 1 entries, whatever direction a gi_
+    # column's color runs), e.g. {"SRS": [None, "mild", "moderate", "severe"]};
+    # None or "" leaves a step unnamed. The legend writes each name under its
+    # step's limits; the SVG tooltip gives it with the step.
+    gradient_bin_labels: dict[str, list[str | None]] = field(default_factory=dict)
+
     # Zero-pad individual IDs to this width (0 = no padding)
     zero_pad_ids: int = 0
 
@@ -373,6 +380,7 @@ def resolve_style(
     resolved.gradient_range = {k: list(v) for k, v in resolved.gradient_range.items()}
     resolved.gradient_diverging = {k: dict(v) for k, v in resolved.gradient_diverging.items()}
     resolved.gradient_bins = {k: list(v) for k, v in resolved.gradient_bins.items()}
+    resolved.gradient_bin_labels = {k: list(v) for k, v in resolved.gradient_bin_labels.items()}
 
     all_names = list(phenotype_names or [])
     names = [n for n in all_names if not is_curve_column(n)]
