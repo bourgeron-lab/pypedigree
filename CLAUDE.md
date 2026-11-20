@@ -421,6 +421,10 @@ Additional PedigreeStyle fields:
   `bin_text` "≥ 76, severe"; checked by `check_gradient_bins`. `legend_metrics(bottom_lines)` lets the
   last row's extra line hold part of its captions. The names of all swatch and bar rows start at one
   column, `LegendMetrics.name_x` (`with_name_column`, past the widest binned bar; `NAMED_ROW_KINDS`, #88)
+- `gradient_bin_label_position: str | dict[str, str]` — "below" or "inside" (#90), `bin_label_position`:
+  `LegendRow.names_inside`; `binned_row_geometry` widens steps to their names and gives `bar_h` (a line of
+  names + padding when taller than a swatch); the row takes half the growth below (`LegendRow.extra_h`,
+  `legend_metrics(extra_h)`, `legend_row_centers`), which keeps the bottom margin of #77 exact
 - `gradient_diverging: dict[str, dict]` — tricolor diverging gradient config (e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}`)
 - `zero_pad_ids: int` — zero-pad IDs to this width (0 = no padding)
 - `min_font_size: float | None` — smallest size of any text in points (None = no minimum, #51)
@@ -574,6 +578,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_layout_circular.py` — Circular layout: ring geometry, spacing,
   rotation, edge composition, arc waypoints, rendering across 15 fixtures
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
+- `tests/test_bin_names_inside.py` — Step names inside the legend's steps (#90)
 - `tests/test_bin_names.py` — Names for the steps of `gradient_bins` (#81)
 - `tests/test_legend_bottom.py` — The last legend row's captions inside the frame (#77)
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)

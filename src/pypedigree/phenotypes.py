@@ -242,6 +242,17 @@ def bin_names(name: str, style: PedigreeStyle) -> tuple[str, ...]:
     return shown if any(shown) else ()
 
 
+BIN_LABEL_POSITIONS = ("below", "inside")
+
+
+def bin_label_position(name: str, style: PedigreeStyle) -> str:
+    """Where the legend writes a column's step names (#90): "below" or "inside"."""
+    position = style.gradient_bin_label_position
+    if isinstance(position, dict):
+        return position.get(name, "below")
+    return position
+
+
 def bin_text(name: str, value: float, style: PedigreeStyle) -> str | None:
     """The step a value falls in, as the legend writes it, with its name if
     it has one ("\u2265 76, severe", #81), or None without bins."""
@@ -279,6 +290,14 @@ def check_gradient_bins(style: PedigreeStyle) -> None:
         raise PedigreeError(
             "gradient_bins must map each column to ascending cut-offs, e.g. "
             f'{{"SRS": [60, 66, 76]}}; not for {", ".join(bad)}'
+        )
+    # Where the names go (#90): "below" or "inside", for all or by column.
+    position = style.gradient_bin_label_position
+    positions = list(position.values()) if isinstance(position, dict) else [position]
+    if not all(p in BIN_LABEL_POSITIONS for p in positions):
+        raise PedigreeError(
+            'gradient_bin_label_position must be "below" or "inside", or a column -> '
+            f"position mapping; got {position!r}"
         )
     # Step names (#81): one per step, for a column with cut-offs.
     for name, names in style.gradient_bin_labels.items():
@@ -1617,6 +1636,7 @@ def legend_metrics(
     extra_lines: int = 0,
     bottom_captions: int = 0,
     bottom_lines: int = 1,
+    extra_h: float = 0.0,
 ) -> LegendMetrics:
     """Compute the legend panel geometry for a given number of rows.
 
@@ -1637,6 +1657,8 @@ def legend_metrics(
             they would pass the frame (#77).
         bottom_lines: Lines the last row takes (its extra lines already hold
             part of its captions, #81).
+        extra_h: Room rows take below their slots (`LegendRow.extra_h`,
+            #90), which also holds the same part of their captions.
 
     Returns:
         The derived metrics.
@@ -1691,6 +1713,7 @@ def legend_metrics(
         + (binary_header_h if binary_headers else 0.0)
         + n_rows * row_h
         + extra_lines * line_h
+        + extra_h
         + bottom
     )
     title_y = total_h - top
@@ -1755,6 +1778,11 @@ class LegendRow:
             the swatches of `colors`.
         bin_names: The steps' names, under their limits ("" unnamed, () when
             none is named, #81).
+        names_inside: The names are written in the steps, not under the
+            limits (``gradient_bin_label_position`` "inside", #90).
+        extra_h: Room the row takes below its slot, in legend units: half
+            of what a bar taller than a swatch adds (#90). Set by
+            `legend_layout`.
         wrap_right: Where a "pgs" row's text must end, in legend units, or
             None: one line whatever its length (#68). Set by `legend_layout`.
         lines: Lines of text the row takes (more than one when wrapped).
@@ -1778,6 +1806,8 @@ class LegendRow:
     single_symbol: bool = False
     bins: tuple[str, ...] = ()
     bin_names: tuple[str, ...] = ()
+    names_inside: bool = False
+    extra_h: float = 0.0
     wrap_right: float | None = None
     lines: int = 1
 
@@ -1835,7 +1865,7 @@ def legend_row_centers(rows: Sequence[LegendRow], m: LegendMetrics, y_top: float
     y = y_top
     for row in rows:
         centers.append(y - (m.row_h / 2 if row.lines > 1 else row.slots * m.row_h / 2))
-        y -= row.slots * m.row_h + (row.lines - 1) * m.line_h
+        y -= row.slots * m.row_h + (row.lines - 1) * m.line_h + row.extra_h
     return centers
 
 
@@ -1969,6 +1999,7 @@ def legend_key_items(row: LegendRow, label_x: float, m: LegendMetrics) -> list[L
 
 LEG_BIN_GAP_EM = 0.6  # between two steps' limits, in ems of the caption
 LEG_LABEL_GAP = 0.3  # between a bar and its row's label, in legend units
+LEG_BIN_INSIDE_PAD_EM = 0.3  # around a step's name written inside it (#90), in ems
 
 
 @dataclass(frozen=True)
@@ -1984,19 +2015,32 @@ class BinnedGeometry:
     step_w: float
     label_x: float
     name_dy: float = 0.0  # from a step's limits down to its name (#81)
+    bar_h: float = 0.0  # the bar's height: a swatch's, or the names' inside it (#90)
+    name_size: float = 0.0  # the names' font size, in points
 
 
 def binned_row_geometry(row: LegendRow, m: LegendMetrics) -> BinnedGeometry:
     """Lay out a "binned" row: each step as wide as its widest caption,
-    limits or name (#81), the names one caption line below the limits."""
+    limits or name (#81), the names one caption line below the limits; or,
+    with the names inside the steps (#90), each step as wide as its name
+    plus a margin on each side, and the bar as tall as a line of them plus
+    a margin, when that is taller than a swatch."""
     size = m.caption_fs()
-    captions = [*row.bins, *row.bin_names]
-    widest = max((_legend_text_width(b, size, m) for b in captions), default=0.0)
-    gap = LEG_BIN_GAP_EM * size / 72 / m.unit_x
+    em = size / 72 / m.unit_x  # one em of the captions, horizontally
+    gap = LEG_BIN_GAP_EM * em
+    line = LEG_LINE_EM * size / (LEG_UNIT_Y_EM * m.font)
+    inside = row.names_inside and bool(row.bin_names)
+    below = () if inside else row.bin_names
+    widest = max((_legend_text_width(b, size, m) for b in [*row.bins, *below]), default=0.0)
     step_w = max(LEG_GRAD_W / max(len(row.colors), 1), widest + gap)
+    bar_h = m.sw_h
+    if inside:
+        names = max((_legend_text_width(n, size, m) for n in row.bin_names), default=0.0)
+        step_w = max(step_w, names + 2 * LEG_BIN_INSIDE_PAD_EM * em)
+        pad_v = LEG_BIN_INSIDE_PAD_EM * size / (LEG_UNIT_Y_EM * m.font)
+        bar_h = max(bar_h, line + 2 * pad_v)
     bar_end = LEG_X0 + step_w * len(row.colors)
-    name_dy = LEG_LINE_EM * size / (LEG_UNIT_Y_EM * m.font)
-    return BinnedGeometry(step_w, max(m.text_x, bar_end + LEG_LABEL_GAP), name_dy)
+    return BinnedGeometry(step_w, max(m.text_x, bar_end + LEG_LABEL_GAP), line, bar_h, size)
 
 
 def legend_row_right(row: LegendRow, m: LegendMetrics) -> float:
@@ -2050,8 +2094,12 @@ def legend_layout(
     the widest other row: they do not wrap). Its height then counts each
     extra line. Both renderers call this, so they wrap at the same places.
     """
-    # A binned row with named steps takes a second line for the names (#81).
-    rows = [replace(r, lines=2) if r.kind == "binned" and r.bin_names else r for r in rows]
+    # A binned row with named steps takes a second line for the names (#81),
+    # unless they go inside the steps (#90).
+    rows = [
+        replace(r, lines=2) if r.kind == "binned" and r.bin_names and not r.names_inside else r
+        for r in rows
+    ]
     binary_headers = any(r.kind in ("binary", "binary_shared") for r in rows)
 
     def metrics(rs: Sequence[LegendRow]) -> LegendMetrics:
@@ -2063,8 +2111,19 @@ def legend_layout(
             extra_lines=sum(r.lines - 1 for r in rs),
             bottom_captions=legend_caption_lines(last) if last else 0,
             bottom_lines=last.lines if last else 1,
+            extra_h=sum(r.extra_h for r in rs),
         )
 
+    # A bar taller than a swatch, for names inside its steps (#90), hangs
+    # half its extra height below the swatch: the row takes that much more,
+    # so the captions under it keep their room.
+    m0 = metrics(rows)
+    rows = [
+        replace(r, extra_h=max(0.0, binned_row_geometry(r, m0).bar_h - m0.sw_h) / 2)
+        if r.kind == "binned" and r.names_inside
+        else r
+        for r in rows
+    ]
     m = with_name_column(metrics(rows), rows)
     others = [legend_row_right(r, m) for r in rows if r.kind != "pgs"]
     right = max(others) if others else None
@@ -2097,8 +2156,8 @@ def legend_caption_lines(row: LegendRow) -> int:
     """Lines of captions a row writes under its swatch (a gradient's ends,
     category names, a binned row's limits): what the bottom margin counts
     when it is the legend's last row (#77)."""
-    if row.kind == "binned" and row.bin_names:
-        return 2  # limits, then names (#81)
+    if row.kind == "binned" and row.bin_names and not row.names_inside:
+        return 2  # limits, then names (#81); names inside the steps take none (#90)
     return 1 if row.kind in CAPTIONED_ROW_KINDS else 0
 
 
@@ -2167,6 +2226,7 @@ def legend_rows(
                     ),
                     bins=bin_labels(cutoffs),
                     bin_names=bin_names(name, style),
+                    names_inside=bin_label_position(name, style) == "inside",
                 )
             )
         elif name in style.gradient_diverging:
