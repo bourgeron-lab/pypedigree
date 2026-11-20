@@ -65,7 +65,7 @@ def compute_layout(
 
     # Step 3: Increase generation gap for what sits below the symbols:
     # notes, annotations and childlessness markers.
-    below = _room_below_labels(family)
+    below = _room_below_labels(family, style)
     if below > 0:
         style = replace(style, generation_gap=style.generation_gap + below)
 
@@ -896,15 +896,30 @@ def _build_nodes(
     return nodes
 
 
-def _room_below_labels(family: Family) -> float:
+# Room below each line of notes or annotations, beyond its step.
+_LINE_BELOW_MARGIN = 0.05
+
+
+def _room_below_labels(family: Family, style: PedigreeStyle) -> float:
     """Extra generation gap for what sits below the symbols.
 
-    Each line of notes or annotations takes 0.3, and a childlessness
-    marker its own depth, for the individual who needs the most room.
+    Each line of notes or annotations takes its step below the line above
+    (`symbols.below_label_offsets`, at the SVG's scale: 0.25, more for text
+    enlarged by ``min_font_size``, #66) plus `_LINE_BELOW_MARGIN`, and a
+    childlessness marker its own depth, for the individual who needs the
+    most room.
     """
+    size, small = style.text_size(), style.text_size(symbols.SMALL_TEXT_SCALE)
+
+    def text_room(lines: int) -> float:
+        if not lines:
+            return 0.0
+        offsets = symbols.below_label_offsets(size, [small] * lines, symbols.UNITS_PER_POINT)
+        return offsets[-1] + lines * _LINE_BELOW_MARGIN
+
     return max(
         (
-            symbols.text_lines_below(ind) * 0.3 + symbols.childless_depth(ind.notation)
+            text_room(symbols.text_lines_below(ind)) + symbols.childless_depth(ind.notation)
             for ind in family.individuals.values()
         ),
         default=0.0,
