@@ -39,7 +39,7 @@ from pypedigree.config import (
     PedigreeStyle,
     apply_outline_spacing,
     apply_pgs_spacing,
-    is_pgs_column,
+    is_curve_column,
     resolve_style,
 )
 from pypedigree.layout import compute_layout
@@ -98,6 +98,8 @@ from pypedigree.phenotypes import (
     check_min_font_size,
     check_pgs_scale,
     check_phenotype_layout,
+    curve_caption,
+    curve_value_text,
     display_name,
     fit_text,
     legend_layout,
@@ -114,7 +116,6 @@ from pypedigree.phenotypes import (
     pgs_marker_values,
     pgs_row_layout,
     pgs_tail_positions,
-    pgs_value_text,
     pgs_values_width,
     pregnancy_loss_fill,
     quadrant_box,
@@ -128,6 +129,7 @@ from pypedigree.phenotypes import (
     text_color_on,
     to_hex,
     validate_style_colors,
+    warn_mixed_curves,
     with_outline_rings,
     with_quadrants,
 )
@@ -231,7 +233,8 @@ def _render(
     # Same style resolution as render_pedigree, so both outputs share colors
     # and spacing. Each renderer applies the PGS spacing exactly once.
     style = resolve_style(style, names)
-    pgs_cols = [n for n in names if is_pgs_column(n)]
+    pgs_cols = [n for n in names if is_curve_column(n)]
+    warn_mixed_curves(pedigree.individuals(), pgs_cols)
     values_width = pgs_values_width(pedigree.individuals(), pgs_cols, style)
     # The only place the PGS spacing is applied (see `apply_pgs_spacing`).
     style = apply_pgs_spacing(style, names, values_width)
@@ -839,8 +842,8 @@ def _tooltip(
             lines.append(f"{shown}: {category}")
         elif value is not None and math.isnan(value):
             lines.append(f"{shown}: NA")
-        elif value is not None and is_pgs_column(name):
-            lines.append(f"{shown}: {pgs_value_text(value, style.pgs_scale)}")
+        elif value is not None and is_curve_column(name):
+            lines.append(f"{shown}: {curve_value_text(name, value, style.pgs_scale)}")
         elif value is not None:
             # With clinical thresholds, the step it falls in (#57).
             step = bin_text(name, value, style)
@@ -1312,7 +1315,7 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
         _svg_text(
             left + box_w / 2,
             bottom - box_h - gap if above else bottom + gap,
-            "PGS",
+            curve_caption(active),
             caption_size * _PT,
             style,
             baseline="auto" if above else "hanging",

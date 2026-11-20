@@ -80,7 +80,7 @@ class TestWrapping:
     def test_long_key_wraps_below_the_caption(self):
         rows, m = _layout(FOUR, **SIX_PT)
         layout = pgs_row_layout(_pgs(rows), m.icon_text_x, m)
-        assert layout.captions == ("PGS distribution, z-score, ±2 SD marked:",)
+        assert layout.captions == ("PGS distribution, z-score, ±2\u00a0SD marked:",)
         assert layout.lines >= 2
         # The key starts on the line below the caption, under its text.
         assert {i.line for i in layout.items} >= {1}

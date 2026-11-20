@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- pTDT deviation columns (#52): a column whose name starts with `pTDT` (`pTDT_autism`) holds each
+  child's polygenic transmission deviation, (PGS_child − PGS_mid-parent) / SD(PGS_mid-parent). It
+  is drawn with the PGS curve, always on the z scale, captioned "pTDT" instead of "PGS"; the
+  legend has its own row ("pTDT deviation, (child − mid-parent) / SD, ±2 SD marked:" and its
+  key) and the SVG tooltip reads "pTDT = +2.12", with no percentile. An individual's curve shows
+  its pTDT deviations if it has any, otherwise its PGS, so the parents' PGS and the children's
+  pTDT share a figure; an individual with both draws a `PedigreeDataWarning`. New
+  `is_ptdt_column()`; new gallery example `tests/data/phenotype/ptdt.ped`. pypedigree does not
+  compute the deviations (the issue's second step).
 - A more compact legend for journal figures (#67). New style options: `legend_title` (`None`
   or `""` drops the "Legend" title), `legend_sex_symbols` (`false` drops the "= Male / =
   Female" row) and `legend_spacing` (a factor on the row height and the gaps, 0.6 to 3, e.g.
@@ -32,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- A wrapped legend row keeps "±2 SD" on one line (#68 follow-up): its words are joined by a
+  no-break space.
 - With `gradient_range`, the legend's gradient bar writes the range's ends instead of "Low" /
   "High" (#57).
 

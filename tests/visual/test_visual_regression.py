@@ -228,6 +228,13 @@ class TestVisualExtended:
         fig = render_pedigree(ped, style=style)
         _assert_visual_match(fig, "gradient_bins", regen_golden)
 
+    def test_ptdt(self, regen_golden: bool) -> None:
+        """pTDT deviations (#52): the parents' PGS and the children's pTDT curves."""
+        ped = parse_pedigree(DATA_DIR / "phenotype/ptdt.ped")
+        style = PedigreeStyle(pgs_scale="zscore", show_pgs_values=True)
+        fig = render_pedigree(ped, style=style)
+        _assert_visual_match(fig, "ptdt", regen_golden)
+
     def test_legend_minimal(self, regen_golden: bool) -> None:
         """The minimal legend (#67): no title or sex row, one-symbol key and its caption."""
         ped = parse_pedigree(DATA_DIR / "phenotype/legend_minimal.ped")

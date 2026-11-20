@@ -735,6 +735,8 @@ The prefix is stripped from the display name (e.g. `b_ASD` is shown as `ASD`).
 
 **Multiple PGS columns**: Any column whose name starts with `PGS` (case-insensitive) is treated as a PGS column -- e.g. `PGS_autism`, `PGS_IQ`, `PGS_ADHD`. All PGS values are rendered on a single gaussian curve with multiple colored markers. Marker colors are set via the `pgs_colors` style option. With several PGS columns and no `pgs_colors` entry, each gets its own color: a score named after a known phenotype (`PGS_autism`, `PGS_ADHD`, `PGS_ID`, `PGS_epilepsy`) takes that phenotype's color, the one its column has in the figure if there is one; the others take the first color unlike the other scores and the phenotype bands, starting from `#e74c3c`. A single PGS column keeps `#e74c3c`. `pgs_colors` entries always win. When PGS columns are present, `couple_gap` and `sibling_gap` are auto-increased to accommodate the curve.
 
+**pTDT deviations** (#52): a column whose name starts with `pTDT` (case-insensitive, e.g. `pTDT_autism`) holds each child's polygenic transmission deviation, (PGS_child − PGS_mid-parent) / SD(PGS_mid-parent) (Weiner et al. 2017), N(0, 1) without over-transmission. It is drawn with the PGS curve, always on the z scale whatever `pgs_scale` (±2 SD marked), captioned "pTDT" under the curve; the legend has its own row, "pTDT deviation, (child − mid-parent) / SD, ±2 SD marked:" then its key, and the SVG tooltip reads "pTDT = +2.12" (no percentile). An individual's curve shows one kind: its pTDT deviations if it has any, otherwise its PGS, so the parents' PGS and the children's pTDT share a figure; an individual with both draws a `PedigreeDataWarning`. `pTDT_autism` may take the color `PGS_autism` has. pypedigree does not compute the deviations: give them in the file.
+
 **Gradient value display**: Gradient band values (e.g. "IQ: 90", "SRS: 76") are always written, whatever the band's color intensity. Text in bands and quadrants fits its place (`band_text: "auto"`, the default since 0.7.0): a gradient band writes "IQ: 90", or "90" alone, or the value smaller (down to `min_font_size`, or half `font_size`), whichever first fits the band's width at that height (a circle's chord), and nothing when even that does not fit; quadrant text likewise. `band_text: "name_value"` always writes "IQ: 90" (as before 0.7.0), `"value"` the value alone, `"none"` no value.
 
 **AUTO mode resolution**: A column with no prefix is resolved **once per column**, from all of its values across the pedigree:
@@ -798,6 +800,12 @@ before calling `render_pedigree()`.
 
 Whether a phenotype column name denotes a polygenic score, i.e. starts with
 `PGS` (case-insensitive).
+
+### `is_ptdt_column(name)`
+
+Whether a phenotype column name holds pTDT deviations (#52), i.e. starts with
+`pTDT` (case-insensitive). Such a column is drawn as a curve too, but
+`is_pgs_column` is false for it.
 
 **Returns**: `bool`.
 

@@ -12,6 +12,7 @@ from pypedigree.config import (
     PedigreeStyle,
     apply_pgs_spacing,
     is_pgs_column,
+    is_ptdt_column,
     resolve_style,
 )
 from pypedigree.errors import (
@@ -144,6 +145,7 @@ __all__ = [
     "resolve_style",
     "apply_pgs_spacing",
     "is_pgs_column",
+    "is_ptdt_column",
     # API
     "PedigreeBuilder",
     # Errors

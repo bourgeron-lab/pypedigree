@@ -232,6 +232,10 @@ _CHAR_EM_BOLD = {
 # The typographic minus of the PGS values (#54), in both weights.
 _CHAR_EM["\u2212"] = 0.838
 _CHAR_EM_BOLD["\u2212"] = 0.838
+# A no-break space, which keeps words together when a legend row wraps (#52),
+# is as wide as a space.
+_CHAR_EM["\u00a0"] = _CHAR_EM[" "]
+_CHAR_EM_BOLD["\u00a0"] = _CHAR_EM_BOLD[" "]
 _OTHER_CHAR_EM = 0.7
 _WIDE_CHAR_EM = 1.0
 
