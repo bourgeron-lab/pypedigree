@@ -1365,6 +1365,11 @@ LEG_KEY_NOTE_LABEL = "Colored: affected \u00b7 white: unaffected \u00b7 grey: un
 LEG_CAPTION_GAP = 0.05
 LEG_ROW_MARGIN = 0.08
 LEG_LINE_EM = 1.17  # a line of text's height, in ems (DejaVu Sans)
+# Below the last row's captions (#77): the frame's inset from the panel's edge,
+# then a gap, so they end inside the frame.
+LEG_FRAME_INSET = 0.1
+LEG_BOTTOM_PAD = 0.1
+CAPTIONED_ROW_KINDS = ("gradient", "binned", "categorical")  # captions under the swatch
 LEG_WRAP_LINE_EM = 1.25  # between the lines of a wrapped PGS row (#68), in ems of its text
 LEG_WIDTH_UNITS = {"cm": 1 / 2.54, "mm": 1 / 25.4, "in": 1.0}  # `legend_max_width` -> inches
 KEY_ROW_KINDS = ("quadrants", "key_note")  # drawn first, above the binary captions
@@ -1471,6 +1476,7 @@ def legend_metrics(
     *,
     binary_headers: bool = False,
     extra_lines: int = 0,
+    bottom_captions: int = 0,
 ) -> LegendMetrics:
     """Compute the legend panel geometry for a given number of rows.
 
@@ -1486,6 +1492,9 @@ def legend_metrics(
         binary_headers: Whether the Affected / Unaffected / Unknown captions
             are drawn above the rows.
         extra_lines: Lines added by wrapped rows, beyond their first (#68).
+        bottom_captions: Lines of captions under the last row's swatch
+            (`legend_caption_lines`); the panel grows below it by as much as
+            they would pass the frame (#77).
 
     Returns:
         The derived metrics.
@@ -1525,11 +1534,16 @@ def legend_metrics(
     header_h = top + title_h + sex_above + sex_below
     binary_header_h = LEG_BINARY_HEADER_H * spacing
     line_h = LEG_WRAP_LINE_EM * fs / (LEG_UNIT_Y_EM * font)
+    # The last row's captions hang below its slot: room for them inside the
+    # frame, only when they need it, so other legends keep their height.
+    hang = sw_h / 2 + LEG_CAPTION_GAP + bottom_captions * caption_h - row_h / 2
+    bottom = max(0.0, hang + LEG_FRAME_INSET + LEG_BOTTOM_PAD) if bottom_captions else 0.0
     total_h = (
         header_h
         + (binary_header_h if binary_headers else 0.0)
         + n_rows * row_h
         + extra_lines * line_h
+        + bottom
     )
     title_y = total_h - top
     sex_y = title_y - title_h - sex_above if sex else None
@@ -1881,7 +1895,10 @@ def legend_layout(
     extra line. Both renderers call this, so they wrap at the same places.
     """
     binary_headers = any(r.kind in ("binary", "binary_shared") for r in rows)
-    m = legend_metrics(legend_slot_count(rows), style, binary_headers=binary_headers)
+    bottom = legend_caption_lines(rows[-1]) if rows else 0
+    m = legend_metrics(
+        legend_slot_count(rows), style, binary_headers=binary_headers, bottom_captions=bottom
+    )
     others = [legend_row_right(r, m) for r in rows if r.kind != "pgs"]
     right = max(others) if others else None
     max_in = legend_max_width_inches(style)
@@ -1901,9 +1918,20 @@ def legend_layout(
     extra = sum(r.lines - 1 for r in out)
     if extra:
         m = legend_metrics(
-            legend_slot_count(out), style, binary_headers=binary_headers, extra_lines=extra
+            legend_slot_count(out),
+            style,
+            binary_headers=binary_headers,
+            extra_lines=extra,
+            bottom_captions=bottom,
         )
     return out, m
+
+
+def legend_caption_lines(row: LegendRow) -> int:
+    """Lines of captions a row writes under its swatch (a gradient's ends,
+    category names, a binned row's limits): what the bottom margin counts
+    when it is the legend's last row (#77)."""
+    return 1 if row.kind in CAPTIONED_ROW_KINDS else 0
 
 
 # Words a wrapped legend row keeps together (#68): joined by a no-break space.

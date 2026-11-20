@@ -243,7 +243,9 @@ src/pypedigree/
     gradient and category captions keep clear of the next row (at 1.0 that floor is never
     reached). With "minimal" the quadrant key has one symbol (`LegendRow.single_symbol`,
     `QuadrantKeyGeometry.circle` None) and its binary columns get no row, only a `key_note` row
-    (`KEY_ROW_KINDS`, drawn with the key) under it. The PGS row wraps (#68): both renderers get
+    (`KEY_ROW_KINDS`, drawn with the key) under it. Below the last row, `legend_metrics(...,
+    bottom_captions)` adds room for captions hanging under its swatch (`legend_caption_lines`,
+    `CAPTIONED_ROW_KINDS`; frame inset and pad), only when they need it (#77). The PGS row wraps (#68): both renderers get
     their rows and metrics from `legend_layout(rows, style)`, which sets the row's `wrap_right`
     (the widest other row's end, `legend_row_right`, or up to `legend_max_width`, never less) and
     its `lines`, and counts the extra lines (`legend_metrics(..., extra_lines)`, `m.line_h`).
@@ -557,6 +559,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_layout_circular.py` — Circular layout: ring geometry, spacing,
   rotation, edge composition, arc waypoints, rendering across 15 fixtures
 - `tests/test_legend.py` — Legend panel metrics, physical size and row composition
+- `tests/test_legend_bottom.py` — The last legend row's captions inside the frame (#77)
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)
 - `tests/test_ptdt.py` — pTDT deviation columns: z scale, captions, legend row, tooltip, colors (#52)
 - `tests/test_legend_wrap.py` — The PGS legend row wrapped at the other rows or `legend_max_width` (#68)
