@@ -947,6 +947,32 @@ def pgs_caption_above(node: NodeLayout) -> bool:
     return node.is_proband or node.notation.is_consultand
 
 
+# Between a curve's box and its "PGS" caption: a fraction of the symbol's
+# half-size, or more when the caption needs it (#66): room for a marker dot
+# on the box's edge, then this many ems of the caption.
+PGS_CAPTION_OFFSET = 0.15
+PGS_CAPTION_GAP_EM = 0.3
+
+
+def pgs_caption_offset(half: float, size: float, units_per_point: float) -> float:
+    """How far the "PGS" caption is from its curve's box, in layout units.
+
+    The larger of `PGS_CAPTION_OFFSET` times the symbol's half-size and,
+    converted with ``units_per_point``, half a marker dot (a score at either
+    end of the curve puts its dot on the box's edge) plus `PGS_CAPTION_GAP_EM`
+    of the caption's size. At the default sizes the first is larger, so
+    nothing moves; a caption enlarged by ``min_font_size`` keeps its gap.
+
+    Args:
+        half: Half the symbol's size, in layout units.
+        size: The caption's font size, in points.
+        units_per_point: Layout units per point at the scale drawn
+            (`symbols.UNITS_PER_POINT` in the SVG).
+    """
+    needed = (PGS_DOT_PT / 2 + PGS_CAPTION_GAP_EM * size) * units_per_point
+    return max(half * PGS_CAPTION_OFFSET, needed)
+
+
 def active_pgs(
     node: _HasPhenotypes, pgs_names: Sequence[str], scale: str = "minmax"
 ) -> list[tuple[str, float]]:
