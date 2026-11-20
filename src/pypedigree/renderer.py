@@ -65,7 +65,6 @@ from pypedigree.phenotypes import (
     LEG_CAPTION_COLOR,
     LEG_CAPTION_GAP,
     LEG_CATEGORY_COLOR,
-    LEG_GRAD_W,
     LEG_RING_INSET_PT,
     LEG_RING_WIDTH_PT,
     LEG_SEX_SYMBOL_GAP,
@@ -102,6 +101,7 @@ from pypedigree.phenotypes import (
     curve_caption,
     fit_text,
     legend_binary_captions,
+    legend_gradient_width,
     legend_layout,
     legend_min_right,
     legend_row_centers,
@@ -2467,8 +2467,10 @@ def _draw_legend_gradient_bar(
     m: LegendMetrics,
     style: PedigreeStyle,
 ) -> None:
-    """Draw a gradient bar from a list of colors, with end captions."""
-    step_w = LEG_GRAD_W / len(colors)
+    """Draw a gradient bar from a list of colors, with end captions, as wide
+    as the legend's other bars (#95)."""
+    bar_w = legend_gradient_width(m)
+    step_w = bar_w / len(colors)
     for i, color in enumerate(colors):
         # Steps carry no edge of their own, so the bar reads as continuous.
         _legend_swatch(
@@ -2482,11 +2484,11 @@ def _draw_legend_gradient_bar(
             linewidth=None,
         )
     # Single border drawn over the seamless fill.
-    _legend_swatch(ax, LEG_X0, y_center, LEG_GRAD_W, m.sw_h, "none")
+    _legend_swatch(ax, LEG_X0, y_center, bar_w, m.sw_h, "none")
 
     caption_y = y_center - m.sw_h / 2 - LEG_CAPTION_GAP
     _legend_caption(ax, LEG_X0, caption_y, low_label, m, style)
-    _legend_caption(ax, LEG_X0 + LEG_GRAD_W, caption_y, high_label, m, style, ha="right")
+    _legend_caption(ax, LEG_X0 + bar_w, caption_y, high_label, m, style, ha="right")
 
 
 def _draw_legend_binned_row(

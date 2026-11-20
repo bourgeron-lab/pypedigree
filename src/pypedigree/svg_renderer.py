@@ -65,7 +65,6 @@ from pypedigree.phenotypes import (
     LEG_CAPTION_COLOR,
     LEG_CAPTION_GAP,
     LEG_CATEGORY_COLOR,
-    LEG_GRAD_W,
     LEG_RING_INSET_PT,
     LEG_RING_WIDTH_PT,
     LEG_SEX_SYMBOL_GAP,
@@ -103,6 +102,7 @@ from pypedigree.phenotypes import (
     display_name,
     fit_text,
     legend_binary_captions,
+    legend_gradient_width,
     legend_layout,
     legend_min_right,
     legend_row_centers,
@@ -1615,13 +1615,14 @@ def _svg_legend(
 
     for row, vc in zip(rows, legend_row_centers(rows, m, y_top), strict=True):
         if row.kind == "gradient":
-            step = LEG_GRAD_W / len(row.colors)
+            bar_w = legend_gradient_width(m)  # as wide as the other bars (#95)
+            step = bar_w / len(row.colors)
             for k, rgb in enumerate(row.colors):
                 swatch(LEG_X0 + k * step, vc, step * 1.02, m.sw_h, to_hex(rgb), stroke="none")
-            swatch(LEG_X0, vc, LEG_GRAD_W, m.sw_h, "none")
+            swatch(LEG_X0, vc, bar_w, m.sw_h, "none")
             cap_v = vc - m.sw_h / 2 - LEG_CAPTION_GAP
             caption(LEG_X0, cap_v, row.low)
-            caption(LEG_X0 + LEG_GRAD_W, cap_v, row.high, "end")
+            caption(LEG_X0 + bar_w, cap_v, row.high, "end")
         elif row.kind == "binned":
             # A gradient's steps (`gradient_bins`, #57), each with its limits.
             # The steps' names under their limits (#81).

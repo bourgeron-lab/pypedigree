@@ -560,6 +560,10 @@ def check_legend(style: PedigreeStyle) -> None:
         raise PedigreeError(
             f"legend_spacing must be a number from {low} to {high}, not {spacing!r}"
         )
+    if style.legend_bar_width not in BAR_WIDTHS:
+        raise PedigreeError(
+            f'legend_bar_width must be "equal" or "own", not {style.legend_bar_width!r}'
+        )
     width = style.legend_max_width
     if width is not None:
         valid = (
@@ -1590,6 +1594,9 @@ class LegendMetrics:
             captions above the swatch rows), below the header.
         binary_header_h: Height of the Affected / Unaffected / Unknown captions.
         line_h: Distance between two lines of a wrapped row (#68).
+        bar_w: The width every gradient and binned bar takes, the widest
+            one's (``legend_bar_width`` "equal", #95), or 0: each its own.
+            Set by `legend_layout`.
         name_x: Where the rows with a swatch or a bar (binary, gradient,
             binned, categorical) write their name: `text_x`, or past the
             widest binned bar, one column for the whole legend (#88). Set by
@@ -1621,6 +1628,7 @@ class LegendMetrics:
     binary_header_h: float = LEG_BINARY_HEADER_H
     line_h: float = 0.5
     name_x: float = 0.0
+    bar_w: float = 0.0
 
     def caption_fs(self, size_factor: float = 1.0) -> float:
         """Size of a caption at ``size_factor`` times `label_fs`, never below `min_fs`."""
@@ -2045,6 +2053,9 @@ def binned_row_geometry(row: LegendRow, m: LegendMetrics) -> BinnedGeometry:
     below = () if inside else row.bin_names
     widest = max((_legend_text_width(b, size, m) for b in [*row.bins, *below]), default=0.0)
     step_w = max(LEG_GRAD_W / max(len(row.colors), 1), widest + gap)
+    if m.bar_w:
+        # The legend's common bar width (#95), never narrower than its steps.
+        step_w = max(step_w, m.bar_w / max(len(row.colors), 1))
     bar_h = m.sw_h
     if inside:
         names = max((_legend_text_width(n, size, m) for n in row.bin_names), default=0.0)
@@ -2139,7 +2150,7 @@ def legend_layout(
         else r
         for r in rows
     ]
-    m = with_name_column(metrics(rows), rows)
+    m = with_name_column(with_bar_width(metrics(rows), rows, style), rows)
     others = [legend_row_right(r, m) for r in rows if r.kind != "pgs"]
     right = max(others) if others else None
     max_in = legend_max_width_inches(style)
@@ -2156,7 +2167,33 @@ def legend_layout(
             row = replace(row, wrap_right=right)
             row = replace(row, lines=pgs_row_layout(row, m.icon_text_x, m).lines)
         out.append(row)
-    return out, with_name_column(metrics(out), out)
+    return out, with_name_column(with_bar_width(metrics(out), out, style), out)
+
+
+BAR_WIDTHS = ("equal", "own")
+BAR_ROW_KINDS = ("gradient", "binned")
+
+
+def legend_gradient_width(m: LegendMetrics) -> float:
+    """A gradient bar's width: the legend's common bar width (#95), or `LEG_GRAD_W`."""
+    return m.bar_w or LEG_GRAD_W
+
+
+def with_bar_width(
+    m: LegendMetrics, rows: Sequence[LegendRow], style: PedigreeStyle
+) -> LegendMetrics:
+    """``m`` with one width for every bar (#95): the widest gradient or
+    binned bar's, when the legend has more than one and ``legend_bar_width``
+    is "equal"; the widest bar, and so the legend, keep their width."""
+    bars = [r for r in rows if r.kind in BAR_ROW_KINDS]
+    if style.legend_bar_width != "equal" or len(bars) < 2:
+        return replace(m, bar_w=0.0)
+    own = replace(m, bar_w=0.0)
+    widths = [
+        LEG_GRAD_W if r.kind == "gradient" else binned_row_geometry(r, own).step_w * len(r.colors)
+        for r in bars
+    ]
+    return replace(m, bar_w=max(widths))
 
 
 def with_name_column(m: LegendMetrics, rows: Sequence[LegendRow]) -> LegendMetrics:

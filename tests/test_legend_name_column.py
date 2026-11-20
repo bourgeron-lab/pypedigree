@@ -45,6 +45,9 @@ STYLE = dict(
     },
     gradient_diverging={"ADHD_RS": {"min": 0, "mid": 27, "max": 54}},
     phenotype_labels={"SRS": "SRS T-score", "ADHD_RS": "ADHD-RS"},
+    # Bars at their own widths, so they end at different places (#95 makes
+    # them equal by default).
+    legend_bar_width="own",
 )
 SIZES = [{}, {"legend": "minimal", "font_size": 6.0, "min_font_size": 6.0}]
 
