@@ -159,8 +159,9 @@ class TestLegend:
 
     def test_svg_tooltip_names_the_step(self):
         svg = render_interactive_svg(parse_pedigree(FIXTURE), style=_style())
-        assert re.search(r"SRS: 70 \(66–75\)", svg)
-        assert re.search(r"IQ: 64 \(&lt; 70\)", svg)
+        # The gallery's style also names the steps (#81).
+        assert re.search(r"SRS: 70 \(66–75, moderate\)", svg)
+        assert re.search(r"IQ: 64 \(&lt; 70, intellectual disability\)", svg)
 
     def test_steps_wide_enough_for_their_limits(self):
         """Many steps with long limits widen the bar; the label follows it."""

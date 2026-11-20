@@ -18,6 +18,7 @@ import re
 import warnings
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from difflib import get_close_matches
 from statistics import NormalDist
 from typing import Any, Protocol
 
@@ -231,20 +232,36 @@ def bin_labels(cutoffs: Sequence[float]) -> tuple[str, ...]:
     return tuple(labels)
 
 
+def bin_names(name: str, style: PedigreeStyle) -> tuple[str, ...]:
+    """The steps' names (#81), "" for an unnamed step; () without any."""
+    cutoffs = style.gradient_bins.get(name)
+    names = style.gradient_bin_labels.get(name)
+    if not cutoffs or not names or len(names) != len(cutoffs) + 1:
+        return ()
+    shown = tuple(n or "" for n in names)
+    return shown if any(shown) else ()
+
+
 def bin_text(name: str, value: float, style: PedigreeStyle) -> str | None:
-    """The step a value falls in, as the legend writes it, or None without bins."""
+    """The step a value falls in, as the legend writes it, with its name if
+    it has one ("\u2265 76, severe", #81), or None without bins."""
     cutoffs = style.gradient_bins.get(name)
     if not cutoffs:
         return None
-    return bin_labels(cutoffs)[bin_index(value, cutoffs)]
+    step = bin_index(value, cutoffs)
+    names = bin_names(name, style)
+    text = bin_labels(cutoffs)[step]
+    return f"{text}, {names[step]}" if names and names[step] else text
 
 
 def check_gradient_bins(style: PedigreeStyle) -> None:
-    """Reject ``gradient_bins`` that are not lists of ascending numbers.
+    """Reject ``gradient_bins`` that are not lists of ascending numbers, and
+    ``gradient_bin_labels`` that do not name each step of such a column (#81).
 
     Raises:
         PedigreeError: Naming each column whose cut-offs are not a non-empty
-            list of strictly increasing numbers.
+            list of strictly increasing numbers, or a column whose step names
+            are not one text (or None) per step of its cut-offs.
     """
     bad = []
     for name, cutoffs in style.gradient_bins.items():
@@ -263,6 +280,23 @@ def check_gradient_bins(style: PedigreeStyle) -> None:
             "gradient_bins must map each column to ascending cut-offs, e.g. "
             f'{{"SRS": [60, 66, 76]}}; not for {", ".join(bad)}'
         )
+    # Step names (#81): one per step, for a column with cut-offs.
+    for name, names in style.gradient_bin_labels.items():
+        limits = style.gradient_bins.get(name)
+        if limits is None:
+            raise PedigreeError(
+                f"gradient_bin_labels names the steps of {name!r}, which has no gradient_bins"
+            )
+        if not isinstance(names, list | tuple) or len(names) != len(limits) + 1:
+            raise PedigreeError(
+                f"gradient_bin_labels[{name!r}] must give one name per step: "
+                f"{len(limits) + 1} for {len(limits)} cut-off(s), from the lowest step up "
+                f'(None or "" for an unnamed step); got {names!r}'
+            )
+        if not all(n is None or isinstance(n, str) for n in names):
+            raise PedigreeError(
+                f"gradient_bin_labels[{name!r}] must hold text or None; got {names!r}"
+            )
 
 
 def text_color_on(background: Color) -> str:
@@ -519,6 +553,19 @@ def check_legend(style: PedigreeStyle) -> None:
                 "legend_max_width must be a width in centimetres, or text with its unit "
                 f'("85mm", "8.5cm", "3.3in"), not {width!r}'
             )
+    unknown = [k for k in style.legend_text if k not in LEGEND_TEXT_DEFAULTS]
+    if unknown:
+        hints = []
+        for key in unknown:
+            close = get_close_matches(str(key), list(LEGEND_TEXT_DEFAULTS), n=1)
+            hints.append(f"{key!r}" + (f" (did you mean {close[0]!r}?)" if close else ""))
+        raise PedigreeError(
+            f"Unknown legend_text key(s): {', '.join(hints)}; expected "
+            + ", ".join(LEGEND_TEXT_DEFAULTS)
+        )
+    not_text = [k for k, v in style.legend_text.items() if not isinstance(v, str)]
+    if not_text:
+        raise PedigreeError(f"legend_text must map roles to text; not for {not_text!r}")
     bad = [k for k, v in style.phenotype_labels.items() if not isinstance(v, str)]
     if bad:
         raise PedigreeError(f"phenotype_labels must map names to text; not for {bad!r}")
@@ -1369,6 +1416,8 @@ LEG_KEY_SIDE = 1.5  # height of the key's square and circle, in vertical units
 LEG_KEY_GAP = 0.12  # between the key's symbols and their labels
 LEG_CHAR_WIDTH_EM = 0.55  # average glyph width, to make room for labels
 LEG_SHARED_BINARY_LABEL = "Phenotypes in the key (their colors)"
+LEG_SEX_SYMBOL_GAP = 0.25  # between a sex symbol and its "= Male" text
+LEG_SEX_ITEM_GAP = 0.6  # between "= Male" and the female symbol, when the text is long
 LEG_OUTLINE_RINGS_LABEL = "Several borders: one per column, inner first"
 LEG_RING_WIDTH_PT = 1.6  # each border of the "outline_rings" icon
 LEG_RING_INSET_PT = 2.2  # its inner border, inside the outer one
@@ -1402,6 +1451,55 @@ CAPTIONED_ROW_KINDS = ("gradient", "binned", "categorical")  # captions under th
 LEG_WRAP_LINE_EM = 1.25  # between the lines of a wrapped PGS row (#68), in ems of its text
 LEG_WIDTH_UNITS = {"cm": 1 / 2.54, "mm": 1 / 25.4, "in": 1.0}  # `legend_max_width` -> inches
 KEY_ROW_KINDS = ("quadrants", "key_note")  # drawn first, above the binary captions
+
+# The legend's fixed wording, by role (#79): ``legend_text`` overrides any of
+# it. "pgs" and "ptdt" have no fixed default: their caption is built from the
+# scale (`pgs_legend_description`, `ptdt_legend_description`).
+LEGEND_TEXT_DEFAULTS: dict[str, str] = {
+    "key_note": LEG_KEY_NOTE_LABEL,
+    "shared_binary": LEG_SHARED_BINARY_LABEL,
+    "affected": "Affected",
+    "unaffected": "Unaffected",
+    "unknown": "Unknown",
+    "pgs": "",
+    "ptdt": "",
+    "male": "Male",
+    "female": "Female",
+    "low": "Low",
+    "high": "High",
+}
+
+
+def legend_text(style: PedigreeStyle, role: str) -> str:
+    """The legend's wording for ``role``: ``legend_text``, else its default."""
+    return style.legend_text.get(role) or LEGEND_TEXT_DEFAULTS[role]
+
+
+def legend_binary_captions(style: PedigreeStyle) -> tuple[str, str, str]:
+    """The Affected / Unaffected / Unknown captions above the swatch rows."""
+    return (
+        legend_text(style, "affected"),
+        legend_text(style, "unaffected"),
+        legend_text(style, "unknown"),
+    )
+
+
+def legend_sex_items(style: PedigreeStyle, m: LegendMetrics) -> list[tuple[float, str, str]]:
+    """The sex row: (symbol x, "square" / "circle", text) for male, then female.
+
+    The female symbol keeps its place unless a longer "male" text (#79)
+    needs the room; the text follows its symbol at `LEG_SEX_SYMBOL_GAP`.
+    """
+    male = f"= {legend_text(style, 'male')}"
+    female = f"= {legend_text(style, 'female')}"
+    male_end = 0.6 + LEG_SEX_SYMBOL_GAP + _legend_text_width(male, m.fs, m)
+    return [(0.6, "square", male), (max(2.5, male_end + LEG_SEX_ITEM_GAP), "circle", female)]
+
+
+def legend_min_right(style: PedigreeStyle) -> float:
+    """The least width of the legend's content, in legend units: the frame
+    hugs a "minimal" legend's content (#79), others keep a minimum."""
+    return LEG_X0 if style.legend == "minimal" else LEG_X0 + 4.0
 
 
 def legend_title(style: PedigreeStyle) -> str:
@@ -1506,6 +1604,7 @@ def legend_metrics(
     binary_headers: bool = False,
     extra_lines: int = 0,
     bottom_captions: int = 0,
+    bottom_lines: int = 1,
 ) -> LegendMetrics:
     """Compute the legend panel geometry for a given number of rows.
 
@@ -1524,6 +1623,8 @@ def legend_metrics(
         bottom_captions: Lines of captions under the last row's swatch
             (`legend_caption_lines`); the panel grows below it by as much as
             they would pass the frame (#77).
+        bottom_lines: Lines the last row takes (its extra lines already hold
+            part of its captions, #81).
 
     Returns:
         The derived metrics.
@@ -1565,7 +1666,13 @@ def legend_metrics(
     line_h = LEG_WRAP_LINE_EM * fs / (LEG_UNIT_Y_EM * font)
     # The last row's captions hang below its slot: room for them inside the
     # frame, only when they need it, so other legends keep their height.
-    hang = sw_h / 2 + LEG_CAPTION_GAP + bottom_captions * caption_h - row_h / 2
+    hang = (
+        sw_h / 2
+        + LEG_CAPTION_GAP
+        + bottom_captions * caption_h
+        - row_h / 2
+        - (bottom_lines - 1) * line_h
+    )
     bottom = max(0.0, hang + LEG_FRAME_INSET + LEG_BOTTOM_PAD) if bottom_captions else 0.0
     total_h = (
         header_h
@@ -1633,6 +1740,8 @@ class LegendRow:
             a circle ("quadrants", legend "minimal", #67).
         bins: The steps' limits ("binned", clinical thresholds, #57), under
             the swatches of `colors`.
+        bin_names: The steps' names, under their limits ("" unnamed, () when
+            none is named, #81).
         wrap_right: Where a "pgs" row's text must end, in legend units, or
             None: one line whatever its length (#68). Set by `legend_layout`.
         lines: Lines of text the row takes (more than one when wrapped).
@@ -1655,6 +1764,7 @@ class LegendRow:
     key: tuple[tuple[str, str], ...] = ()
     single_symbol: bool = False
     bins: tuple[str, ...] = ()
+    bin_names: tuple[str, ...] = ()
     wrap_right: float | None = None
     lines: int = 1
 
@@ -1858,16 +1968,20 @@ class BinnedGeometry:
 
     step_w: float
     label_x: float
+    name_dy: float = 0.0  # from a step's limits down to its name (#81)
 
 
 def binned_row_geometry(row: LegendRow, m: LegendMetrics) -> BinnedGeometry:
-    """Lay out a "binned" row: each step wide enough for its caption."""
+    """Lay out a "binned" row: each step as wide as its widest caption,
+    limits or name (#81), the names one caption line below the limits."""
     size = m.caption_fs()
-    widest = max((_legend_text_width(b, size, m) for b in row.bins), default=0.0)
+    captions = [*row.bins, *row.bin_names]
+    widest = max((_legend_text_width(b, size, m) for b in captions), default=0.0)
     gap = LEG_BIN_GAP_EM * size / 72 / m.unit_x
     step_w = max(LEG_GRAD_W / max(len(row.colors), 1), widest + gap)
     bar_end = LEG_X0 + step_w * len(row.colors)
-    return BinnedGeometry(step_w, max(m.text_x, bar_end + LEG_LABEL_GAP))
+    name_dy = LEG_LINE_EM * size / (LEG_UNIT_Y_EM * m.font)
+    return BinnedGeometry(step_w, max(m.text_x, bar_end + LEG_LABEL_GAP), name_dy)
 
 
 def legend_row_right(row: LegendRow, m: LegendMetrics) -> float:
@@ -1923,11 +2037,22 @@ def legend_layout(
     the widest other row: they do not wrap). Its height then counts each
     extra line. Both renderers call this, so they wrap at the same places.
     """
+    # A binned row with named steps takes a second line for the names (#81).
+    rows = [replace(r, lines=2) if r.kind == "binned" and r.bin_names else r for r in rows]
     binary_headers = any(r.kind in ("binary", "binary_shared") for r in rows)
-    bottom = legend_caption_lines(rows[-1]) if rows else 0
-    m = legend_metrics(
-        legend_slot_count(rows), style, binary_headers=binary_headers, bottom_captions=bottom
-    )
+
+    def metrics(rs: Sequence[LegendRow]) -> LegendMetrics:
+        last = rs[-1] if rs else None
+        return legend_metrics(
+            legend_slot_count(rs),
+            style,
+            binary_headers=binary_headers,
+            extra_lines=sum(r.lines - 1 for r in rs),
+            bottom_captions=legend_caption_lines(last) if last else 0,
+            bottom_lines=last.lines if last else 1,
+        )
+
+    m = metrics(rows)
     others = [legend_row_right(r, m) for r in rows if r.kind != "pgs"]
     right = max(others) if others else None
     max_in = legend_max_width_inches(style)
@@ -1937,29 +2062,22 @@ def legend_layout(
         # would be as wide, only taller.
         right = max(max_in / m.unit_x - LEG_X0 - 0.1, right or 0.0)
     if right is None:
-        return list(rows), m
+        return rows, m
     out = []
     for row in rows:
         if row.kind == "pgs":
             row = replace(row, wrap_right=right)
             row = replace(row, lines=pgs_row_layout(row, m.icon_text_x, m).lines)
         out.append(row)
-    extra = sum(r.lines - 1 for r in out)
-    if extra:
-        m = legend_metrics(
-            legend_slot_count(out),
-            style,
-            binary_headers=binary_headers,
-            extra_lines=extra,
-            bottom_captions=bottom,
-        )
-    return out, m
+    return out, metrics(out)
 
 
 def legend_caption_lines(row: LegendRow) -> int:
     """Lines of captions a row writes under its swatch (a gradient's ends,
     category names, a binned row's limits): what the bottom margin counts
     when it is the legend's last row (#77)."""
+    if row.kind == "binned" and row.bin_names:
+        return 2  # limits, then names (#81)
     return 1 if row.kind in CAPTIONED_ROW_KINDS else 0
 
 
@@ -2027,6 +2145,7 @@ def legend_rows(
                         for i in range(len(cutoffs) + 1)
                     ),
                     bins=bin_labels(cutoffs),
+                    bin_names=bin_names(name, style),
                 )
             )
         elif name in style.gradient_diverging:
@@ -2049,8 +2168,8 @@ def legend_rows(
                     "gradient",
                     display_name(name, style),
                     colors=tuple(blend_with_white(rgb, 1.0 - t if inverted else t) for t in steps),
-                    low=f"{ends[0]:g}" if ends else "Low",
-                    high=f"{ends[1]:g}" if ends else "High",
+                    low=f"{ends[0]:g}" if ends else legend_text(style, "low"),
+                    high=f"{ends[1]:g}" if ends else legend_text(style, "high"),
                 )
             )
         elif effective == "categorical":
@@ -2079,7 +2198,7 @@ def legend_rows(
         first = binary_in_key[0][0]
         shared = LegendRow(
             "binary_shared",
-            LEG_SHARED_BINARY_LABEL,
+            legend_text(style, "shared_binary"),
             colors=tuple(to_rgb(c) for _i, c in binary_in_key),
         )
         merged = {i for i, _c in binary_in_key}
@@ -2116,7 +2235,7 @@ def legend_rows(
         rows.append(
             LegendRow(
                 "pgs",
-                pgs_legend_description(pgs_names, style.pgs_scale),
+                legend_text(style, "pgs") or pgs_legend_description(pgs_names, style.pgs_scale),
                 pgs=colors,
                 key=()
                 if plain
@@ -2129,7 +2248,7 @@ def legend_rows(
         rows.append(
             LegendRow(
                 "pgs",
-                ptdt_legend_description(),
+                legend_text(style, "ptdt") or ptdt_legend_description(),
                 pgs=colors,
                 key=tuple((pgs_trait_name(n, style), colors[n]) for n in ptdt_names),
             )
@@ -2187,5 +2306,5 @@ def legend_rows(
                 )
         rows.insert(0, LegendRow("quadrants", "", quadrants=tuple(cells), single_symbol=minimal))
         if minimal and binary_in_key:
-            rows.insert(1, LegendRow("key_note", LEG_KEY_NOTE_LABEL))
+            rows.insert(1, LegendRow("key_note", legend_text(style, "key_note")))
     return rows
