@@ -58,8 +58,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `"below"` (the default, as before). The bar grows to a line of names when it needs to, and each
   step to its name. For all binned columns, or by column (`{"SRS": "inside"}`).
 
+- `legend_bar_width` style option (#95): `"own"` keeps each legend bar at its own width, as
+  before; see Changed.
+
 ### Changed
 
+- With more than one gradient or binned row, every legend bar is now as wide as the widest
+  (#95): a gradient stretches, its end captions moving with its ends, and a binned bar's steps
+  share the width equally (never narrower than their captions need). The bars then end
+  together, before the names' column (#88); the legend keeps its width. `legend_bar_width:
+  "own"` keeps the previous look. Legends whose bars were already equal do not change (no
+  golden does); the gallery's `gradient_bins.png` does.
 - With `legend: "minimal"`, the legend's frame hugs its content: no minimum width (#79). A
   minimal legend with one short row gets a frame as narrow as that row.
 - A wrapped legend row keeps "±2 SD" on one line (#68 follow-up): its words are joined by a

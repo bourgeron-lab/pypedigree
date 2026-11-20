@@ -221,6 +221,11 @@ class PedigreeStyle:
     # None: the PGS row wraps where the legend's widest other row ends.
     legend_max_width: float | str | None = None
 
+    # Width of the legend's bars (#95): "equal" (default) draws every gradient
+    # and binned bar as wide as the widest, a binned bar's steps sharing it
+    # equally; "own" keeps each bar at its own width (as before 0.9).
+    legend_bar_width: str = "equal"
+
     # Room a PGS box and its values take beside a symbol, in layout units.
     # Set by `apply_pgs_spacing` (the same room it adds to the gaps), not by
     # hand: the layout keeps it right of a right-hand partner, whose box is
