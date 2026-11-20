@@ -1356,16 +1356,20 @@ def pgs_values_width(
     return max(widths) + PGS_VALUE_GAP_EM * size * symbols.UNITS_PER_POINT + PGS_BOX_PAD
 
 
-def spread_dots(ys: Sequence[float], dot: float) -> list[float]:
+def spread_dots(ys: Sequence[float], dot: float, width: float | None = None) -> list[float]:
     """Horizontal offsets that keep the markers' dots apart (#54).
 
     Dots closer than ``dot`` (their diameter) vertically form a group, set
     side by side, centred on the curve's axis, `PGS_DOT_SPREAD` diameters
-    apart. A dot alone keeps offset 0.
+    apart, or closer when the group would pass the box (#89): within
+    ``width``, its dots may then overlap a little, each keeping its color
+    and its dashed line. A dot alone keeps offset 0.
 
     Args:
         ys: Height of each dot, in any unit.
         dot: The dots' diameter, in the same unit.
+        width: The box's inner width, in the same unit, that the dots stay
+            within; None for no limit.
 
     Returns:
         The offset of each dot, in the order of ``ys``, in that unit.
@@ -1377,8 +1381,11 @@ def spread_dots(ys: Sequence[float], dot: float) -> list[float]:
         if i is not None and (not group or ys[i] - ys[group[-1]] < dot):
             group.append(i)
             continue
+        step = dot * PGS_DOT_SPREAD
+        if width is not None and len(group) > 1:
+            step = min(step, max(0.0, (width - dot) / (len(group) - 1)))
         for k, j in enumerate(group):
-            offsets[j] = (k - (len(group) - 1) / 2) * dot * PGS_DOT_SPREAD
+            offsets[j] = (k - (len(group) - 1) / 2) * step
         group = [] if i is None else [i]
     return offsets
 

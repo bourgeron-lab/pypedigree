@@ -2139,7 +2139,8 @@ class _PgsMarks(Artist):
         origin, unit = self._ax.transData.transform([(0.0, 0.0), (1.0, 0.0)])
         pixels_per_unit = abs(unit[0] - origin[0]) or 1.0
         pt = renderer.points_to_pixels(1.0) / pixels_per_unit  # layout units per point
-        offsets = spread_dots(self._ys, PGS_DOT_PT * pt)
+        # Within the box, so no dot reaches the symbol (#89).
+        offsets = spread_dots(self._ys, PGS_DOT_PT * pt, box_width)
         for dot, y, dx in zip(self._dots, self._ys, offsets, strict=True):
             dot.set_data([box_left + box_width / 2 + dx], [y])
         step = PGS_VALUE_LINE_EM * self._size * pt

@@ -79,6 +79,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Spread-out PGS dots stay inside their box (#89). Markers closer than a dot's diameter are set
+  side by side, 1.5 diameters apart; a group of three or more could be wider than the box,
+  and its outer dots reached the symbol (1.7 pt past the box at 6 pt in a 16 cm figure). A
+  group that would not fit is packed closer, within the box's width: its dots may overlap a
+  little, each keeping its color and its dashed line. Groups that fit do not move.
 - The names of the legend's gradient, binned, categorical and binary rows start in one column
   again (#88). Since step names (#81) widen a binned row's steps, its name followed its own bar,
   so the names were staggered; the column is now past the widest binned bar, for every row, and

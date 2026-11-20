@@ -353,7 +353,7 @@ Multi-phenotype support:
   `pgs_tail_positions()` (±2 SD dotted lines), `pgs_value_text()` for the SVG tooltip. Curves (and the
   legend) are drawn even with no other phenotype column. `tests/test_pgs_scale.py`
 - PGS markers (#54): dots closer than `PGS_DOT_PT` are set side by side (`phenotypes.spread_dots`,
-  `PGS_DOT_SPREAD` diameters apart); with `show_pgs_values` each value (`pgs_marker_text`:
+  `PGS_DOT_SPREAD` diameters apart, closer when the group would pass the box's width, #89); with `show_pgs_values` each value (`pgs_marker_text`:
   "+2.1"/U+2212 minus, percentile, 3 significant digits) is written left of the box, right-aligned,
   in the marker's color with a white halo (`PGS_VALUE_HALO_PT`; SVG `paint-order="stroke"`, PNG
   `patheffects.withStroke`), spread by `spread_labels` within the box height. The SVG decides at `_PT`
@@ -593,6 +593,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   PGS box, tooltip, legend row, PNG borders in points, warning above three
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
 - `tests/test_deceased_pgs.py` — The deceased line clear of the PGS box (#80)
+- `tests/test_pgs_dots_in_box.py` — Spread-out PGS dots kept inside their box (#89)
 - `tests/test_pgs_side.py` — The right-hand partner's PGS box on their right, off the partner line (#78)
 - `tests/test_proband_marker.py` — The proband's "P" clear of the label on its left: room kept by
   the layout with tight spacing or large text, none at the default style, no overlap in the PNG
