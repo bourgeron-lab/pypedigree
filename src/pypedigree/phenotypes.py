@@ -1453,6 +1453,8 @@ LEG_LINE_EM = 1.17  # a line of text's height, in ems (DejaVu Sans)
 LEG_FRAME_INSET = 0.1
 LEG_BOTTOM_PAD = 0.1
 CAPTIONED_ROW_KINDS = ("gradient", "binned", "categorical")  # captions under the swatch
+# Rows that write their name after a swatch or a bar, in one column (#88).
+NAMED_ROW_KINDS = ("gradient", "binned", "categorical", "binary", "binary_shared")
 LEG_WRAP_LINE_EM = 1.25  # between the lines of a wrapped PGS row (#68), in ems of its text
 LEG_WIDTH_UNITS = {"cm": 1 / 2.54, "mm": 1 / 25.4, "in": 1.0}  # `legend_max_width` -> inches
 KEY_ROW_KINDS = ("quadrants", "key_note")  # drawn first, above the binary captions
@@ -1562,6 +1564,10 @@ class LegendMetrics:
             captions above the swatch rows), below the header.
         binary_header_h: Height of the Affected / Unaffected / Unknown captions.
         line_h: Distance between two lines of a wrapped row (#68).
+        name_x: Where the rows with a swatch or a bar (binary, gradient,
+            binned, categorical) write their name: `text_x`, or past the
+            widest binned bar, one column for the whole legend (#88). Set by
+            `legend_layout`.
     """
 
     n_rows: int
@@ -1588,6 +1594,7 @@ class LegendMetrics:
     content_top: float = 0.0
     binary_header_h: float = LEG_BINARY_HEADER_H
     line_h: float = 0.5
+    name_x: float = 0.0
 
     def caption_fs(self, size_factor: float = 1.0) -> float:
         """Size of a caption at ``size_factor`` times `label_fs`, never below `min_fs`."""
@@ -1714,6 +1721,7 @@ def legend_metrics(
         content_top=total_h - header_h,
         binary_header_h=binary_header_h,
         line_h=line_h,
+        name_x=text_x,
     )
 
 
@@ -1968,7 +1976,9 @@ class BinnedGeometry:
     """Where a "binned" row's steps and label go, in legend units (#57).
 
     The steps share a bar as wide as a gradient's, or wider when their
-    limits need it; the row's label follows the bar.
+    limits need it. ``label_x`` is the least x its name needs, past the
+    bar; the names of all rows start at `LegendMetrics.name_x`, the
+    largest of these (#88).
     """
 
     step_w: float
@@ -2004,10 +2014,8 @@ def legend_row_right(row: LegendRow, m: LegendMetrics) -> float:
         return right
     if row.kind == "key_note":
         return LEG_X0 + _legend_text_width(row.label, m.caption_fs(), m)
-    if row.kind == "binned":
-        return binned_row_geometry(row, m).label_x + _legend_text_width(row.label, m.fs, m)
-    if row.kind in ("gradient", "categorical", "binary", "binary_shared"):
-        right = m.text_x + _legend_text_width(row.label, m.fs, m)
+    if row.kind in NAMED_ROW_KINDS:
+        right = m.name_x + _legend_text_width(row.label, m.fs, m)
         if row.kind == "categorical":
             right = max(right, LEG_X0 + len(row.categories) * (m.sw_w + m.sw_gap * 0.5))
         return right
@@ -2057,7 +2065,7 @@ def legend_layout(
             bottom_lines=last.lines if last else 1,
         )
 
-    m = metrics(rows)
+    m = with_name_column(metrics(rows), rows)
     others = [legend_row_right(r, m) for r in rows if r.kind != "pgs"]
     right = max(others) if others else None
     max_in = legend_max_width_inches(style)
@@ -2074,7 +2082,15 @@ def legend_layout(
             row = replace(row, wrap_right=right)
             row = replace(row, lines=pgs_row_layout(row, m.icon_text_x, m).lines)
         out.append(row)
-    return out, metrics(out)
+    return out, with_name_column(metrics(out), out)
+
+
+def with_name_column(m: LegendMetrics, rows: Sequence[LegendRow]) -> LegendMetrics:
+    """``m`` with the legend's one name column (#88): `text_x`, or past the
+    widest binned bar, so the names of every swatch and bar row start
+    together however long a binned row's steps are."""
+    ends = [binned_row_geometry(r, m).label_x for r in rows if r.kind == "binned"]
+    return replace(m, name_x=max([m.text_x, *ends]))
 
 
 def legend_caption_lines(row: LegendRow) -> int:

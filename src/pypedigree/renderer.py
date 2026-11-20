@@ -2512,7 +2512,7 @@ def _draw_legend_binned_row(
                 color=LEG_CATEGORY_COLOR,
             )
     _legend_swatch(ax, LEG_X0, y_center, g.step_w * len(row.colors), m.sw_h, "none")
-    _legend_row_label(ax, y_center, row.label, g.label_x, m, style)
+    _legend_row_label(ax, y_center, row.label, m.name_x, m, style)  # one column (#88)
 
 
 def _draw_legend_categorical_row(
@@ -2859,7 +2859,7 @@ def _draw_legend(
             )
         if row.kind in ("gradient", "categorical", "binary", "binary_shared"):
             # Colors are self-explanatory, so the row label is just the name.
-            _legend_row_label(ax, y_center, row.label, m.text_x, m, style)
+            _legend_row_label(ax, y_center, row.label, m.name_x, m, style)
 
     _draw_legend_border(ax, m, style)
 

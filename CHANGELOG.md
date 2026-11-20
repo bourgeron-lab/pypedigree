@@ -73,6 +73,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The names of the legend's gradient, binned, categorical and binary rows start in one column
+  again (#88). Since step names (#81) widen a binned row's steps, its name followed its own bar,
+  so the names were staggered; the column is now past the widest binned bar, for every row, and
+  the legend's width and the PGS row's wrapping (#68) follow it.
 - The deceased line no longer reaches into the PGS box (#80): it overshoots the symbol by 0.2
   half-sizes at each end, while the box sat 0.15 beside it, so its end met the box's corner,
   where a low score's marker sits. Beside a struck-through symbol the box now keeps 0.12
