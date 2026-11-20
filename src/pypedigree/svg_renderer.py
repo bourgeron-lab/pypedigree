@@ -1724,9 +1724,8 @@ def _svg_legend(
             swatch(LEG_X0, vc, m.sw_w, m.sw_h, f"url(#{pid})", stroke="none")
 
         swatch_rows = ("gradient", "categorical", "binary", "binary_shared")
-        label_u = m.text_x if row.kind in swatch_rows else m.icon_text_x
-        if row.kind == "binned":
-            label_u = binned_row_geometry(row, m).label_x
+        # One column for the names of swatch and bar rows (#88).
+        label_u = m.name_x if row.kind in (*swatch_rows, "binned") else m.icon_text_x
         if row.kind != "pgs":
             text(label_u, vc, row.label, fs, baseline="central")
             continue
