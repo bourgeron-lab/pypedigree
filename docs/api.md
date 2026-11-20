@@ -689,7 +689,8 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `legend_spacing` | `1.0` | Factor on the legend's row height and gaps (header, captions, padding), 0.6 to 3, e.g. 0.7 for print. A row never gets shorter than its swatch and the captions under it. The figure is as much shorter as the legend |
 | `show_pgs_values` | `False` | Write each PGS value beside its marker, in its color, left of the curve: "+2.1" / "−0.4" on `"zscore"`, the rounded percentile on `"percentile"`, three significant digits on `"minmax"`. Close values are spread apart; the layout widens the gaps by the widest value. CLI: `--show-pgs-values` |
 | `pgs_colors` | `{}` | Map of PGS column name to hex color for the marker line. Unset: `#e74c3c` for a single PGS column; with several, distinct colors (known phenotypes' for `PGS_autism` and the like) |
-| `gradient_range` | `{}` | Custom min/max for gradient normalization, e.g. `{"SRS": [40, 90]}` |
+| `gradient_range` | `{}` | Custom min/max for gradient normalization, e.g. `{"SRS": [40, 90]}`; the legend's bar then writes these ends instead of "Low" / "High" |
+| `gradient_bins` | `{}` | Clinical thresholds: column → ascending cut-offs, e.g. `{"SRS": [60, 66, 76], "IQ": [70]}`. The band takes one of `len(cut-offs) + 1` steps of the column's color, white to full (a `gi_` column the other way), a value at a cut-off going to the step above; the value is still written. The legend shows the steps with their limits ("< 60", "60–65", "66–75", "≥ 76"; with fractional cut-offs a step is written up to the next one, which it excludes) and the SVG tooltip adds the step ("SRS: 70 (66–75)"). Takes precedence over `gradient_diverging` and `gradient_range` for the color. Anything but ascending numbers raises `PedigreeError` |
 | `gradient_diverging` | `{}` | Tricolor diverging gradient config, e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}` |
 | `zero_pad_ids` | `0` | Zero-pad sample IDs to this width in labels (0 = no padding) |
 | `dpi` | `150` | Output resolution |
@@ -746,8 +747,8 @@ The prefix is stripped from the display name (e.g. `b_ASD` is shown as `ASD`).
 
 The decision is never taken per individual, so a column cannot mix binary and
 gradient bands within the same diagram, and its legend row always matches its
-bands. An explicit `gradient_range` or `gradient_diverging` entry for the
-column also forces gradient.
+bands. An explicit `gradient_range`, `gradient_diverging` or `gradient_bins`
+entry for the column also forces gradient.
 
 ---
 

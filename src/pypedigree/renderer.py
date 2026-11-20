@@ -90,8 +90,10 @@ from pypedigree.phenotypes import (
     all_bands_na,
     band_cell,
     band_room,
+    binned_row_geometry,
     cell_texts,
     check_band_text,
+    check_gradient_bins,
     check_legend,
     check_min_font_size,
     check_pgs_scale,
@@ -195,6 +197,7 @@ def render_pedigree(
     check_min_font_size(style)
     check_band_text(style)
     check_legend(style)
+    check_gradient_bins(style)
     pheno_render = with_quadrants(
         pheno_render, pheno_render.band_names(pheno_names or []), carriers, style
     )
@@ -2475,6 +2478,27 @@ def _draw_legend_gradient_bar(
     _legend_caption(ax, LEG_X0 + LEG_GRAD_W, caption_y, high_label, m, style, ha="right")
 
 
+def _draw_legend_binned_row(
+    ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics, style: PedigreeStyle
+) -> None:
+    """Draw a gradient's steps (``gradient_bins``, #57), each with its limits below."""
+    g = binned_row_geometry(row, m)
+    for i, (rgb, limits) in enumerate(zip(row.colors, row.bins, strict=True)):
+        x = LEG_X0 + i * g.step_w
+        _legend_swatch(ax, x, y_center, g.step_w, m.sw_h, rgb, edgecolor="none")
+        _legend_caption(
+            ax,
+            x + g.step_w / 2,
+            y_center - m.sw_h / 2 - LEG_CAPTION_GAP,
+            limits,
+            m,
+            style,
+            ha="center",
+        )
+    _legend_swatch(ax, LEG_X0, y_center, g.step_w * len(row.colors), m.sw_h, "none")
+    _legend_row_label(ax, y_center, row.label, g.label_x, m, style)
+
+
 def _draw_legend_categorical_row(
     ax: Axes,
     y_center: float,
@@ -2799,6 +2823,8 @@ def _draw_legend(
             _draw_legend_gradient_bar(ax, y_center, list(row.colors), row.low, row.high, m, style)
         elif row.kind == "categorical":
             _draw_legend_categorical_row(ax, y_center, dict(row.categories), m, style)
+        elif row.kind == "binned":
+            _draw_legend_binned_row(ax, y_center, row, m, style)
         elif row.kind == "binary":
             _draw_legend_binary_row(ax, y_center, row.color, m)
         elif row.kind == "binary_shared":

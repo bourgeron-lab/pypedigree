@@ -1,0 +1,4 @@
+{
+  "gradient_bins": {"SRS": [60, 66, 76], "IQ": [70]},
+  "gradient_range": {"ADHD_RS": [0, 54]}
+}

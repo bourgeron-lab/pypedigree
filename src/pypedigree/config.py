@@ -230,6 +230,14 @@ class PedigreeStyle:
     # Diverging (tricolor) gradient config (pheno_name -> {min, mid, max, color_low, color_high})
     gradient_diverging: dict[str, dict[str, Any]] = field(default_factory=dict)
 
+    # Clinical thresholds (#57): column -> ascending cut-offs, e.g.
+    # {"SRS": [60, 66, 76]}. The band takes one of len(cut-offs) + 1 steps of
+    # the column's color (a value at a cut-off goes to the step above; a gi_
+    # column runs the other way), and the legend shows the steps with their
+    # limits ("< 60", "60–65", "66–75", "≥ 76"). Takes precedence over
+    # gradient_diverging and gradient_range for the band's color.
+    gradient_bins: dict[str, list[float]] = field(default_factory=dict)
+
     # Zero-pad individual IDs to this width (0 = no padding)
     zero_pad_ids: int = 0
 
@@ -340,6 +348,7 @@ def resolve_style(
     resolved.phenotype_labels = dict(resolved.phenotype_labels)
     resolved.gradient_range = {k: list(v) for k, v in resolved.gradient_range.items()}
     resolved.gradient_diverging = {k: dict(v) for k, v in resolved.gradient_diverging.items()}
+    resolved.gradient_bins = {k: list(v) for k, v in resolved.gradient_bins.items()}
 
     all_names = list(phenotype_names or [])
     names = [n for n in all_names if not is_pgs_column(n)]

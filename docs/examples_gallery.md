@@ -175,6 +175,20 @@ pypedigree tests/data/phenotype/outline_rings.ped -o outline_rings.png
 
 ---
 
+## gradient_bins.ped (clinical thresholds)
+
+![Scores read against their cut-offs](imgs/examples/gradient_bins.png)
+
+**Description**: Synthetic family of five with an autism diagnosis (`b_autism`) and three scores: an SRS T-score (`g_SRS`), an IQ (`gi_IQ`, low is atypical) and an ADHD rating scale (`g_ADHD_RS`). The style (`gradient_bins.json`) gives the SRS its cut-offs (60 mild, 66 moderate, 76 severe), the IQ one at 70, and the ADHD-RS its range (0 to 54).
+
+**Features**: with `gradient_bins`, a score is drawn in one of `len(cut-offs) + 1` steps of its color instead of a continuous shade, so the reader sees which side of a cut-off it falls (a value at a cut-off goes to the step above). The legend shows each step with its limits ("< 60", "60–65", "66–75", "≥ 76"); the inverted IQ is colored below 70 only. The value is still written in the band, and the SVG tooltip adds the step ("SRS: 70 (66–75)"). With `gradient_range`, the legend's bar writes the range's ends ("0", "54") instead of "Low" / "High".
+
+```bash
+pypedigree tests/data/phenotype/gradient_bins.ped --style tests/data/phenotype/gradient_bins.json -o gradient_bins.png
+```
+
+---
+
 ## legend_minimal.ped (a compact legend for journal figures)
 
 ![The minimal legend](imgs/examples/legend_minimal.png)
