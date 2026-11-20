@@ -1307,7 +1307,8 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
         )
     ys = [bottom - value * box_h for _name, value in active]
     # Dots closer than their diameter side by side, so none hides another (#54).
-    offsets = spread_dots(ys, PGS_DOT_PT * _PT)
+    # Within the box, so no dot reaches the symbol (#89).
+    offsets = spread_dots(ys, PGS_DOT_PT * _PT, box_w)
     for (name, _value), y, dx in zip(active, ys, offsets, strict=True):
         color = html.escape(style.pgs_colors.get(name, DEFAULT_PGS_COLOR))
         out.append(
