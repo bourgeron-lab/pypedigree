@@ -218,6 +218,13 @@ class TestVisualExtended:
         fig = render_pedigree(ped)
         _assert_visual_match(fig, "outline_rings", regen_golden)
 
+    def test_legend_minimal(self, regen_golden: bool) -> None:
+        """The minimal legend (#67): no title or sex row, one-symbol key and its caption."""
+        ped = parse_pedigree(DATA_DIR / "phenotype/legend_minimal.ped")
+        style = PedigreeStyle(legend="minimal", font_size=6.0, min_font_size=6.0)
+        fig = render_pedigree(ped, style=style)
+        _assert_visual_match(fig, "legend_minimal", regen_golden)
+
     def test_quadrants_with_gradient_and_carrier(self, regen_golden: bool) -> None:
         """Quadrants holding a gradient value and a carrier source, on the large pedigree."""
         ped = parse_pedigree(DATA_DIR / "complex/multigenerational.ped")

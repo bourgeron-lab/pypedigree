@@ -175,6 +175,20 @@ pypedigree tests/data/phenotype/outline_rings.ped -o outline_rings.png
 
 ---
 
+## legend_minimal.ped (a compact legend for journal figures)
+
+![The minimal legend](imgs/examples/legend_minimal.png)
+
+**Description**: Synthetic quartet with two binary phenotypes (`b_autism`, `b_ADHD`), a gradient (`g_SRS`) and two polygenic scores, drawn at 6 pt as in a journal figure (`legend_minimal.json`: `"legend": "minimal"`, `font_size` and `min_font_size` 6).
+
+**Features**: `legend: "minimal"` drops the "Legend" title and the "= Male / = Female" row, tightens the rows (`legend_spacing` 0.7), draws the quadrant key with one symbol, and replaces the Affected / Unaffected / Unknown swatches of the key's binary columns by one caption under the key. Here the legend is 2.7 cm tall instead of 4.5 cm, and the figure 1.8 cm shorter. Each part can also be set alone: `legend_title` (`null` for none), `legend_sex_symbols` (`false`) and `legend_spacing`.
+
+```bash
+pypedigree tests/data/phenotype/legend_minimal.ped --style tests/data/phenotype/legend_minimal.json -o legend_minimal.png
+```
+
+---
+
 ## PGS distribution
 
 **Description**: If a column named `PGS` (case-insensitive) is present in the data, a vertical gaussian distribution curve is drawn to the left of each individual with a red marker indicating their score.

@@ -375,7 +375,7 @@ def resolve_phenotype_render(
 
 # --- Names shown (#56) --------------------------------------------------------
 
-LEGEND_MODES = ("auto", "compact", "full")
+LEGEND_MODES = ("auto", "compact", "full", "minimal")
 
 
 def display_name(name: str, style: PedigreeStyle) -> str:
@@ -396,15 +396,33 @@ def pgs_trait_name(name: str, style: PedigreeStyle) -> str:
 
 
 def check_legend(style: PedigreeStyle) -> None:
-    """Reject an unknown ``legend`` or an invalid ``phenotype_labels``.
+    """Reject an unknown ``legend``, an invalid legend option or ``phenotype_labels``.
 
     Raises:
-        PedigreeError: If ``style.legend`` is not one of `LEGEND_MODES`, or
-            a label is not a string.
+        PedigreeError: If ``style.legend`` is not one of `LEGEND_MODES`,
+            ``legend_title`` is not text or None, ``legend_sex_symbols`` not a
+            bool, ``legend_spacing`` outside `LEG_SPACING_RANGE`, or a label
+            is not a string.
     """
     if style.legend not in LEGEND_MODES:
         raise PedigreeError(
             f"Unknown legend {style.legend!r}: expected one of {', '.join(LEGEND_MODES)}"
+        )
+    if style.legend_title is not None and not isinstance(style.legend_title, str):
+        raise PedigreeError(f"legend_title must be text or null, not {style.legend_title!r}")
+    if not isinstance(style.legend_sex_symbols, bool):
+        raise PedigreeError(
+            f"legend_sex_symbols must be true or false, not {style.legend_sex_symbols!r}"
+        )
+    low, high = LEG_SPACING_RANGE
+    spacing = style.legend_spacing
+    if (
+        isinstance(spacing, bool)
+        or not isinstance(spacing, int | float)
+        or not low <= spacing <= high
+    ):
+        raise PedigreeError(
+            f"legend_spacing must be a number from {low} to {high}, not {spacing!r}"
         )
     bad = [k for k, v in style.phenotype_labels.items() if not isinstance(v, str)]
     if bad:
@@ -1138,6 +1156,46 @@ LEG_RING_INSET_PT = 2.2  # its inner border, inside the outer one
 LEG_KEY_DASH_EM = 1.4  # length of a PGS score's dash in the legend's key, in ems
 LEG_KEY_GAP_EM = 0.3  # between a dash and its score's name
 LEG_KEY_SPACE_EM = 0.9  # between one score's name and the next dash
+# The header (#67), before `legend_spacing`: the margin above it (smaller with
+# neither title nor sex symbols), the title's line, and the sex symbols' row
+# (above its centre when it comes first, below it).
+LEG_TOP_BARE = 0.5
+LEG_TITLE_H = 1.0
+LEG_SEX_ABOVE = 0.4
+LEG_SEX_BELOW = 0.8
+LEG_DEFAULT_TITLE = "Legend"
+LEG_MINIMAL_SPACING = 0.7  # `legend_spacing` with legend "minimal", unless set
+LEG_SPACING_RANGE = (0.6, 3.0)  # below 0.6 a gradient's end captions reach the next row
+# "minimal" (#67): the binary columns of the quadrant key are read from this
+# caption, in a row under the key, instead of a row of swatches.
+LEG_KEY_NOTE_LABEL = "Colored: affected \u00b7 white: unaffected \u00b7 grey: unknown"
+# A row is never shorter than its swatch, the gap to the captions under it
+# (a gradient's ends, category names) and those captions, plus this margin,
+# so a small `legend_spacing` cannot make them reach the next row.
+LEG_CAPTION_GAP = 0.05
+LEG_ROW_MARGIN = 0.08
+LEG_LINE_EM = 1.17  # a line of text's height, in ems (DejaVu Sans)
+KEY_ROW_KINDS = ("quadrants", "key_note")  # drawn first, above the binary captions
+
+
+def legend_title(style: PedigreeStyle) -> str:
+    """The legend's title ("" for none): ``legend_title``, none for "minimal" by default."""
+    title = style.legend_title
+    if style.legend == "minimal" and title == LEG_DEFAULT_TITLE:
+        return ""
+    return title or ""
+
+
+def legend_sex_symbols(style: PedigreeStyle) -> bool:
+    """Whether the legend has its "= Male / = Female" row (not by default with "minimal")."""
+    return style.legend_sex_symbols and style.legend != "minimal"
+
+
+def legend_spacing(style: PedigreeStyle) -> float:
+    """The legend's spacing factor: ``legend_spacing``, 0.7 for "minimal" by default."""
+    if style.legend == "minimal" and style.legend_spacing == 1.0:
+        return LEG_MINIMAL_SPACING
+    return float(style.legend_spacing)
 
 
 @dataclass(frozen=True)
@@ -1167,6 +1225,13 @@ class LegendMetrics:
             more so that its row text reaches `style.min_font_size`.
         title_fs: Size of the "Legend" title.
         min_fs: `style.min_font_size`, or 0.
+        spacing: Factor on the row height and the gaps (``legend_spacing``).
+        title: The title ("" for none).
+        title_y: Top of the title.
+        sex_y: Centre of the "= Male / = Female" row, or None without it.
+        content_top: Top of the first row (the quadrant key's, or the binary
+            captions above the swatch rows), below the header.
+        binary_header_h: Height of the Affected / Unaffected / Unknown captions.
     """
 
     n_rows: int
@@ -1186,6 +1251,12 @@ class LegendMetrics:
     font: float = 8.0
     title_fs: float = 7.8
     min_fs: float = 0.0
+    spacing: float = 1.0
+    title: str = LEG_DEFAULT_TITLE
+    title_y: float = 0.0
+    sex_y: float | None = None
+    content_top: float = 0.0
+    binary_header_h: float = LEG_BINARY_HEADER_H
 
     def caption_fs(self, size_factor: float = 1.0) -> float:
         """Size of a caption at ``size_factor`` times `label_fs`, never below `min_fs`."""
@@ -1206,10 +1277,13 @@ def legend_metrics(
     """Compute the legend panel geometry for a given number of rows.
 
     Rows keep a constant height: the panel grows with its row count, and
-    the figure grows with the panel (see `_add_legend_axes`).
+    the figure grows with the panel (see `_add_legend_axes`). The header
+    holds the title and the sex symbols, each optional (#67); the row
+    height and every gap are multiplied by the spacing factor.
 
     Args:
-        n_pheno_rows: Number of phenotype and carrier rows to fit.
+        n_pheno_rows: Number of phenotype and carrier rows to fit
+            (`legend_slot_count`).
         style: Style supplying the base font size and family.
         binary_headers: Whether the Affected / Unaffected / Unknown captions
             are drawn above the rows.
@@ -1218,8 +1292,8 @@ def legend_metrics(
         The derived metrics.
     """
     n_rows = max(n_pheno_rows, 1)
-    row_h = LEG_ROW_H
-    sw_h = row_h * 0.45
+    spacing = legend_spacing(style)
+    sw_h = LEG_ROW_H * spacing * 0.45
     sw_w = 0.8
     sw_gap = 0.35
 
@@ -1236,12 +1310,29 @@ def legend_metrics(
     font = max(style.font_size, min_fs / LEG_TEXT_SCALE)
     fs = font * LEG_TEXT_SCALE
     em = font / 72  # inches
-    header_h = LEG_HEADER_H + (LEG_BINARY_HEADER_H if binary_headers else 0.0)
+    label_fs = max(fs * 0.75, min_fs)
+    # Never shorter than a swatch and its captions (only reached below 1.0).
+    caption_h = LEG_LINE_EM * label_fs / (LEG_UNIT_Y_EM * font)
+    row_h = max(LEG_ROW_H * spacing, sw_h + LEG_CAPTION_GAP + caption_h + LEG_ROW_MARGIN)
+
+    # The header, from the top (y up from the panel's bottom, so its height
+    # is counted first and placed once the total is known).
+    title = legend_title(style)
+    sex = legend_sex_symbols(style)
+    top = (LEG_PAD if title or sex else LEG_TOP_BARE) * spacing
+    title_h = LEG_TITLE_H * spacing if title else 0.0
+    sex_above = LEG_SEX_ABOVE * spacing if sex and not title else 0.0
+    sex_below = LEG_SEX_BELOW * spacing if sex else 0.0
+    header_h = top + title_h + sex_above + sex_below
+    binary_header_h = LEG_BINARY_HEADER_H * spacing
+    total_h = header_h + (binary_header_h if binary_headers else 0.0) + n_rows * row_h
+    title_y = total_h - top
+    sex_y = title_y - title_h - sex_above if sex else None
 
     return LegendMetrics(
         n_rows=n_rows,
         row_h=row_h,
-        total_h=header_h + n_rows * row_h + LEG_PAD,
+        total_h=total_h,
         scale=font / LEG_REFERENCE_FONT,
         sw_h=sw_h,
         sw_w=sw_w,
@@ -1249,13 +1340,19 @@ def legend_metrics(
         text_x=text_x,
         icon_text_x=icon_text_x,
         fs=fs,
-        label_fs=max(fs * 0.75, min_fs),
+        label_fs=label_fs,
         marker_size=font,
         unit_x=LEG_UNIT_X_EM * em,
         unit_y=LEG_UNIT_Y_EM * em,
         font=font,
         title_fs=max(fs + 1, font * 0.7),
         min_fs=min_fs,
+        spacing=spacing,
+        title=title,
+        title_y=title_y,
+        sex_y=sex_y,
+        content_top=total_h - header_h,
+        binary_header_h=binary_header_h,
     )
 
 
@@ -1282,6 +1379,11 @@ class LegendRow:
         quadrants: Cells of the quadrant key ("quadrants"), one per column.
         key: The PGS scores' names and colors, written after the label
             ("pgs", #56).
+        single_symbol: The quadrant key shows one symbol, not a square and
+            a circle ("quadrants", legend "minimal", #67).
+
+    A "key_note" row is a caption under the quadrant key, saying how to read
+    its binary columns (legend "minimal").
     """
 
     kind: str
@@ -1296,6 +1398,7 @@ class LegendRow:
     obligate: bool = False
     quadrants: tuple[QuadrantKeyCell, ...] = ()
     key: tuple[tuple[str, str], ...] = ()
+    single_symbol: bool = False
 
     @property
     def slots(self) -> int:
@@ -1324,18 +1427,20 @@ class QuadrantKeyCell:
 class QuadrantKeyGeometry:
     """Where the quadrant key's parts go, in legend units (y up).
 
-    The key is a square and a circle, each cut in four; left-quadrant labels
-    sit left of the square, right-quadrant labels right of the circle.
+    The key is a square and a circle, each cut in four, or the square alone
+    (`LegendRow.single_symbol`); left-quadrant labels sit left of the square,
+    right-quadrant labels right of the last symbol.
 
     Attributes:
         square: (x, y_center, width, height) of the square.
         circle: (x_center, y_center, x_radius, y_radius) of the circle; the
-            radii differ in legend units so it is round on the page.
+            radii differ in legend units so it is round on the page. None
+            when the key has one symbol.
         labels: (x, y, text, anchor) per label; anchor is "end" or "start".
     """
 
     square: tuple[float, float, float, float]
-    circle: tuple[float, float, float, float]
+    circle: tuple[float, float, float, float] | None
     labels: tuple[tuple[float, float, str, str], ...]
 
 
@@ -1363,16 +1468,17 @@ def quadrant_key_geometry(row: LegendRow, m: LegendMetrics, y_center: float) -> 
     left_w = max((len(c.label) for c in left), default=0) * char_w
     square_x = LEG_X0 + (left_w + LEG_KEY_GAP if left else 0.0)
     circle_cx = square_x + side_x * 1.6 + side_x / 2
+    right_edge = square_x + side_x if row.single_symbol else circle_cx + side_x / 2
     labels = []
     for cell in row.quadrants:
         v = y_center + (side_y / 4 if cell.position.startswith("top") else -side_y / 4)
         if cell.position.endswith("left"):
             labels.append((square_x - LEG_KEY_GAP, v, cell.label, "end"))
         else:
-            labels.append((circle_cx + side_x / 2 + LEG_KEY_GAP, v, cell.label, "start"))
+            labels.append((right_edge + LEG_KEY_GAP, v, cell.label, "start"))
     return QuadrantKeyGeometry(
         square=(square_x, y_center, side_x, side_y),
-        circle=(circle_cx, y_center, side_x / 2, side_y / 2),
+        circle=None if row.single_symbol else (circle_cx, y_center, side_x / 2, side_y / 2),
         labels=tuple(labels),
     )
 
@@ -1491,9 +1597,15 @@ def legend_rows(
             rows.append(LegendRow("binary", display_name(name, style), color=color))
 
     # Compact legend (#56): with quadrants, the key already says which color
-    # is which column, so two or more binary columns share one row.
+    # is which column, so two or more binary columns share one row. Minimal
+    # (#67): they get no row at all, a caption under the key says how to
+    # read them, even for one column.
+    minimal = style.legend == "minimal"
     compact = style.legend == "compact" or (style.legend == "auto" and bool(render.quadrants))
-    if compact and len(binary_in_key) >= 2:
+    if minimal and binary_in_key:
+        merged = {i for i, _c in binary_in_key}
+        rows = [r for i, r in enumerate(rows) if i not in merged]
+    elif (compact or minimal) and len(binary_in_key) >= 2:
         first = binary_in_key[0][0]
         shared = LegendRow(
             "binary_shared",
@@ -1590,5 +1702,7 @@ def legend_rows(
                         style.phenotype_colors.get(name, FALLBACK_COLOR),
                     )
                 )
-        rows.insert(0, LegendRow("quadrants", "", quadrants=tuple(cells)))
+        rows.insert(0, LegendRow("quadrants", "", quadrants=tuple(cells), single_symbol=minimal))
+        if minimal and binary_in_key:
+            rows.insert(1, LegendRow("key_note", LEG_KEY_NOTE_LABEL))
     return rows
