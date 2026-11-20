@@ -58,6 +58,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The right-hand partner's PGS curve and its values are drawn on their right, not on the line
+  between the partners, which crossed the box, the curve, the dots and the values (#78). The
+  layout already chose a side (`NodeLayout.pgs_side`); both renderers now follow it, the values
+  going on the far side of the box. Someone with a partner on each side keeps the left. The
+  layout keeps the box's room right of such a partner, so their right-hand neighbour's box does
+  not meet it; an evaluated partner's box clears the asterisk; a proband's caption stays below
+  a box on the right. Goldens `ptdt`, `legend_minimal`, `multi_phenotype_pgs` and
+  `circular_test_all` change, and the gallery's `annotations.png`, `legend_minimal.png` and
+  `ptdt.png`.
 - The captions under the legend's last row (a gradient's ends, a binned row's limits, category
   names) no longer run past the legend's frame, nor the figure's edge at small sizes (#77): the
   panel gets a bottom margin for the part of them that hangs below the row. Legends whose last

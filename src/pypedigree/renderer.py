@@ -107,12 +107,14 @@ from pypedigree.phenotypes import (
     outline_colors,
     outline_reach,
     outline_ring_offsets,
+    pgs_box_left,
     pgs_caption_above,
     pgs_caption_offset,
     pgs_marker_values,
     pgs_row_layout,
     pgs_tail_positions,
     pgs_values_width,
+    pgs_values_x,
     pregnancy_loss_fill,
     quadrant_box,
     quadrant_cell,
@@ -1970,17 +1972,17 @@ def _draw_pgs_ridge(
     further left, clear of the symbol's outer borders (#46).
     """
     half = style.shape_size / 2
-    cx, cy = node.x, node.y
+    cy = node.y
 
     # Filter to PGS columns that have data for this node
     active = active_pgs(node, pgs_names, style.pgs_scale)
     if not active:
         return
 
-    box_width = half * 0.8
+    box_width = half * symbols.PGS_BOX_WIDTH
     box_height = half * 2
-    gap = half * 0.15
-    box_left = cx - half - box_width - gap - ring
+    # Left of the symbol, or right of a right-hand partner (#78).
+    box_left = pgs_box_left(node, style, ring)
     box_bottom = cy - half
 
     # Shared box outline
@@ -2094,6 +2096,7 @@ class _PgsMarks(Artist):
         super().__init__()
         self.set_zorder(6)
         self._ax = ax
+        self._node = node
         self._box = (box_left, box_width, box_bottom, box_height)
         self._ys = [box_bottom + value * box_height for _name, value in active]
         self._size = style.text_size(symbols.PGS_CAPTION_SCALE)
@@ -2117,7 +2120,7 @@ class _PgsMarks(Artist):
                     fontsize=self._size,
                     fontfamily=style.font_family,
                     color=color,
-                    ha="right",
+                    ha="left" if node.pgs_side == "right" else "right",
                     va="center",
                     path_effects=[
                         patheffects.withStroke(linewidth=PGS_VALUE_HALO_PT, foreground="white")
@@ -2138,7 +2141,7 @@ class _PgsMarks(Artist):
         step = PGS_VALUE_LINE_EM * self._size * pt
         top = box_bottom + box_height
         placed = spread_labels(self._ys, step, box_bottom + step / 2, top - step / 2)
-        x = box_left - PGS_BOX_PAD - PGS_VALUE_GAP_EM * self._size * pt
+        x, _side = pgs_values_x(self._node, box_left, box_width, PGS_VALUE_GAP_EM * self._size * pt)
         for text, y in zip(self._texts, placed, strict=True):
             if text is not None:
                 text.set_position((x, y))

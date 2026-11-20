@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 from collections import deque
+from collections.abc import Mapping
 from dataclasses import replace
 
 from pypedigree import symbols
@@ -356,16 +357,34 @@ class _HierarchicalPlacer:
         labels = reach.get(left, 0.0) + reach.get(right, 0.0)
         return max(self.style.couple_gap, self.marker_room.get(right, 0.0), labels)
 
-    def _add(self, block: _Block, sid: str, x: float, gen: int) -> None:
+    def _add(self, block: _Block, sid: str, x: float, gen: int, pgs_right: bool = False) -> None:
         """Put ``sid`` in ``block``, with the room their marker and label need.
 
         Blocks keep the sibling gap between their contours, so the room on
         each side adds to it: two neighbours with long labels end up at
-        least the sum of their labels' reaches apart.
+        least the sum of their labels' reaches apart. A right-hand partner,
+        whose PGS box is drawn on their right (#78), keeps its room there:
+        the sibling gap already holds the next symbol's box, on its left.
         """
         label = self._label_room(sid)
         marker = max(0.0, self.marker_room.get(sid, 0.0) - self.style.sibling_gap)
-        block.add(sid, x, gen, max(marker, label), label)
+        right = label
+        if pgs_right and self.style.pgs_box_room > 0:
+            right = max(right, self._pgs_room(sid))
+        block.add(sid, x, gen, max(marker, label), right)
+
+    def _pgs_room(self, sid: str) -> float:
+        """Room a PGS box drawn on the right of ``sid`` takes (#78)."""
+        style = self.style
+        ind = self.family.individuals[sid]
+        half = style.shape_size / 2
+        size = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
+        sex = symbols.symbol_sex(ind.sex, ind.notation)
+        evaluated = ind.notation.is_evaluated
+        extra = symbols.pgs_box_near(half, sex, evaluated, size, "right") - symbols.pgs_box_near(
+            half, sex, False, size, "right"
+        )
+        return style.pgs_box_room + extra
 
     def _line(self, sid: str) -> frozenset[str]:
         """``sid`` and all their descendants."""
@@ -590,11 +609,14 @@ class _HierarchicalPlacer:
         else:
             x = 0.0
             x_left, x_right = -cg_l, cg_r
-        self._add(block, sid, x, gen)
+        # The right-hand partner of a couple draws their PGS box on the
+        # right (#78): ``sid`` with a partner on the left only, or the
+        # partner on the right.
+        self._add(block, sid, x, gen, pgs_right=left is not None and right is None)
         if left is not None:
             self._add(block, left[0], x_left, gen)
         if right is not None:
-            self._add(block, right[0], x_right, gen)
+            self._add(block, right[0], x_right, gen, pgs_right=True)
 
         # Partnerships whose partner is drawn elsewhere: their children
         # still descend from this individual, so keep them underneath.
@@ -848,15 +870,7 @@ def _build_nodes(
     Returns:
         List of NodeLayout objects.
     """
-    # Determine which individuals are right-side partners (PGS goes on right)
-    right_partners: set[str] = set()
-    for union in family.unions:
-        p1, p2 = union.partner_ids
-        if p1 in x_positions and p2 in x_positions:
-            if x_positions[p1] <= x_positions[p2]:
-                right_partners.add(p2)
-            else:
-                right_partners.add(p1)
+    right_partners = _pgs_right_side(family, x_positions)
 
     nodes = []
     for sid, ind in family.individuals.items():
@@ -898,6 +912,21 @@ def _build_nodes(
 
 # Room below each line of notes or annotations, beyond its step.
 _LINE_BELOW_MARGIN = 0.05
+
+
+def _pgs_right_side(family: Family, positions: Mapping[str, float]) -> set[str]:
+    """Who draws their PGS box on the right (#78): the right-hand partner of
+    a couple, unless they also have a partner on their right, so that no box
+    sits on a line between partners."""
+    right: set[str] = set()
+    left: set[str] = set()
+    for union in family.unions:
+        p1, p2 = union.partner_ids
+        if p1 in positions and p2 in positions:
+            lo, hi = (p1, p2) if positions[p1] <= positions[p2] else (p2, p1)
+            left.add(lo)
+            right.add(hi)
+    return right - left
 
 
 def _room_below_labels(family: Family, style: PedigreeStyle) -> float:
@@ -1584,15 +1613,7 @@ def _build_circular_nodes(
     Returns:
         List of NodeLayout objects.
     """
-    # Determine right-side partners (PGS goes on right)
-    right_partners: set[str] = set()
-    for union in family.unions:
-        p1, p2 = union.partner_ids
-        if p1 in angles and p2 in angles:
-            if angles[p1] <= angles[p2]:
-                right_partners.add(p2)
-            else:
-                right_partners.add(p1)
+    right_partners = _pgs_right_side(family, angles)
 
     nodes = []
     for sid, ind in family.individuals.items():
