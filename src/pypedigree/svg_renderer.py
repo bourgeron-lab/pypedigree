@@ -68,6 +68,7 @@ from pypedigree.phenotypes import (
     LEG_GRAD_W,
     LEG_RING_INSET_PT,
     LEG_RING_WIDTH_PT,
+    LEG_SEX_SYMBOL_GAP,
     LEG_SWATCH_EDGE,
     LEG_UNIT_X_EM,
     LEG_UNIT_Y_EM,
@@ -102,9 +103,12 @@ from pypedigree.phenotypes import (
     curve_value_text,
     display_name,
     fit_text,
+    legend_binary_captions,
     legend_layout,
+    legend_min_right,
     legend_row_centers,
     legend_rows,
+    legend_sex_items,
     legend_slot_count,
     outline_colors,
     outline_columns,
@@ -1486,7 +1490,7 @@ def _svg_legend(
     uy = LEG_UNIT_Y_EM * m.font * _PT
     fs = m.fs * _PT
     body: list[str] = []
-    right = LEG_X0 + 4.0  # rightmost content, in legend units
+    right = legend_min_right(style)  # rightmost content, in legend units (#79)
 
     def X(u: float) -> float:
         return x0 + u * ux
@@ -1539,16 +1543,19 @@ def _svg_legend(
     if m.sex_y is not None:
         v = m.sex_y
         side = m.marker_size * _PT
-        body.append(
-            f'<rect x="{X(0.6) - side / 2:.3f}" y="{Y(v) - side / 2:.3f}" width="{side:.3f}" '
-            f'height="{side:.3f}" fill="white" stroke="black" stroke-width="{_PT:.3f}"/>'
-        )
-        body.append(
-            f'<circle cx="{X(2.5):.3f}" cy="{Y(v):.3f}" r="{side / 2:.3f}" fill="white" '
-            f'stroke="black" stroke-width="{_PT:.3f}"/>'
-        )
-        text(0.6 + 0.25, v, "= Male", fs)
-        text(2.5 + 0.25, v, "= Female", fs)
+        for u, shape, label in legend_sex_items(style, m):
+            if shape == "square":
+                body.append(
+                    f'<rect x="{X(u) - side / 2:.3f}" y="{Y(v) - side / 2:.3f}" '
+                    f'width="{side:.3f}" height="{side:.3f}" fill="white" stroke="black" '
+                    f'stroke-width="{_PT:.3f}"/>'
+                )
+            else:
+                body.append(
+                    f'<circle cx="{X(u):.3f}" cy="{Y(v):.3f}" r="{side / 2:.3f}" fill="white" '
+                    f'stroke="black" stroke-width="{_PT:.3f}"/>'
+                )
+            text(u + LEG_SEX_SYMBOL_GAP, v, label, fs)
     y_top = m.content_top
 
     # The quadrant key first (and its note, #67), so the captions sit above
@@ -1590,7 +1597,7 @@ def _svg_legend(
     rows = [r for r in rows if r.kind not in KEY_ROW_KINDS]
 
     if binary_headers:
-        for i, s in enumerate(("Affected", "Unaffected", "Unknown")):
+        for i, s in enumerate(legend_binary_captions(style)):
             caption(m.swatch_x(i) + m.sw_w / 2, y_top, s, "middle")
         y_top -= m.binary_header_h
 

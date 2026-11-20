@@ -427,6 +427,10 @@ Additional PedigreeStyle fields:
 - `legend_title: str | None`, `legend_sex_symbols: bool`, `legend_spacing: float` (0.6–3) — the legend's
   header and spacing (#67). Read only through `phenotypes.legend_title()` / `legend_sex_symbols()` /
   `legend_spacing()`, which apply "minimal"'s defaults (no title, no sex row, 0.7) to options left at theirs
+- `legend_text: dict[str, str]` — the legend's fixed wording by role (#79): `LEGEND_TEXT_DEFAULTS`,
+  read through `phenotypes.legend_text(style, role)`, `legend_binary_captions`, `legend_sex_items` (the
+  female symbol moves right for a long "male" text); `check_legend` rejects unknown roles with a
+  suggestion. With "minimal" the frame hugs its content (`legend_min_right`)
 - `legend_max_width: float | str | None` — widest the legend may be (cm, or "85mm"/"8.5cm"/"3.3in";
   `legend_max_width_inches()`); the PGS row wraps at it or at the widest other row (#68)
 Warnings and errors:
@@ -568,6 +572,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_legend_bottom.py` — The last legend row's captions inside the frame (#77)
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)
 - `tests/test_ptdt.py` — pTDT deviation columns: z scale, captions, legend row, tooltip, colors (#52)
+- `tests/test_legend_text.py` — The legend's wording (`legend_text`), the minimal legend's frame (#79)
 - `tests/test_legend_wrap.py` — The PGS legend row wrapped at the other rows or `legend_max_width` (#68)
 - `tests/test_gradient_bins.py` — Clinical thresholds (`gradient_bins`) and a range's legend ends (#57)
 - `tests/test_legend_labels.py` — Names shown (`phenotype_labels`, `_` as spaces), compact legend

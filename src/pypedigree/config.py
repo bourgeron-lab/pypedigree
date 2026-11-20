@@ -221,6 +221,13 @@ class PedigreeStyle:
     # None: the PGS row wraps where the legend's widest other row ends.
     legend_max_width: float | str | None = None
 
+    # The legend's fixed wording (#79), by role: "key_note", "shared_binary",
+    # "affected", "unaffected", "unknown", "pgs", "ptdt", "male", "female",
+    # "low", "high", e.g. {"key_note": "Coloured: affected · white:
+    # unaffected · grey: unknown"} for British spelling or another language.
+    # "pgs" and "ptdt" replace the whole caption before the scores' key.
+    legend_text: dict[str, str] = field(default_factory=dict)
+
     # PGS curve colors (PGS column name -> hex color, e.g. {"PGS_autism": "#3498db"})
     pgs_colors: dict[str, str] = field(default_factory=dict)
 
@@ -380,6 +387,7 @@ def resolve_style(
     resolved.gradient_range = {k: list(v) for k, v in resolved.gradient_range.items()}
     resolved.gradient_diverging = {k: dict(v) for k, v in resolved.gradient_diverging.items()}
     resolved.gradient_bins = {k: list(v) for k, v in resolved.gradient_bins.items()}
+    resolved.legend_text = dict(resolved.legend_text)
     resolved.gradient_bin_labels = {k: list(v) for k, v in resolved.gradient_bin_labels.items()}
 
     all_names = list(phenotype_names or [])

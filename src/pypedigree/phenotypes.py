@@ -18,6 +18,7 @@ import re
 import warnings
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from difflib import get_close_matches
 from statistics import NormalDist
 from typing import Any, Protocol
 
@@ -552,6 +553,19 @@ def check_legend(style: PedigreeStyle) -> None:
                 "legend_max_width must be a width in centimetres, or text with its unit "
                 f'("85mm", "8.5cm", "3.3in"), not {width!r}'
             )
+    unknown = [k for k in style.legend_text if k not in LEGEND_TEXT_DEFAULTS]
+    if unknown:
+        hints = []
+        for key in unknown:
+            close = get_close_matches(str(key), list(LEGEND_TEXT_DEFAULTS), n=1)
+            hints.append(f"{key!r}" + (f" (did you mean {close[0]!r}?)" if close else ""))
+        raise PedigreeError(
+            f"Unknown legend_text key(s): {', '.join(hints)}; expected "
+            + ", ".join(LEGEND_TEXT_DEFAULTS)
+        )
+    not_text = [k for k, v in style.legend_text.items() if not isinstance(v, str)]
+    if not_text:
+        raise PedigreeError(f"legend_text must map roles to text; not for {not_text!r}")
     bad = [k for k, v in style.phenotype_labels.items() if not isinstance(v, str)]
     if bad:
         raise PedigreeError(f"phenotype_labels must map names to text; not for {bad!r}")
@@ -1373,6 +1387,8 @@ LEG_KEY_SIDE = 1.5  # height of the key's square and circle, in vertical units
 LEG_KEY_GAP = 0.12  # between the key's symbols and their labels
 LEG_CHAR_WIDTH_EM = 0.55  # average glyph width, to make room for labels
 LEG_SHARED_BINARY_LABEL = "Phenotypes in the key (their colors)"
+LEG_SEX_SYMBOL_GAP = 0.25  # between a sex symbol and its "= Male" text
+LEG_SEX_ITEM_GAP = 0.6  # between "= Male" and the female symbol, when the text is long
 LEG_OUTLINE_RINGS_LABEL = "Several borders: one per column, inner first"
 LEG_RING_WIDTH_PT = 1.6  # each border of the "outline_rings" icon
 LEG_RING_INSET_PT = 2.2  # its inner border, inside the outer one
@@ -1406,6 +1422,55 @@ CAPTIONED_ROW_KINDS = ("gradient", "binned", "categorical")  # captions under th
 LEG_WRAP_LINE_EM = 1.25  # between the lines of a wrapped PGS row (#68), in ems of its text
 LEG_WIDTH_UNITS = {"cm": 1 / 2.54, "mm": 1 / 25.4, "in": 1.0}  # `legend_max_width` -> inches
 KEY_ROW_KINDS = ("quadrants", "key_note")  # drawn first, above the binary captions
+
+# The legend's fixed wording, by role (#79): ``legend_text`` overrides any of
+# it. "pgs" and "ptdt" have no fixed default: their caption is built from the
+# scale (`pgs_legend_description`, `ptdt_legend_description`).
+LEGEND_TEXT_DEFAULTS: dict[str, str] = {
+    "key_note": LEG_KEY_NOTE_LABEL,
+    "shared_binary": LEG_SHARED_BINARY_LABEL,
+    "affected": "Affected",
+    "unaffected": "Unaffected",
+    "unknown": "Unknown",
+    "pgs": "",
+    "ptdt": "",
+    "male": "Male",
+    "female": "Female",
+    "low": "Low",
+    "high": "High",
+}
+
+
+def legend_text(style: PedigreeStyle, role: str) -> str:
+    """The legend's wording for ``role``: ``legend_text``, else its default."""
+    return style.legend_text.get(role) or LEGEND_TEXT_DEFAULTS[role]
+
+
+def legend_binary_captions(style: PedigreeStyle) -> tuple[str, str, str]:
+    """The Affected / Unaffected / Unknown captions above the swatch rows."""
+    return (
+        legend_text(style, "affected"),
+        legend_text(style, "unaffected"),
+        legend_text(style, "unknown"),
+    )
+
+
+def legend_sex_items(style: PedigreeStyle, m: LegendMetrics) -> list[tuple[float, str, str]]:
+    """The sex row: (symbol x, "square" / "circle", text) for male, then female.
+
+    The female symbol keeps its place unless a longer "male" text (#79)
+    needs the room; the text follows its symbol at `LEG_SEX_SYMBOL_GAP`.
+    """
+    male = f"= {legend_text(style, 'male')}"
+    female = f"= {legend_text(style, 'female')}"
+    male_end = 0.6 + LEG_SEX_SYMBOL_GAP + _legend_text_width(male, m.fs, m)
+    return [(0.6, "square", male), (max(2.5, male_end + LEG_SEX_ITEM_GAP), "circle", female)]
+
+
+def legend_min_right(style: PedigreeStyle) -> float:
+    """The least width of the legend's content, in legend units: the frame
+    hugs a "minimal" legend's content (#79), others keep a minimum."""
+    return LEG_X0 if style.legend == "minimal" else LEG_X0 + 4.0
 
 
 def legend_title(style: PedigreeStyle) -> str:
@@ -2074,8 +2139,8 @@ def legend_rows(
                     "gradient",
                     display_name(name, style),
                     colors=tuple(blend_with_white(rgb, 1.0 - t if inverted else t) for t in steps),
-                    low=f"{ends[0]:g}" if ends else "Low",
-                    high=f"{ends[1]:g}" if ends else "High",
+                    low=f"{ends[0]:g}" if ends else legend_text(style, "low"),
+                    high=f"{ends[1]:g}" if ends else legend_text(style, "high"),
                 )
             )
         elif effective == "categorical":
@@ -2104,7 +2169,7 @@ def legend_rows(
         first = binary_in_key[0][0]
         shared = LegendRow(
             "binary_shared",
-            LEG_SHARED_BINARY_LABEL,
+            legend_text(style, "shared_binary"),
             colors=tuple(to_rgb(c) for _i, c in binary_in_key),
         )
         merged = {i for i, _c in binary_in_key}
@@ -2141,7 +2206,7 @@ def legend_rows(
         rows.append(
             LegendRow(
                 "pgs",
-                pgs_legend_description(pgs_names, style.pgs_scale),
+                legend_text(style, "pgs") or pgs_legend_description(pgs_names, style.pgs_scale),
                 pgs=colors,
                 key=()
                 if plain
@@ -2154,7 +2219,7 @@ def legend_rows(
         rows.append(
             LegendRow(
                 "pgs",
-                ptdt_legend_description(),
+                legend_text(style, "ptdt") or ptdt_legend_description(),
                 pgs=colors,
                 key=tuple((pgs_trait_name(n, style), colors[n]) for n in ptdt_names),
             )
@@ -2212,5 +2277,5 @@ def legend_rows(
                 )
         rows.insert(0, LegendRow("quadrants", "", quadrants=tuple(cells), single_symbol=minimal))
         if minimal and binary_in_key:
-            rows.insert(1, LegendRow("key_note", LEG_KEY_NOTE_LABEL))
+            rows.insert(1, LegendRow("key_note", legend_text(style, "key_note")))
     return rows
