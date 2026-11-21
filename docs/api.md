@@ -713,8 +713,8 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `gradient_diverging` | `{}` | Tricolor diverging gradient config, e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}` |
 | `zero_pad_ids` | `0` | Zero-pad sample IDs to this width in labels (0 = no padding) |
 | `dpi` | `150` | Output resolution |
-| `fig_width` | `10.0` | Figure width in inches |
-| `fig_height` | `8.0` | Figure height in inches (a wide pedigree's figure is cut to the pedigree's own height, with no blank band above or below it) |
+| `fig_width` | `10.0` | Width in inches a small pedigree is drawn to fill (sets its scale; the figure is then fitted to the drawing) |
+| `fig_height` | `8.0` | Height in inches a small pedigree is drawn to fill (sets its scale; the figure is then fitted to the drawing) |
 | `margin` | `0.5` | Margin around the diagram |
 
 **Methods**: `PedigreeStyle.from_dict(d)` — create from dictionary. `style.to_dict()` — convert to dictionary.

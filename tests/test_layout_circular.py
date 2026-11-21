@@ -365,10 +365,11 @@ class TestCircularRendering:
         assert out.exists()
         assert out.stat().st_size > 0
 
-    def test_figure_is_square(self):
+    def test_rings_are_round(self):
+        """The figure fits its drawing (no longer square), one scale both ways."""
         fig = render_pedigree(parse_pedigree(THREE_GEN), circular=True)
-        width, height = fig.get_size_inches()
-        assert width == pytest.approx(height)
+        (x0, y0), (x1, y1) = fig.axes[0].transData.transform([(0, 0), (1, 1)])
+        assert x1 - x0 == pytest.approx(y1 - y0)
         plt.close(fig)
 
     def test_axes_use_equal_aspect(self):

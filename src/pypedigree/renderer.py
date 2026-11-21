@@ -279,7 +279,10 @@ def render_pedigree(
                 ax_obj.set_aspect("equal")
 
     fig.tight_layout()
-    _trim_figure_height(fig)
+    pedigree_axes = list(fig.axes)
+    for ax_obj in pedigree_axes:
+        _fit_view_to_content(ax_obj)
+    _fit_figure(fig, pedigree_axes)
 
     # Draw the legend after tight_layout: it grows the figure downward by its
     # own height instead of taking a share of the pedigree's.
@@ -298,6 +301,8 @@ def render_pedigree(
             display_modes=display_modes,
             pheno_render=pheno_render,
         )
+        if len(fig.axes) > len(pedigree_axes):
+            _fit_legend_width(fig, pedigree_axes, fig.axes[-1])
 
     if output is not None:
         fig.savefig(str(output), dpi=style.dpi, bbox_inches="tight")
@@ -2334,37 +2339,153 @@ def _legend_row_label(
     ax.text(x, y_center, text, fontsize=m.fs, fontfamily=style.font_family, va="center")
 
 
-# Blank height below which a figure is left as it is (inches).
-_TRIM_TOLERANCE_IN = 0.01
+# White space kept around everything drawn in a pedigree's axes, in points.
+_VIEW_PAD_PT = 10.0
+# Between the figure's edge and its outermost axes (or their titles), in points.
+_FIGURE_PAD_PT = 4.0
+# Between two families drawn side by side (their titles included), in points.
+_FAMILY_GAP_PT = 36.0
 
 
-def _trim_figure_height(fig: Figure) -> None:
-    """Take off the height the pedigree axes cannot fill.
+def _content_extent(ax: Axes, renderer: Any) -> Bbox | None:
+    """Display box of everything drawn in ``ax``, text included.
 
-    The axes keep an equal aspect, so a pedigree wider than its figure's
-    proportions is drawn shorter than its slot, centred, with blank bands
-    above and below: up to half the figure for a three-generation family at
-    the default 10 x 8 inches, and the legend went under the lower band.
-    The figure loses the height no axes uses; each axes keeps its size in
-    inches and its margins (title, tight_layout's pads).
+    Patches, lines and collections are in the axes' data limits already
+    (measuring each symbol's path again would double the cost of a large
+    pedigree); text and the draw-time artists are not, so each of those is
+    measured.
+    """
+    boxes = []
+    limits = ax.dataLim
+    if np.isfinite(limits.get_points()).all() and limits.width + limits.height > 0:
+        boxes.append(limits.transformed(ax.transData))
+    for artist in (*ax.texts, *ax.artists):
+        if not artist.get_visible():
+            continue
+        box = artist.get_window_extent(renderer)
+        if box is not None and np.isfinite(box.get_points()).all() and box.width + box.height > 0:
+            boxes.append(box)
+    return Bbox.union(boxes) if boxes else None
+
+
+def _axes_extent(ax: Axes, renderer: Any) -> Bbox:
+    """Display box of a fitted pedigree axes and its title.
+
+    After `_fit_view_to_content` everything drawn is inside the axes, so
+    this is `Axes.get_tightbbox` without measuring every artist again.
+    """
+    boxes = [ax.get_window_extent(renderer)]
+    if ax.title.get_text():
+        boxes.append(ax.title.get_window_extent(renderer))
+    return Bbox.union(boxes)
+
+
+def _fit_view_to_content(ax: Axes) -> None:
+    """Shrink a pedigree's axes to what is drawn in it, at the same scale.
+
+    `_finalize_axes` leaves 15% of the pedigree's size on each side:
+    centimetres of white above a large pedigree and beside a wide one,
+    while long labels or annotations at the bottom could reach the edge,
+    as symbols and lines count in matplotlib's data limits and text does
+    not. This measures every artist, text and the draw-time artists included
+    (each places itself when asked for its extent), and makes the axes that
+    box plus `_VIEW_PAD_PT`: the limits and the axes' position change
+    together, so nothing moves on the page and the drawing keeps its size.
 
     Args:
-        fig: The figure, after `_finalize_axes` and `tight_layout`.
+        ax: A pedigree's axes, after `_finalize_axes` and `tight_layout`.
     """
-    width, height = fig.get_size_inches()
-    spare = height
-    for ax in fig.axes:
-        ax.apply_aspect()
-        spare = min(
-            spare, (ax.get_position(original=True).height - ax.get_position().height) * height
-        )
-    if spare <= _TRIM_TOLERANCE_IN:
+    fig = _root_figure(ax)
+    renderer = fig.canvas.get_renderer()  # type: ignore[attr-defined]
+    ax.apply_aspect()
+    content = _content_extent(ax, renderer)
+    box = ax.get_window_extent(renderer)
+    if content is None or box.width <= 0 or box.height <= 0:
         return
-    new_height = height - spare
-    for ax in fig.axes:
-        x0, y0, w, h = ax.get_position(original=True).bounds
-        ax.set_position((x0, y0 * height / new_height, w, (h * height - spare) / new_height))
-    fig.set_size_inches(width, new_height)
+    pad = _VIEW_PAD_PT * fig.dpi / 72
+    page = content.expanded(1, 1).padded(pad)
+    (x0, y0), (x1, y1) = ax.transData.inverted().transform(page.get_points())
+    ax.set_xlim(x0, x1)
+    ax.set_ylim(y0, y1)
+    ax.set_position(page.transformed(fig.transFigure.inverted()))
+
+
+def _fit_figure(fig: Figure, axes: Sequence[Axes]) -> None:
+    """Make the figure as large as ``axes`` and their titles, plus `_FIGURE_PAD_PT`.
+
+    The axes keep their size in inches; families side by side are packed
+    `_FAMILY_GAP_PT` apart. Run after `_fit_view_to_content`, before the legend grows the
+    figure downward, so no blank band separates pedigree and legend.
+
+    Args:
+        fig: The figure.
+        axes: Its pedigree axes.
+    """
+    renderer = fig.canvas.get_renderer()  # type: ignore[attr-defined]
+    width, height = fig.get_size_inches()
+    # Families side by side: each one `_FAMILY_GAP_PT` after the previous,
+    # instead of in the middle of its share of the figure.
+    ordered = sorted(axes, key=lambda ax: ax.get_position().x0)
+    right = None
+    for ax in ordered:
+        box = _axes_extent(ax, renderer)
+        if right is not None:
+            x0, y0, w, h = ax.get_position().bounds
+            shift = right + _FAMILY_GAP_PT * fig.dpi / 72 - box.x0
+            ax.set_position((x0 + shift / (width * fig.dpi), y0, w, h))
+            box = _axes_extent(ax, renderer)
+        right = box.x1
+    used = Bbox.union([_axes_extent(ax, renderer) for ax in axes])
+    pad = _FIGURE_PAD_PT * fig.dpi / 72
+    new_width = (used.width + 2 * pad) / fig.dpi
+    new_height = (used.height + 2 * pad) / fig.dpi
+    for ax in axes:
+        x0, y0, w, h = ax.get_position().bounds
+        ax.set_position(
+            (
+                (x0 * width * fig.dpi - used.x0 + pad) / fig.dpi / new_width,
+                (y0 * height * fig.dpi - used.y0 + pad) / fig.dpi / new_height,
+                w * width / new_width,
+                h * height / new_height,
+            )
+        )
+    fig.set_size_inches(new_width, new_height)
+
+
+def _fit_legend_width(fig: Figure, pedigree_axes: Sequence[Axes], legend: Axes) -> None:
+    """Narrow the legend's axes to its frame and the figure to the wider part.
+
+    The legend's axes span the figure; its frame hugs its content. The
+    figure becomes as wide as the pedigree or the frame, whichever is wider
+    (plus `_FIGURE_PAD_PT`); the legend stays on the left, the pedigree in
+    the middle. Units of the legend (`LegendMetrics.unit_x`) are unchanged.
+
+    Args:
+        fig: The figure.
+        pedigree_axes: Its pedigree axes, already fitted (`_fit_figure`).
+        legend: The legend's axes, drawn.
+    """
+    renderer = fig.canvas.get_renderer()  # type: ignore[attr-defined]
+    frame = _content_extent(legend, renderer)
+    if frame is None:
+        return
+    pad = _FIGURE_PAD_PT * fig.dpi / 72
+    width, height = fig.get_size_inches()
+    lx0, ly0, lw, lh = legend.get_position().bounds
+    x_per_px = (legend.get_xlim()[1] - legend.get_xlim()[0]) / (lw * width * fig.dpi)
+    # The frame's left edge sits a little right of the axes' own: keep that.
+    legend_px = frame.x1 - lx0 * width * fig.dpi
+    pedigree = Bbox.union([_axes_extent(ax, renderer) for ax in pedigree_axes])
+    new_width = (max(pedigree.width, legend_px) + 2 * pad) / fig.dpi
+    shift = (new_width * fig.dpi - pedigree.width) / 2 - pedigree.x0
+    for ax in pedigree_axes:
+        x0, y0, w, h = ax.get_position().bounds
+        ax.set_position(
+            ((x0 * width * fig.dpi + shift) / fig.dpi / new_width, y0, w * width / new_width, h)
+        )
+    legend.set_position((pad / fig.dpi / new_width, ly0, legend_px / fig.dpi / new_width, lh))
+    legend.set_xlim(0, legend_px * x_per_px)
+    fig.set_size_inches(new_width, height)
 
 
 def _add_legend_axes(fig: Figure, m: LegendMetrics) -> Axes:

@@ -1284,8 +1284,8 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>min_node_distance</code></td><td>float</td><td>1.2</td><td>Deprecated, no effect: <code>sibling_gap</code> and <code>couple_gap</code> set the spacing. To be removed in 1.0</td></tr>
     <tr><td><code>phenotype_colors</code></td><td>dict</td><td>{}</td><td>Phenotype name &rarr; hex color mapping</td></tr>
     <tr><td><code>dpi</code></td><td>int</td><td>150</td><td>Output resolution</td></tr>
-    <tr><td><code>fig_width</code></td><td>float</td><td>10.0</td><td>Default figure width (inches)</td></tr>
-    <tr><td><code>fig_height</code></td><td>float</td><td>8.0</td><td>Default figure height (inches)</td></tr>
+    <tr><td><code>fig_width</code></td><td>float</td><td>10.0</td><td>Width a small pedigree is drawn to fill (inches); the figure is then fitted to the drawing</td></tr>
+    <tr><td><code>fig_height</code></td><td>float</td><td>8.0</td><td>Height a small pedigree is drawn to fill (inches); the figure is then fitted to the drawing</td></tr>
     <tr><td><code>margin</code></td><td>float</td><td>0.5</td><td>Figure margin (inches)</td></tr>
     <tr><td><code>carrier_notation</code></td><td>str</td><td>"nsgc2022"</td><td><code>"nsgc2022"</code>: patterned sections, one per carrier result (Bennett et al. 2022). <code>"legacy"</code>: half-filled shape and center dot</td></tr>
     <tr><td><code>carrier_dot_radius</code></td><td>float</td><td>0.08</td><td>Radius of the center dot for obligate carriers (legacy notation)</td></tr>
@@ -1345,7 +1345,7 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
 }</code></pre>
 
 <h3>Auto-Scaling</h3>
-<p>For large pedigrees, the figure size is automatically scaled based on the layout bounds. The <code>fig_width</code> and <code>fig_height</code> values serve as minimums; actual dimensions grow with the number of individuals and generations. The pedigree keeps its proportions, so a pedigree wider than the figure would leave blank bands above and below it: the figure is then cut to the pedigree's height, and the legend goes right under the pedigree. A pedigree drawn into your own <code>ax</code> leaves your figure as it is.</p>
+<p>For large pedigrees, the figure size is automatically scaled based on the layout bounds. The <code>fig_width</code> and <code>fig_height</code> values serve as minimums; actual dimensions grow with the number of individuals and generations. The pedigree is drawn at that scale, then the figure is fitted to the drawing: the same small margin (10 pt) on every side of the pedigree, labels and annotations included, the legend right under it, families side by side packed close, and the figure as wide as the pedigree or the legend, whichever is wider. A pedigree drawn into your own <code>ax</code> leaves your figure and axes as they are.</p>
 </section>
 
 <!-- ================================================================ -->

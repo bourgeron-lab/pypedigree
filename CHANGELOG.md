@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- PNG and PDF figures are fitted to their drawing: the same 10 pt of white on every side of a
+  pedigree (its labels and annotations included), instead of 15% of the pedigree's size on each
+  side, which left 1-2.5 cm above every pedigree and up to 12.5 cm beside a large one, while long
+  annotations at the bottom could reach the edge. Families drawn side by side are packed close
+  instead of each taking `fig_width`; the legend's axes hug its frame, and the figure is as wide as
+  the pedigree or the legend. The drawing keeps its scale (`fig_width` and `fig_height` still set
+  that of a small pedigree), so only white space goes: the quadrants example from 31.5 x 24.8 to
+  24.6 x 13.6 cm, the 81-person example from 109 x 36 to 84 x 24 cm, a trio from 25 x 20 to
+  13 x 17 cm. This also ends the blank bands a wide pedigree left above and below it, the legend
+  under the lower one: up to a third of the figure, between the pedigree and its legend even in
+  Jupyter, which crops the outer edges. The circular layout's figure is no longer square.
+  Rendering time is unchanged. A pedigree drawn into your own `ax` is unchanged.
+
 ### Fixed
 
 - `parse_pedigree_from_dataframe` dropped every extra phenotype, PGS, pTDT, annotation,
@@ -21,14 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`1.0`, as pandas stores an integer column with a NaN) is read as integers, so a sex of `1.0`
   is male, no longer unknown; `True`/`False` are read as 1/0, and text with quotes is kept as
   written. A tab or a line break in a cell raises `PedigreeParseError`.
-- A pedigree wider than the figure's proportions (most families of three or four generations
-  at the default 10 × 8 inches) left blank bands above and below it in the PNG and PDF, and the
-  legend went under the lower one: up to a third of the figure was empty, between the pedigree
-  and its legend even in Jupyter, which crops the outer edges. The figure is now cut to the
-  pedigree's height before the legend is added: the gallery's quadrants example goes from 24.8
-  to 15.6 cm tall, the pTDT family from 26.7 to 17.7 cm and the 81-person example from 36.4 to
-  27.6 cm, with the drawing the same size. Pedigrees that fill their height, the SVG and a
-  pedigree drawn into your own `ax` are unchanged.
 
 ## [0.9.0] - 2026-11-20
 
