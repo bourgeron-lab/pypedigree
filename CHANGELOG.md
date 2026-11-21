@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-11-21
+
 ### Changed
 
 - PNG and PDF figures are fitted to their drawing: the same 10 pt of white on every side of a
@@ -21,6 +23,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   under the lower one: up to a third of the figure, between the pedigree and its legend even in
   Jupyter, which crops the outer edges. The circular layout's figure is no longer square.
   Rendering time is unchanged. A pedigree drawn into your own `ax` is unchanged.
+- Package metadata: links to the web app, the documentation and this changelog on PyPI, more
+  keywords, the licence as an SPDX expression (`license = "MIT"`, PEP 639, with `LICENSE` listed;
+  building from source now needs hatchling 1.27 or later), and Freddy Cliquet's institutional
+  email in `pyproject.toml` and `CITATION.cff`.
 
 ### Fixed
 
