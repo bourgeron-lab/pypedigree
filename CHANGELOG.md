@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`1.0`, as pandas stores an integer column with a NaN) is read as integers, so a sex of `1.0`
   is male, no longer unknown; `True`/`False` are read as 1/0, and text with quotes is kept as
   written. A tab or a line break in a cell raises `PedigreeParseError`.
+- A symbol whose phenotypes were all 0 ("unknown") was labelled "NA", which means no data (-9),
+  and with only categorical (`c_`) columns every symbol got an "NA" over its category, in the
+  PNG and the SVG: the single centred "NA" counted "unknown" and every category as no data. It
+  is now written only when every band has no data (-9 / NA, a missing category, or no value
+  in a separate phenotype file), as documented; an all-"unknown" symbol is plain grey.
 - A pedigree wider than the figure's proportions (most families of three or four generations
   at the default 10 × 8 inches) left blank bands above and below it in the PNG and PDF, and the
   legend went under the lower one: up to a third of the figure was empty, between the pedigree

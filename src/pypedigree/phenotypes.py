@@ -714,9 +714,32 @@ def pregnancy_loss_fill(
     return style.fill_color if node.phenotype == Phenotype.AFFECTED else "white"
 
 
+def band_has_no_data(node: _HasPhenotypes, name: str) -> bool:
+    """Whether a symbol has no data for a column: -9 / NA, or no value at all.
+
+    A 0 ("unknown") is a value, drawn grey without "NA". The parser stores a
+    -9 as NaN, a 0 of a binary column as None, and every categorical value
+    as None with its category in ``extra_phenotypes_categorical`` (None when
+    missing); an individual a separate phenotype file does not list has no
+    entry.
+    """
+    if name not in node.extra_phenotypes:
+        return True
+    value = node.extra_phenotypes[name]
+    if isinstance(value, float) and math.isnan(value):
+        return True
+    return name in node.extra_phenotypes_categorical and (
+        node.extra_phenotypes_categorical[name] is None
+    )
+
+
 def all_bands_na(node: _HasPhenotypes, band_names: Sequence[str]) -> bool:
-    """Whether every phenotype band of a symbol is "no data"."""
-    return all(is_na_value(node.extra_phenotypes.get(n)) for n in band_names)
+    """Whether a symbol has no data in any of its bands (`band_has_no_data`).
+
+    Then a single centred "NA" is written instead of one per band. A symbol
+    with a 0 ("unknown") or a category in one of them does not qualify.
+    """
+    return all(band_has_no_data(node, n) for n in band_names)
 
 
 # --- Quadrants ----------------------------------------------------------------
