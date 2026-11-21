@@ -14,7 +14,8 @@ authors:
     affiliation: Institut Pasteur
   - given-names: Freddy
     family-names: Cliquet
-    email: freddy.cliquet@gmail.com
+    email: freddy.cliquet@pasteur.fr
+    affiliation: Institut Pasteur
 version: 0.9.0
 date-released: "2026-11-20"
 # Concept DOI: every release, resolving to the latest. Each release also

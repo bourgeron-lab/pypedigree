@@ -3,10 +3,11 @@ name = "pypedigree"
 version = "0.9.0"
 description = "Generate publication-quality pedigree (family tree) diagrams from pedigree files"
 readme = "README.md"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Alexandre Mathieu", email = "alexandre.mathieu@pasteur.fr" },
-    { name = "Freddy Cliquet", email = "freddy.cliquet@gmail.com" },
+    { name = "Freddy Cliquet", email = "freddy.cliquet@pasteur.fr" },
 ]
 requires-python = ">=3.10"
 dependencies = [
@@ -15,7 +16,20 @@ dependencies = [
     # Imported directly by the renderer; matplotlib pulling it in is not enough.
     "numpy>=1.24",
 ]
-keywords = ["pedigree", "family-tree", "genetics", "diagram", "visualization", "bioinformatics"]
+keywords = [
+    "pedigree",
+    "family-tree",
+    "genetics",
+    "human-genetics",
+    "diagram",
+    "visualization",
+    "bioinformatics",
+    "nsgc",
+    "plink",
+    "polygenic-score",
+    "pyodide",
+    "svg",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -29,7 +43,6 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Typing :: Typed",
 ]
@@ -38,6 +51,9 @@ classifiers = [
 Homepage = "https://github.com/bourgeron-lab/pypedigree"
 Repository = "https://github.com/bourgeron-lab/pypedigree"
 Issues = "https://github.com/bourgeron-lab/pypedigree/issues"
+"Web app" = "https://bourgeron-lab.github.io/pypedigree/"
+Documentation = "https://bourgeron-lab.github.io/pypedigree/docs/"
+Changelog = "https://github.com/bourgeron-lab/pypedigree/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [
@@ -55,7 +71,7 @@ pandas = [
 pypedigree = "pypedigree.cli:main"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.sdist]
