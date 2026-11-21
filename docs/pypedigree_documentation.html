@@ -1345,7 +1345,7 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
 }</code></pre>
 
 <h3>Auto-Scaling</h3>
-<p>For large pedigrees, the figure size is automatically scaled based on the layout bounds. The <code>fig_width</code> and <code>fig_height</code> values serve as minimums; actual dimensions grow with the number of individuals and generations.</p>
+<p>For large pedigrees, the figure size is automatically scaled based on the layout bounds. The <code>fig_width</code> and <code>fig_height</code> values serve as minimums; actual dimensions grow with the number of individuals and generations. The pedigree keeps its proportions, so a pedigree wider than the figure would leave blank bands above and below it: the figure is then cut to the pedigree's height, and the legend goes right under the pedigree. A pedigree drawn into your own <code>ax</code> leaves your figure as it is.</p>
 </section>
 
 <!-- ================================================================ -->

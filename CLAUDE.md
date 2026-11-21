@@ -159,7 +159,11 @@ src/pypedigree/
    pre-computed FamilyLayout objects. Keep drawing linear in the number of
    artists: `_render_layout` turns matplotlib's autoscaling off while it
    draws (otherwise each `fill_betweenx` re-fits the view to every artist)
-   and `_finalize_axes` fits the view once; never call `len(ax.patches)` or
+   and `_finalize_axes` fits the view once; `_trim_figure_height` then takes
+   off the height the equal-aspect axes cannot fill (a wide pedigree in the
+   `fig_width` x `fig_height` minimum), before the legend grows the figure
+   downward, so no blank band separates pedigree and legend
+   (`tests/test_figure_height.py`); never with a caller's `ax`; never call `len(ax.patches)` or
    the like per node (each call walks all artists). `TestDrawingCost`. It supports waypoint-based
    polyline edges for curved/non-orthogonal connections (circular layout).
    The one exception is where a circular-layout label goes around its node,
@@ -586,6 +590,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_bin_names_inside.py` — Step names inside the legend's steps (#90)
 - `tests/test_bin_names.py` — Names for the steps of `gradient_bins` (#81)
 - `tests/test_legend_bar_width.py` — One width for all the legend's bars (#95)
+- `tests/test_figure_height.py` — No blank band above, below or under a wide pedigree (PNG/PDF)
 - `tests/test_legend_bottom.py` — The last legend row's captions inside the frame (#77)
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)
 - `tests/test_ptdt.py` — pTDT deviation columns: z scale, captions, legend row, tooltip, colors (#52)

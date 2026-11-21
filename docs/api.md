@@ -714,7 +714,7 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `zero_pad_ids` | `0` | Zero-pad sample IDs to this width in labels (0 = no padding) |
 | `dpi` | `150` | Output resolution |
 | `fig_width` | `10.0` | Figure width in inches |
-| `fig_height` | `8.0` | Figure height in inches |
+| `fig_height` | `8.0` | Figure height in inches (a wide pedigree's figure is cut to the pedigree's own height, with no blank band above or below it) |
 | `margin` | `0.5` | Margin around the diagram |
 
 **Methods**: `PedigreeStyle.from_dict(d)` — create from dictionary. `style.to_dict()` — convert to dictionary.

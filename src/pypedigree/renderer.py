@@ -279,6 +279,7 @@ def render_pedigree(
                 ax_obj.set_aspect("equal")
 
     fig.tight_layout()
+    _trim_figure_height(fig)
 
     # Draw the legend after tight_layout: it grows the figure downward by its
     # own height instead of taking a share of the pedigree's.
@@ -2331,6 +2332,39 @@ def _legend_row_label(
 ) -> None:
     """Add the description text of a legend row."""
     ax.text(x, y_center, text, fontsize=m.fs, fontfamily=style.font_family, va="center")
+
+
+# Blank height below which a figure is left as it is (inches).
+_TRIM_TOLERANCE_IN = 0.01
+
+
+def _trim_figure_height(fig: Figure) -> None:
+    """Take off the height the pedigree axes cannot fill.
+
+    The axes keep an equal aspect, so a pedigree wider than its figure's
+    proportions is drawn shorter than its slot, centred, with blank bands
+    above and below: up to half the figure for a three-generation family at
+    the default 10 x 8 inches, and the legend went under the lower band.
+    The figure loses the height no axes uses; each axes keeps its size in
+    inches and its margins (title, tight_layout's pads).
+
+    Args:
+        fig: The figure, after `_finalize_axes` and `tight_layout`.
+    """
+    width, height = fig.get_size_inches()
+    spare = height
+    for ax in fig.axes:
+        ax.apply_aspect()
+        spare = min(
+            spare, (ax.get_position(original=True).height - ax.get_position().height) * height
+        )
+    if spare <= _TRIM_TOLERANCE_IN:
+        return
+    new_height = height - spare
+    for ax in fig.axes:
+        x0, y0, w, h = ax.get_position(original=True).bounds
+        ax.set_position((x0, y0 * height / new_height, w, (h * height - spare) / new_height))
+    fig.set_size_inches(width, new_height)
 
 
 def _add_legend_axes(fig: Figure, m: LegendMetrics) -> Axes:
