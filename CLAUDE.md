@@ -159,11 +159,15 @@ src/pypedigree/
    pre-computed FamilyLayout objects. Keep drawing linear in the number of
    artists: `_render_layout` turns matplotlib's autoscaling off while it
    draws (otherwise each `fill_betweenx` re-fits the view to every artist)
-   and `_finalize_axes` fits the view once; `_trim_figure_height` then takes
-   off the height the equal-aspect axes cannot fill (a wide pedigree in the
-   `fig_width` x `fig_height` minimum), before the legend grows the figure
-   downward, so no blank band separates pedigree and legend
-   (`tests/test_figure_height.py`); never with a caller's `ax`; never call `len(ax.patches)` or
+   and `_finalize_axes` fits the view once. In figures `render_pedigree` makes (never
+   with a caller's `ax`), after `tight_layout`: `_fit_view_to_content` shrinks each
+   pedigree's axes to what is drawn plus `_VIEW_PAD_PT` at the same scale (limits and
+   position together; text and the draw-time artists measured, shapes and lines taken
+   from `dataLim`, so it stays one pass over the text), `_fit_figure` packs families
+   `_FAMILY_GAP_PT` apart and makes the figure that size plus `_FIGURE_PAD_PT`, then the
+   legend grows it downward and `_fit_legend_width` narrows the legend's axes to its frame
+   and the figure to the wider of the two (`tests/test_figure_fit.py`). `fig_width` x
+   `fig_height` only set the scale of a small pedigree. Never call `len(ax.patches)` or
    the like per node (each call walks all artists). `TestDrawingCost`. It supports waypoint-based
    polyline edges for curved/non-orthogonal connections (circular layout).
    The one exception is where a circular-layout label goes around its node,
@@ -592,7 +596,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_bin_names_inside.py` — Step names inside the legend's steps (#90)
 - `tests/test_bin_names.py` — Names for the steps of `gradient_bins` (#81)
 - `tests/test_legend_bar_width.py` — One width for all the legend's bars (#95)
-- `tests/test_figure_height.py` — No blank band above, below or under a wide pedigree (PNG/PDF)
+- `tests/test_figure_fit.py` — The figure fitted to its pedigree and legend, same margin all round, same scale (PNG/PDF)
 - `tests/test_legend_bottom.py` — The last legend row's captions inside the frame (#77)
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)
 - `tests/test_ptdt.py` — pTDT deviation columns: z scale, captions, legend row, tooltip, colors (#52)
