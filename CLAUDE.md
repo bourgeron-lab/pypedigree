@@ -351,6 +351,8 @@ Multi-phenotype support:
 - Separate .pheno TSV file via `--pheno` CLI option
 - Binary phenotypes: 1=unaffected (white), 2=affected (color), 0=unknown (grey), -9=no data (grey with "NA" text: `NA_FILL`, the grey of 0, and `NA_TEXT_COLOR`; a `cr_` band with no data too; `show_na_labels=False` / `--no-na-labels` drops the text, leaving plain grey)
 - When all bands are NA for an individual, a single centered "NA" is shown instead of repeating per band
+  (`phenotypes.all_bands_na`, per band `band_has_no_data`: -9/NA, a missing category or no value at
+  all; a 0 "unknown" or a category is a value. `tests/test_na_label.py`)
 - Continuous phenotypes → color gradient bands
 - PGS scale: `pgs_scale` ("minmax" default, "zscore", "percentile") decides the position on the curve:
   `active_pgs(node, names, scale)`, `pgs_position(z) = 0.5 + z * PGS_CURVE_SIGMA` on fixed scales,
