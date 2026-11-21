@@ -213,10 +213,15 @@ pypedigree family.ped --plink -o family.png
 import pandas as pd
 from pypedigree import parse_pedigree_from_dataframe, render_pedigree
 
-df = pd.read_csv("family.ped", sep="\t")
+df = pd.read_csv("family.ped", sep="\t")  # a file with a header (FID, IID, ...)
 pedigree = parse_pedigree_from_dataframe(df)
 render_pedigree(pedigree, output="family.png")
 ```
+
+A DataFrame whose first column is named like a family ID (`FID`, `family_id`, `family`) is
+read as a file with that header: columns are matched by name, and phenotype, PGS, annotation
+and notation columns are drawn. Columns named 0, 1, 2... (`header=None`) are read by position.
+NaN is a missing value.
 
 ## File Formats
 
