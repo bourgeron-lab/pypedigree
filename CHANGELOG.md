@@ -9,14 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `parse_pedigree_from_dataframe` dropped every extra phenotype, PGS, pTDT, annotation,
+  notation, `css_class` and `data_` column, silently: it read columns by position and ignored
+  the names, so `pd.read_csv("family.ped", sep="\t")` of a file with a header drew no bands, no
+  curves and no legend. A DataFrame whose first column is named like a family ID column (`FID`,
+  `family_id`, `family`) or another known header name is now read as a file with that header:
+  columns matched by name, in any order. Columns named 0, 1, 2... (`header=None`) are still read
+  by position; columns past the tenth, which are ignored, now draw a `PedigreeDataWarning`.
+- In a DataFrame, NaN in an extra column was read as 0 (a PGS of 0, an unaffected or unknown
+  binary value): it is now no data, as -9 or NA in a file. A float column holding whole numbers
+  (`1.0`, as pandas stores an integer column with a NaN) is read as integers, so a sex of `1.0`
+  is male, no longer unknown; `True`/`False` are read as 1/0, and text with quotes is kept as
+  written. A tab or a line break in a cell raises `PedigreeParseError`.
 - A pedigree wider than the figure's proportions (most families of three or four generations
   at the default 10 × 8 inches) left blank bands above and below it in the PNG and PDF, and the
   legend went under the lower one: up to a third of the figure was empty, between the pedigree
   and its legend even in Jupyter, which crops the outer edges. The figure is now cut to the
   pedigree's height before the legend is added: the gallery's quadrants example goes from 24.8
   to 15.6 cm tall, the pTDT family from 26.7 to 17.7 cm and the 81-person example from 36.4 to
-  27.6 cm, with the drawing the same size. Pedigrees that fill their height, the SVG and a pedigree drawn into your own `ax` are
-  unchanged.
+  27.6 cm, with the drawing the same size. Pedigrees that fill their height, the SVG and a
+  pedigree drawn into your own `ax` are unchanged.
 
 ## [0.9.0] - 2026-11-20
 

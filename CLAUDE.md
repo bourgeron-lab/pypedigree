@@ -700,6 +700,13 @@ df = pd.read_csv("family.ped", sep="\t", header=None)
 ped = parse_pedigree_from_dataframe(df)
 ```
 
+The frame is written as file text and parsed by `_parse_text`: with its column names as the
+header (`_parse_text(..., header=True)`) when the first one is a header token or a family ID
+alias (`_names_columns`), otherwise by position (warning for columns past the tenth). Cells go
+through `_dataframe_cell` (NaN/None/pd.NA → "NA", 2.0 → "2", True → "1"), never `fillna("0")`:
+0 is a value in extra columns. `TestDataFrameHeader` checks every fixture with a header gives
+the same SVG through `pd.read_csv` as from the file.
+
 Install with: `pip install pypedigree[pandas]`
 
 ## Adding a New Feature

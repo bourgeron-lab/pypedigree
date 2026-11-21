@@ -7,6 +7,8 @@ the data model.
 
 from __future__ import annotations
 
+import math
+import numbers
 import re
 import warnings
 from collections import deque
@@ -1419,11 +1421,21 @@ def parse_pedigree_from_string(text: str) -> Pedigree:
 def parse_pedigree_from_dataframe(df: pd.DataFrame) -> Pedigree:
     """Parse a pedigree from a pandas DataFrame.
 
-    The DataFrame must have at least 6 columns corresponding to:
-    family_id, sample_id, paternal_id, maternal_id, sex, phenotype.
-    Additional columns (7-10) are mapped to: date_of_birth, twins, deceased, proband.
+    The DataFrame is read as a pedigree file would be. When its first column
+    is named like a family ID column (``FID``, ``family_id``, ``family``) or
+    another known header name (``IID``, ``sex``...), the column names are
+    the file's header: columns are matched by name, and extra phenotype
+    (``b_``, ``g_``, ``PGS``...), annotation (``a_``), notation and hook
+    columns are read, as from ``pd.read_csv("family.ped", sep="\\t")`` of a
+    file with a header. Otherwise columns are read by position: family_id,
+    sample_id, paternal_id, maternal_id, sex, phenotype, then
+    date_of_birth, twins, deceased, proband; further columns are ignored,
+    with a `PedigreeDataWarning`.
 
-    Column names are ignored — column position determines meaning.
+    Missing values (NaN, None, ``pd.NA``) are read as missing: an unknown
+    parent, sex or phenotype, no value for an extra phenotype. A float with
+    no fractional part (``2.0``, as pandas stores an integer column holding
+    NaN) is read as the integer.
 
     Args:
         df: A pandas DataFrame with at least 6 columns.
@@ -1432,7 +1444,8 @@ def parse_pedigree_from_dataframe(df: pd.DataFrame) -> Pedigree:
         A Pedigree object.
 
     Raises:
-        PedigreeParseError: If the DataFrame has fewer than 6 columns or is empty.
+        PedigreeParseError: If the DataFrame has fewer than 6 columns, is
+            empty, or holds a tab or a line break in a cell or column name.
         PedigreeValidationError: If the data fails validation.
     """
     try:
@@ -1449,14 +1462,60 @@ def parse_pedigree_from_dataframe(df: pd.DataFrame) -> Pedigree:
     if len(df) == 0:
         raise PedigreeParseError("DataFrame is empty")
 
-    # Replace NaN/NA with "0" (the standard missing value) before converting to TSV
-    df_clean = df.fillna("0").astype(str)
-    text = df_clean.to_csv(sep="\t", index=False, header=False)
+    names = [str(name) for name in df.columns]
+    by_name = _names_columns(df.columns[0])
+    if not by_name and len(names) > 10:
+        warnings.warn(
+            f"DataFrame columns {', '.join(map(repr, names[10:]))} are ignored: columns are "
+            "read by position, as the first column is not named like a family ID column. "
+            "Name it 'FID' to read the columns by name (phenotypes, PGS, annotations...).",
+            PedigreeDataWarning,
+            stacklevel=2,
+        )
 
-    return _parse_text(text.strip())
+    rows = [[_dataframe_cell(value) for value in row] for row in df.itertuples(index=False)]
+    if by_name:
+        rows.insert(0, names)
+    for row in rows:
+        for value in row:
+            if "\t" in value or "\n" in value or "\r" in value:
+                raise PedigreeParseError(
+                    f"DataFrame cell or column name {value!r} contains a tab or a line break"
+                )
+    text = "\n".join("\t".join(row) for row in rows)
+    return _parse_text(text, header=by_name)
 
 
-def _parse_text(text: str, *, max_columns: int | None = None) -> Pedigree:
+def _names_columns(first: object) -> bool:
+    """Whether a DataFrame whose first column is named ``first`` is read by name."""
+    if not isinstance(first, str):
+        return False  # e.g. ``pd.read_csv(..., header=None)``: 0, 1, 2...
+    name = first.strip().lower()
+    return name in _HEADER_TOKENS or _COLUMN_ROLES.get(name) == "family_id"
+
+
+def _dataframe_cell(value: object) -> str:
+    """One DataFrame cell as pedigree file text: NaN as "NA", 2.0 as "2", True as "1"."""
+    import numpy as np
+    import pandas as pd
+
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, (bool, np.bool_)):
+        return "1" if value else "0"
+    if value is None or value is pd.NA or value is pd.NaT:
+        return "NA"
+    if isinstance(value, numbers.Real) and not isinstance(value, numbers.Integral):
+        number = float(value)
+        if math.isnan(number):
+            return "NA"
+        return str(int(number)) if number.is_integer() else str(value)
+    return str(value)
+
+
+def _parse_text(
+    text: str, *, max_columns: int | None = None, header: bool | None = None
+) -> Pedigree:
     """Internal parser that works on text content.
 
     Args:
@@ -1464,6 +1523,8 @@ def _parse_text(text: str, *, max_columns: int | None = None) -> Pedigree:
         max_columns: If set, truncate each row to this many columns.
             Used for PLINK .fam (6) and PLINK .ped (6) to ignore
             genotype data and prevent mis-parsing extra columns.
+        header: Whether the first line is a header; None detects it from
+            its first field (`_detect_header`).
 
     Returns:
         Parsed Pedigree.
@@ -1484,7 +1545,9 @@ def _parse_text(text: str, *, max_columns: int | None = None) -> Pedigree:
     col_map: ColumnMapping | None = None
     use_mapped_parser = False
 
-    if max_columns is None and _detect_header(lines[0], separator):
+    if header is None:
+        header = max_columns is None and _detect_header(lines[0], separator)
+    if header:
         header_fields = _split_line(lines[0], separator)
         col_map = _parse_header_columns(header_fields)
 

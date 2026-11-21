@@ -792,6 +792,187 @@ class TestPandasIntegration:
             parse_pedigree_from_dataframe(df)
 
 
+def _header_fixtures() -> list:
+    """Fixtures with a header row whose first field is a known header name."""
+    from pypedigree.parser import _detect_header, _detect_separator
+
+    found = []
+    for path in sorted(TEST_DATA_DIR.glob("*/*")):
+        if path.suffix not in (".ped", ".csv", ".tsv") or path.parent.name == "plink":
+            continue
+        lines = [line for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+        if len(lines) > 1:
+            try:
+                separator = _detect_separator(lines[0])
+            except PedigreeParseError:
+                continue
+            if _detect_header(lines[0], separator):
+                found.append(pytest.param(path, separator, id=f"{path.parent.name}/{path.name}"))
+    return found
+
+
+class TestDataFrameHeader:
+    """A DataFrame with named columns is read as a file with that header."""
+
+    @pytest.fixture(autouse=True)
+    def _require_pandas(self):
+        pytest.importorskip("pandas")
+
+    @staticmethod
+    def _frame(**columns):
+        import pandas as pd
+
+        return pd.DataFrame(columns)
+
+    def test_extra_columns_read_by_name(self):
+        """Phenotype, PGS and annotation columns are no longer dropped."""
+        from pypedigree.parser import parse_pedigree_from_dataframe
+
+        df = self._frame(
+            FID=["F", "F", "F"],
+            IID=["dad", "mum", "kid"],
+            PAT=["0", "0", "dad"],
+            MAT=["0", "0", "mum"],
+            SEX=[1, 2, 1],
+            PHENO=[1, 1, 2],
+            b_autism=[1, 1, 2],
+            g_SRS=[45.0, 52.0, 81.0],
+            PGS_autism=[0.2, -0.4, 1.8],
+            a_note=["", "", "seen 2024"],
+        )
+        ped = parse_pedigree_from_dataframe(df)
+        assert ped.phenotype_names == ["autism", "SRS", "PGS_autism"]
+        assert ped.annotation_names == ["note"]
+        kid = ped.get_family("F").individuals["kid"]
+        assert kid.extra_phenotypes["autism"] == 1.0
+        assert kid.extra_phenotypes_raw["PGS_autism"] == pytest.approx(1.8)
+        assert kid.annotations == {"note": "seen 2024"}
+
+    def test_columns_matched_by_name_in_any_order(self):
+        from pypedigree.parser import parse_pedigree_from_dataframe
+
+        df = self._frame(
+            IID=["dad", "mum", "kid"],
+            FID=["F", "F", "F"],
+            Sex=[1, 2, 2],
+            Mother=["0", "0", "mum"],
+            Father=["0", "0", "dad"],
+            Phenotype=[1, 1, 2],
+        )
+        kid = parse_pedigree_from_dataframe(df).get_family("F").individuals["kid"]
+        assert (kid.father_id, kid.mother_id, kid.sex) == ("dad", "mum", Sex.FEMALE)
+
+    def test_family_alias_names_the_columns(self):
+        """'family' is a family ID alias, so the names are read too."""
+        from pypedigree.parser import parse_pedigree_from_dataframe
+
+        df = self._frame(
+            family=["F", "F", "F"],
+            individual_id=["dad", "mum", "kid"],
+            father=["0", "0", "dad"],
+            mother=["0", "0", "mum"],
+            sex=[1, 2, 2],
+            affected=[1, 1, 2],
+            PGS_x=[0.1, 0.2, 0.3],
+        )
+        assert parse_pedigree_from_dataframe(df).phenotype_names == ["PGS_x"]
+
+    def test_missing_values_are_missing_not_zero(self):
+        """NaN in an extra column is no data; NaN in a structural one, unknown."""
+        import numpy as np
+
+        from pypedigree.parser import parse_pedigree_from_dataframe
+
+        df = self._frame(
+            FID=["F", "F", "F"],
+            IID=["dad", "mum", "kid"],
+            PAT=[np.nan, None, "dad"],
+            MAT=[np.nan, None, "mum"],
+            SEX=[1, 2, np.nan],  # float column: 1.0, 2.0, NaN
+            PHENO=[1, np.nan, 2],
+            b_autism=[1, np.nan, 2],
+            PGS_autism=[0.5, np.nan, 1.5],
+            DECEASED=[True, False, False],
+        )
+        fam = parse_pedigree_from_dataframe(df).get_family("F")
+        dad, mum, kid = (fam.individuals[i] for i in ("dad", "mum", "kid"))
+        assert (dad.sex, mum.sex, kid.sex) == (Sex.MALE, Sex.FEMALE, Sex.UNKNOWN)
+        assert mum.phenotype == Phenotype.UNKNOWN
+        assert dad.is_deceased and not mum.is_deceased
+        assert math.isnan(mum.extra_phenotypes["autism"])  # no data, not "unknown"
+        assert math.isnan(mum.extra_phenotypes["PGS_autism"])  # not a score of 0
+        assert dad.extra_phenotypes_raw["PGS_autism"] == pytest.approx(0.5)
+
+    def test_unnamed_columns_read_by_position(self):
+        """``header=None`` columns (0, 1, 2...) are positional, as before."""
+        import pandas as pd
+
+        from pypedigree.parser import parse_pedigree_from_dataframe
+
+        df = pd.DataFrame(
+            [
+                ["F", "dad", "0", "0", 1, 1, "1960", "0", 1, 0],
+                ["F", "mum", "0", "0", 2, 1, "1962", "0", 0, 0],
+                ["F", "kid", "dad", "mum", 2, 2, "1990", "0", 0, 1],
+            ]
+        )
+        fam = parse_pedigree_from_dataframe(df).get_family("F")
+        assert fam.individuals["dad"].is_deceased
+        assert fam.individuals["kid"].is_proband
+
+    def test_columns_past_the_tenth_dropped_by_position_warn(self):
+        import pandas as pd
+
+        from pypedigree.parser import parse_pedigree_from_dataframe
+
+        df = pd.DataFrame([["F", "a", "0", "0", 1, 1, "0", "0", 0, 0, 2, 0.4]])
+        with pytest.warns(PedigreeDataWarning, match=r"'10', '11' are ignored.*'FID'"):
+            ped = parse_pedigree_from_dataframe(df)
+        assert ped.phenotype_names == []
+
+    def test_no_warning_by_name(self):
+        from pypedigree.parser import parse_pedigree_from_dataframe
+
+        df = self._frame(
+            FID=["F"], IID=["a"], PAT=["0"], MAT=["0"], SEX=[1], PHENO=[1], DOB=["0"],
+            TWINS=["0"], DECEASED=[0], PROBAND=[0], b_x=[2], PGS_y=[0.4],
+        )  # fmt: skip
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert parse_pedigree_from_dataframe(df).phenotype_names == ["x", "PGS_y"]
+
+    @pytest.mark.parametrize("value", ["a\tb", "a\nb"])
+    def test_tab_or_line_break_in_a_cell_is_an_error(self, value):
+        from pypedigree.parser import parse_pedigree_from_dataframe
+
+        df = self._frame(
+            FID=["F"], IID=["a"], PAT=["0"], MAT=["0"], SEX=[1], PHENO=[1], a_note=[value]
+        )  # fmt: skip
+        with pytest.raises(PedigreeParseError, match="tab or a line break"):
+            parse_pedigree_from_dataframe(df)
+
+    @pytest.mark.parametrize(("path", "separator"), _header_fixtures())
+    def test_same_figure_as_the_file(self, path, separator):
+        """``pd.read_csv`` of a fixture gives the figure the file gives."""
+        import pandas as pd
+
+        from pypedigree import parse_pedigree, render_svg
+        from pypedigree.parser import parse_pedigree_from_dataframe
+
+        df = pd.read_csv(
+            path,
+            sep=separator if separator else r"\s+",
+            dtype=str,
+            keep_default_na=False,
+            encoding="utf-8",
+        )
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            expected = render_svg(parse_pedigree(path))
+            actual = render_svg(parse_pedigree_from_dataframe(df))
+        assert actual == expected
+
+
 class TestPhenotypeDisplayPrefixes:
     """Tests for prefix-based phenotype display mode detection."""
 
