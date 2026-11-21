@@ -580,11 +580,22 @@ FAM1\tchild\tfather\tmother\t1\t2"""</span>
 ped = parse_pedigree_from_string(data)</code></pre>
 
 <h4><code>parse_pedigree_from_dataframe(df)</code></h4>
-<p>Parse from a pandas DataFrame. Requires <code>pip install pypedigree[pandas]</code>.</p>
+<p>Parse from a pandas DataFrame. Requires <code>pip install pypedigree[pandas]</code>.
+The DataFrame is read as a pedigree file would be. When its first column is named like a
+family ID column (<code>FID</code>, <code>family_id</code>, <code>family</code>) or another
+known header name, the column names are the header: columns are matched by name, and
+phenotype, PGS, annotation and notation columns are drawn. Columns named 0, 1, 2...
+(<code>header=None</code>) are read by position, the first ten only. NaN is a missing value,
+never 0.</p>
 <pre><code><span class="keyword">import</span> pandas <span class="keyword">as</span> pd
 <span class="keyword">from</span> pypedigree <span class="keyword">import</span> parse_pedigree_from_dataframe
 
-df = pd.read_csv(<span class="string">"family.ped"</span>, sep=<span class="string">"\t"</span>, header=None)
+<span class="comment"># a file with a header: FID, IID, PAT, MAT, SEX, PHENO, b_autism, PGS_autism...</span>
+df = pd.read_csv(<span class="string">"family.ped"</span>, sep=<span class="string">"\t"</span>)
+ped = parse_pedigree_from_dataframe(df)
+
+<span class="comment"># no header: columns by position</span>
+df = pd.read_csv(<span class="string">"family.fam"</span>, sep=<span class="string">"\t"</span>, header=None)
 ped = parse_pedigree_from_dataframe(df)</code></pre>
 
 <h4><code>parse_phenotype_file(file_path)</code></h4>

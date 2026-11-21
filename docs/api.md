@@ -41,9 +41,22 @@ ped = parse_pedigree_from_string(text)
 
 Parse a pedigree from a pandas DataFrame. Requires `pip install pypedigree[pandas]`.
 
-Column position determines meaning (names are ignored):
-1. family_id, 2. sample_id, 3. paternal_id, 4. maternal_id, 5. sex, 6. phenotype,
-7. date_of_birth (opt), 8. twins (opt), 9. deceased (opt), 10. proband (opt).
+The DataFrame is read as a pedigree file would be:
+- **By name**, when its first column is named like a family ID column (`FID`, `family_id`,
+  `family`) or another known header name (`IID`, `sex`...): the column names are the file's
+  header. Columns are matched by name in any order, and extra phenotype (`b_`, `g_`, `c_`,
+  `o_`, `cr_`, `PGS`, `pTDT`, no prefix), annotation (`a_`), notation, `css_class` and `data_`
+  columns are read, as from a file. This is what `pd.read_csv("family.ped", sep="\t")` of a
+  file with a header gives.
+- **By position** otherwise, e.g. `pd.read_csv(..., header=None)` (columns 0, 1, 2...):
+  1. family_id, 2. sample_id, 3. paternal_id, 4. maternal_id, 5. sex, 6. phenotype,
+  7. date_of_birth (opt), 8. twins (opt), 9. deceased (opt), 10. proband (opt). Further
+  columns are ignored with a `PedigreeDataWarning`.
+
+Missing values (NaN, `None`, `pd.NA`) are missing: an unknown parent, sex or phenotype, no
+data for an extra phenotype (never a value of 0). A float with no fractional part (`2.0`, as
+pandas stores an integer column holding NaN) is read as the integer, `True`/`False` as 1/0.
+A tab or a line break in a cell raises `PedigreeParseError`.
 
 ```python
 import pandas as pd
@@ -56,6 +69,8 @@ df = pd.DataFrame({
     "mat": ["0", "0", "mother"],
     "sex": [1, 2, 2],
     "pheno": [1, 1, 2],
+    "b_autism": [1, 1, 2],     # read by name: the first column is "fid"
+    "PGS_autism": [0.2, -0.4, 1.8],
 })
 ped = parse_pedigree_from_dataframe(df)
 ```
