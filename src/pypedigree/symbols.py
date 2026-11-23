@@ -101,10 +101,11 @@ UNKNOWN_OFFSPRING_GAP = 0.06
 MARKER_ARROW_EM = 1.4
 MARKER_LETTER_GAP_EM = 0.2
 
-# Layout units per typographic point in the interactive SVG. The PNG draws a
-# large pedigree at 0.8 inch (57.6 pt) per unit and a small one larger, so
-# text never takes more room there: layout decisions that depend on the size
-# of text convert it with this.
+# Layout units per typographic point in the interactive SVG. The PNG never
+# draws a pedigree smaller than this (`renderer._keep_text_scale` grows the
+# figure, up to its largest size), a small one larger, so text never takes
+# more room there: layout decisions that depend on the size of text convert
+# it with this.
 UNITS_PER_POINT = 0.02
 
 # Text widths, in ems, for the room the proband marker needs: the bold "P"

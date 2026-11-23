@@ -131,10 +131,11 @@ src/pypedigree/
    its widest line of text (`symbols.label_width`: ID, then notes and
    annotations at `SMALL_TEXT_SCALE`; character widths of DejaVu Sans in
    `symbols._CHAR_EM`, checked against the font by `tests/test_label_spacing.py`,
-   converted with `UNITS_PER_POINT`) plus half of `LABEL_GAP_EM`, listing only
-   those reaching beyond half the sibling gap. `_add` puts the excess on both
+   converted with `UNITS_PER_POINT`) plus half of `LABEL_GAP_EM`, for every
+   labelled node. `_add` puts what reaches beyond half the sibling gap on both
    sides of the contour (the left side takes the larger of it and the marker
-   margin) and `_couple_gap` widens a couple to the sum of both reaches. Labels
+   margin) and `_couple_gap` widens a couple to the sum of both reaches, a
+   short one included (it once counted as nothing beside a long one). Labels
    that fit change nothing: at 8 pt no fixture moves (IDs up to ~13
    characters). `compute_layout(..., labels=show_labels)`; the circular layout
    calls `_place_hierarchically(..., labels=False)` and is unchanged. The SVG's
@@ -162,7 +163,10 @@ src/pypedigree/
    artists: `_render_layout` turns matplotlib's autoscaling off while it
    draws (otherwise each `fill_betweenx` re-fits the view to every artist)
    and `_finalize_axes` fits the view once. In figures `render_pedigree` makes (never
-   with a caller's `ax`), after `tight_layout`: `_fit_view_to_content` shrinks each
+   with a caller's `ax`), after `tight_layout`: `_keep_text_scale` grows the figure until
+   no hierarchical pedigree is drawn below `1 / symbols.UNITS_PER_POINT` points per unit, the
+   scale the layout measures text at, while the drawing fits `_MAX_FIG_WIDTH_IN` x
+   `_MAX_FIG_HEIGHT_IN` (`tests/test_text_scale.py`); then `_fit_view_to_content` shrinks each
    pedigree's axes to what is drawn plus `_VIEW_PAD_PT` at the same scale (limits and
    position together; text and the draw-time artists measured, shapes and lines taken
    from `dataLim`, so it stays one pass over the text), `_fit_figure` packs families
@@ -605,6 +609,8 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_bin_names_inside.py` — Step names inside the legend's steps (#90)
 - `tests/test_bin_names.py` — Names for the steps of `gradient_bins` (#81)
 - `tests/test_legend_bar_width.py` — One width for all the legend's bars (#95)
+- `tests/test_text_scale.py` — The PNG drawn no smaller than the layout's text scale, so long
+  labels do not overlap; capped at the largest figure; circular layout left alone
 - `tests/test_figure_fit.py` — The figure fitted to its pedigree and legend, same margin all round, same scale (PNG/PDF)
 - `tests/test_legend_bottom.py` — The last legend row's captions inside the frame (#77)
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)

@@ -280,6 +280,10 @@ def render_pedigree(
 
     fig.tight_layout()
     pedigree_axes = list(fig.axes)
+    if not circular:
+        # The circular layout keeps no room for labels: they find theirs at
+        # draw time (`_RadialLabels`).
+        _keep_text_scale(fig, pedigree_axes)
     for ax_obj in pedigree_axes:
         _fit_view_to_content(ax_obj)
     _fit_figure(fig, pedigree_axes)
@@ -397,8 +401,8 @@ def _auto_figsize(
     h = max(style.fig_height, y_range * v_scale + 2 * style.margin)
 
     # Cap at reasonable maximum to avoid huge files
-    w = min(w, 80.0)
-    h = min(h, 60.0)
+    w = min(w, _MAX_FIG_WIDTH_IN)
+    h = min(h, _MAX_FIG_HEIGHT_IN)
 
     return (w, h)
 
@@ -2405,6 +2409,55 @@ _VIEW_PAD_PT = 10.0
 _FIGURE_PAD_PT = 4.0
 # Between two families drawn side by side (their titles included), in points.
 _FAMILY_GAP_PT = 36.0
+# Largest figure render_pedigree makes, in inches: past it a pedigree is drawn
+# smaller than the layout's text scale (huge files, matplotlib's pixel limit).
+_MAX_FIG_WIDTH_IN = 80.0
+_MAX_FIG_HEIGHT_IN = 60.0
+
+
+def _points_per_unit(ax: Axes) -> float:
+    """Scale ``ax`` draws at: points per layout unit (its aspect applied)."""
+    ax.apply_aspect()
+    x0, x1 = ax.transData.transform([(0.0, 0.0), (1.0, 0.0)])[:, 0]
+    return float(abs(x1 - x0) * 72 / _root_figure(ax).dpi)
+
+
+def _keep_text_scale(fig: Figure, axes: Sequence[Axes]) -> None:
+    """Enlarge the figure until no pedigree is drawn smaller than the layout's text scale.
+
+    The layout keeps room for labels, markers and PGS values measured at
+    `symbols.UNITS_PER_POINT` layout units per point, the SVG's scale. A wide
+    or deep pedigree squeezed into its figure (margins, the other families of
+    a row) would be drawn smaller, so text in points would take more room
+    than was kept for it and overlap its neighbour. The whole figure grows by
+    the shortfall, as long as the drawing (its symbols and lines) stays within
+    `_MAX_FIG_WIDTH_IN` x `_MAX_FIG_HEIGHT_IN`: the fitting that follows crops
+    the figure to the drawing, so the margins `_finalize_axes` leaves do not
+    count against that size.
+
+    Args:
+        fig: A figure `render_pedigree` made, after `tight_layout`.
+        axes: Its pedigree axes (hierarchical layout).
+    """
+    target = 1 / symbols.UNITS_PER_POINT
+    scale = min((_points_per_unit(ax) for ax in axes), default=target)
+    if scale >= target:
+        return
+    drawn = [ax.dataLim.transformed(ax.transData) for ax in axes]
+    drawn = [box for box in drawn if np.isfinite(box.get_points()).all()]
+    if not drawn:
+        return
+    box = Bbox.union(drawn)
+    grow = target / scale
+    if box.width > 0:
+        grow = min(grow, _MAX_FIG_WIDTH_IN * fig.dpi / box.width)
+    if box.height > 0:
+        grow = min(grow, _MAX_FIG_HEIGHT_IN * fig.dpi / box.height)
+    if grow <= 1:
+        return
+    width, height = fig.get_size_inches()
+    fig.set_size_inches(width * grow, height * grow)
+    fig.tight_layout()
 
 
 def _content_extent(ax: Axes, renderer: Any) -> Bbox | None:
