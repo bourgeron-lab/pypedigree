@@ -14,7 +14,7 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 
 - **Standard pedigree symbols**: squares (male), circles (female), diamonds (unknown sex), with affected/unaffected fill
 - **Parents without children**: a family holding only the two parents (no child in the file) is drawn as their couple, father on the left, with a descent line to a "?".
-- **Not applicable**: `N/A` in a phenotype column (ovarian cancer for someone assigned male at birth) is drawn white and crossed, with its legend row; `NA` stays no data.
+- **Not applicable**: `N/A` in a phenotype or carrier column (ovarian cancer for someone assigned male at birth) is drawn white, as unaffected, and said in the SVG tooltip; `NA` stays no data.
 - **Multi-phenotype rendering**: the symbol cut in four quadrants, one per phenotype (the default, up to four phenotypes), or horizontal color bands (`--phenotype-layout bands`, and automatically beyond four phenotypes) (binary: 0=unknown/grey, -9=no data/grey with "NA"; continuous: gradient, the value written in the band and shortened or made smaller where the symbol is too narrow). Autism, intellectual disability, ADHD and epilepsy columns get conventional colors (blue, red, yellow, purple) and quadrants (top left, bottom left, top right, bottom right). The legend always matches the bands it describes; it is sized from the font, so it reads the same under a 4-person pedigree as under a 45-person one.
 - **PGS (Polygenic Score) curves**: gaussian distribution with individual score marker, drawn alongside each node. Supports multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) with colored markers on a single curve. Scores are read as z-scores by default (±2 SD marked, z and percentile in the SVG tooltip; a warning when a column does not look like z-scores), as percentiles with `--pgs-scale percentile`, or between the pedigree's lowest and highest with `--pgs-scale minmax` for raw scores. `--show-pgs-values` writes each value beside its marker; close markers are set side by side so none hides another. `pTDT_` columns hold the children's pTDT deviations, drawn on the z scale and captioned "pTDT", beside the parents' PGS
 - **Hooks for host pages**: a `css_class` column and `data_` columns (or the builder's `css_class=` and `data=`) add classes and `data-*` attributes to each individual's node in the interactive SVG, so a page can style or select individuals without re-rendering.
@@ -215,6 +215,7 @@ import pandas as pd
 from pypedigree import parse_pedigree_from_dataframe, render_pedigree
 
 df = pd.read_csv("family.ped", sep="\t")  # a file with a header (FID, IID, ...)
+# with N/A cells, keep them: pd.read_csv(..., keep_default_na=False, na_values=["NA", ""])
 pedigree = parse_pedigree_from_dataframe(df)
 render_pedigree(pedigree, output="family.png")
 ```
@@ -284,7 +285,7 @@ its 2022 revision).
 | `art` (`assisted_reproduction`) | `D` gamete donor, `S` surrogate (also `GC`) | "D" or "S" inside the symbol |
 | `gender_identity` (`identity`) | `man`/`M`/`1`, `woman`/`F`/`W`/`2`, `nonbinary`/`NB`/`X`/`3` | The symbol follows the gender identity (square, circle, diamond) and the `sex` column is taken as the sex assigned at birth, written below as AMAB or AFAB when the two differ |
 | `consultand` | `1` | An arrow without "P" (the proband's arrow has one) |
-| `count` (`number`) | a number of 2 or more, or `n` | Several individuals in one symbol: the number written inside. Cannot be a parent |
+| `count` (`number`) | a number of 2 or more, or `n` | Several individuals in one symbol: the number written inside. Cannot be a parent. A column of this name holding other values (`0`, `1`, a decimal, text), or marking a parent, is read as a phenotype column, with a warning |
 | `asymptomatic` (`presymptomatic`) | `1` | Asymptomatic or presymptomatic carrier: a vertical line through the symbol, past its top and bottom (a figure with one is drawn with bands under `phenotype_layout` "auto") |
 | `evaluated` | `1`, or a result such as `WGS: negative` | Documented evaluation: an asterisk at the lower right; a result is written below the symbol |
 

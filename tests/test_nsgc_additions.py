@@ -5,6 +5,7 @@ synthetic.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -47,17 +48,46 @@ class TestSeveralIndividuals:
         assert ped.families["FAM1"].individuals["a"].notation.count == count
 
     @pytest.mark.parametrize("value", ["1", "many", "2.5"])
-    def test_bad_values(self, value):
-        with pytest.raises(PedigreeParseError, match="Line 2: count must be 2 or more"):
-            _ped(f"FAM1\ta\t0\t0\t0\t1\t{value}\t0\t0")
+    def test_other_values_make_a_phenotype_column(self, value):
+        """#118: a column named count that does not hold counts is a phenotype, as in 0.9.1."""
+        with pytest.warns(PedigreeDataWarning, match=f"line 2 has '{re.escape(value)}'"):
+            ped = _ped(f"FAM1\ta\t0\t0\t0\t1\t{value}\t0\t0")
+        assert "count" in ped.phenotype_names
+        assert ped.families["FAM1"].individuals["a"].notation.count is None
 
-    def test_cannot_be_a_parent(self):
-        with pytest.raises(PedigreeParseError, match="cannot be the parent of c"):
-            _ped(
+    def test_a_parent_makes_a_phenotype_column(self):
+        """#118: counts on parents (4 / 2 / 3) are a quantitative trait, not groups."""
+        with pytest.warns(PedigreeDataWarning, match="g would stand for several individuals"):
+            ped = _ped(
                 "FAM1\tg\t0\t0\t1\t1\t3\t0\t0",
                 "FAM1\tm\t0\t0\t2\t1\t0\t0\t0",
                 "FAM1\tc\tg\tm\t1\t1\t0\t0\t0",
             )
+        assert ped.phenotype_names == ["count"]
+
+    def test_number_column_of_0_9_1_draws(self):
+        """The file of #118: drawn in 0.9.1, an error in 0.10.0."""
+        text = (
+            "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tnumber\n"
+            "F\tf\t0\t0\t1\t1\t1\nF\tm\t0\t0\t2\t1\t0\nF\tc\tf\tm\t1\t2\t3\n"
+        )
+        with pytest.warns(PedigreeDataWarning, match="'number' is read as a phenotype"):
+            ped = parse_pedigree_from_string(text)
+        assert ped.phenotype_names == ["number"]
+        assert 'class="node"' in render_interactive_svg(ped)
+
+    def test_builder_stays_strict(self):
+        with pytest.raises(PedigreeParseError, match="count must be 2 or more"):
+            PedigreeBuilder("F").add_individual("a", count=1).build()
+
+    def test_cannot_be_a_parent(self):
+        """Through the builder, a group given as a parent is still an error."""
+        b = PedigreeBuilder("F")
+        b.add_individual("g", sex="male", count=3)
+        b.add_individual("m", sex="female")
+        b.add_individual("c", sex="male", father="g", mother="m")
+        with pytest.raises(PedigreeParseError, match="cannot be the parent of c"):
+            b.build()
 
     def test_written_inside_tooltip_and_export(self, tmp_path):
         ped, _ = _people()
@@ -88,6 +118,18 @@ class TestAsymptomatic:
             f"FID\tIID\tFather\tMother\tSex\tPhenotype\tpresymptomatic\nFAM1\ta\t0\t0\t2\t1\t{value}\n"
         )
         assert ped.families["FAM1"].individuals["a"].notation.is_asymptomatic
+
+    @pytest.mark.parametrize(("name", "value"), [("asymptomatic", "2"), ("presymptomatic", "3.5")])
+    def test_other_values_make_a_phenotype_column(self, name, value):
+        """#118: a 1/2-coded or quantitative column of that name stays a phenotype."""
+        text = (
+            f"FID\tIID\tFather\tMother\tSex\tPhenotype\t{name}\n"
+            f"FAM1\ta\t0\t0\t2\t1\t1\nFAM1\tb\t0\t0\t1\t1\t{value}\n"
+        )
+        with pytest.warns(PedigreeDataWarning, match=f"line 3 has '{value}'"):
+            ped = parse_pedigree_from_string(text)
+        assert ped.phenotype_names == [name]
+        assert not ped.families["FAM1"].individuals["a"].notation.is_asymptomatic
 
     def test_line_through_and_past_the_symbol(self):
         (x1, y1), (x2, y2) = symbols.asymptomatic_line(0.0, 0.0, 0.4, symbols.Sex.FEMALE)
@@ -141,6 +183,23 @@ class TestChildlessCouple:
     def test_unknown_partner(self):
         with pytest.raises(PedigreeParseError, match="childless partner 'zz'"):
             _ped("FAM1\ta\t0\t0\t1\t1\t0\t0\tchoice:zz")
+
+    def test_self_reference_is_an_error(self):
+        """#122: infertility:s on s's own row was silently lost."""
+        with pytest.raises(PedigreeParseError, match="'s' is the individual themselves"):
+            parse_pedigree_from_string(
+                "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tchildless\nF\ts\t0\t0\t2\t1\tinfertility:s\n"
+            )
+
+    def test_different_kinds_warn_and_keep_the_first(self):
+        """#122: choice on one row, infertility on the other."""
+        with pytest.warns(PedigreeDataWarning, match="different kinds of childlessness"):
+            ped = _ped(
+                "FAM1\ta\t0\t0\t1\t1\t0\t0\tchoice:b",
+                "FAM1\tb\t0\t0\t2\t1\t0\t0\tinfertility:a",
+            )
+        (union,) = ped.families["FAM1"].unions
+        assert union.childlessness == Childlessness.BY_CHOICE
 
     def test_couple_with_children_warns(self):
         with pytest.warns(PedigreeDataWarning, match="declared without children"):

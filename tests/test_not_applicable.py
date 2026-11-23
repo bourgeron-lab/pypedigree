@@ -3,7 +3,8 @@
 A phenotype that cannot apply to someone (ovarian cancer for someone assigned
 male at birth, prostate cancer for someone assigned female at birth) is
 written ``N/A`` or ``not_applicable``; ``NA`` keeps meaning no data. It is
-drawn white, crossed by a thin grey diagonal, explained by a legend row, and
+drawn white, as unaffected, with no mark and no legend row (#120: the grey
+diagonal of 0.10.0 read as the deceased line), said in the SVG tooltip, and
 not counted as data. All pedigrees here are synthetic.
 """
 
@@ -24,13 +25,11 @@ from pypedigree.carriers import CarrierScheme
 from pypedigree.config import resolve_style
 from pypedigree.layout import compute_layout
 from pypedigree.phenotypes import (
-    NOT_APPLICABLE_STROKE,
     all_bands_na,
     band_cell,
     check_legend,
     detect_auto_mode,
     legend_rows,
-    not_applicable_stroke,
     quadrant_cell,
     resolve_phenotype_render,
 )
@@ -160,35 +159,22 @@ class TestDecisions:
         assert not all_bands_na(people["E"], ["ovarian_cancer", "prostate_cancer"]), "all N/A"
         assert not all_bands_na(people["A"], cols)
 
-    def test_stroke(self):
-        assert not_applicable_stroke(0, 0, 2, 1) == ((0, 0), (2, 1))
-        assert not_applicable_stroke(0, 0, 2, 1, up=-1.0) == ((0, 1), (2, 0)), "SVG: same /"
-
-    def test_legend_row_only_when_needed(self):
+    def test_no_legend_row(self):
+        """#120: drawn as unaffected, so the legend has nothing to explain."""
         ped, _ = _people()
         style, render = _render(ped)
-        assert render.not_applicable
         rows = legend_rows(
             ped.phenotype_names, style, render, ped.phenotype_display_modes, CarrierScheme()
         )
-        assert [r.label for r in rows if r.kind == "not_applicable"] == ["Not applicable"]
-        plain = parse_pedigree_from_string(_without_na())
-        style, render = _render(plain)
-        assert not render.not_applicable
+        assert "not_applicable" not in [r.kind for r in rows]
 
-    def test_legend_text(self):
+    def test_legend_text_role_still_accepted(self):
+        """A style of 0.10.0 naming the role keeps working."""
         ped, _ = _people()
         style = resolve_style(
             PedigreeStyle(legend_text={"not_applicable": "Does not apply"}), ped.phenotype_names
         )
         check_legend(style)
-        render = resolve_phenotype_render(
-            ped, ped.phenotype_names, ped.phenotype_display_modes, style
-        )
-        rows = legend_rows(
-            ped.phenotype_names, style, render, ped.phenotype_display_modes, CarrierScheme()
-        )
-        assert "Does not apply" in [r.label for r in rows]
 
 
 class TestDrawing:
@@ -197,9 +183,8 @@ class TestDrawing:
         svg = render_interactive_svg(
             parse_pedigree_from_string(CANCERS), style=PedigreeStyle(phenotype_layout=layout)
         )
-        assert svg.count('class="not-applicable"') == NA_CELLS + 1  # and the legend row
-        assert "ovarian cancer: not applicable" in svg
-        assert "Not applicable" in svg
+        assert 'class="not-applicable"' not in svg and "Not applicable" not in svg
+        assert svg.count(": not applicable") == NA_CELLS  # in the tooltips
 
     @pytest.mark.parametrize("layout", ["bands", "quadrants"])
     def test_png(self, layout):
@@ -207,20 +192,69 @@ class TestDrawing:
             parse_pedigree_from_string(CANCERS), style=PedigreeStyle(phenotype_layout=layout)
         )
         try:
-            strokes = [
-                line
-                for ax in fig.axes
-                for line in ax.lines
-                if to_hex(line.get_color()) == NOT_APPLICABLE_STROKE
-            ]
-            assert len(strokes) == NA_CELLS + 1
             texts = [t.get_text() for ax in fig.axes for t in ax.texts]
-            assert "Not applicable" in texts
+            assert "Not applicable" not in texts
             assert texts.count("NA") == 2, "D and E: one centred 'NA' each"
         finally:
             plt.close(fig)
 
-    def test_no_stroke_without_na(self):
-        svg = render_interactive_svg(parse_pedigree_from_string(_without_na()))
-        assert 'class="not-applicable"' not in svg
-        assert "Not applicable" not in svg
+    @pytest.mark.parametrize("layout", ["bands", "quadrants"])
+    def test_drawn_as_unaffected(self, layout):
+        """The same drawing as with 1 (unaffected) instead of N/A, tooltips apart.
+
+        Only A, B and C, who have no missing data: D's and E's single centred
+        "NA" counts N/A bands as no data (`all_bands_na`)."""
+        style = PedigreeStyle(phenotype_layout=layout)
+        abc = "".join(
+            line + "\n"
+            for line in CANCERS.splitlines()
+            if not line.startswith(("FAM1\tD", "FAM1\tE"))
+        )
+        plain_abc = abc
+        for spelling in ("N/A", "n/a", "not_applicable", "Not Applicable"):
+            plain_abc = plain_abc.replace(spelling, "1")
+        with_na = render_interactive_svg(parse_pedigree_from_string(abc), style=style)
+        plain = render_interactive_svg(parse_pedigree_from_string(plain_abc), style=style)
+
+        def drawing(svg: str) -> str:
+            import re
+
+            return re.sub(r"<title>.*?</title>|data-tooltip=\"[^\"]*\"", "", svg, flags=re.S)
+
+        assert drawing(with_na) == drawing(plain)
+
+
+CARRIER_NA = (
+    "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tb_autism\tcr_GJB2\n"
+    "F\tf\t0\t0\t1\t1\t1\t1\n"
+    "F\tm\t0\t0\t2\t1\t2\tN/A\n"
+    "F\tc\tf\tm\t1\t2\t2\t2\n"
+)
+
+
+class TestCarrierColumns:
+    """#121: N/A in a cr_ column was drawn grey with "NA", as no data."""
+
+    @pytest.mark.parametrize("layout", ["bands", "quadrants"])
+    def test_white_without_na_and_in_the_tooltip(self, layout):
+        style = PedigreeStyle(phenotype_layout=layout)
+        svg = render_interactive_svg(parse_pedigree_from_string(CARRIER_NA), style=style)
+        assert "GJB2: not applicable" in svg
+        assert ">NA<" not in svg
+        fig = render_pedigree(parse_pedigree_from_string(CARRIER_NA), style=style)
+        try:
+            assert "NA" not in [t.get_text() for ax in fig.axes for t in ax.texts]
+        finally:
+            plt.close(fig)
+
+    def test_no_data_keeps_its_na(self):
+        text = CARRIER_NA.replace("N/A", "NA")
+        svg = render_interactive_svg(
+            parse_pedigree_from_string(text), style=PedigreeStyle(phenotype_layout="bands")
+        )
+        assert ">NA<" in svg and "not applicable" not in svg
+
+    def test_sections_alone(self):
+        """With cr_ columns only, the symbol is divided only for carriers: N/A in the tooltip."""
+        text = "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tcr_GJB2\nF\tm\t0\t0\t2\t1\tN/A\n"
+        assert "GJB2: not applicable" in render_interactive_svg(parse_pedigree_from_string(text))

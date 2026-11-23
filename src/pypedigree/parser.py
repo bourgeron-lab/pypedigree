@@ -1076,16 +1076,23 @@ def add_childless_unions(family: Family) -> None:
     ``childless`` ``choice:<ID>`` or ``infertility:<ID>`` on either partner's
     row (or both) makes a union with no children, drawn as any couple, whose
     marker hangs from the middle of the relationship line. A couple that has
-    children after all keeps them, with a warning.
+    children after all keeps them, with a warning. When the two rows give
+    different kinds, the first row's is drawn, with a warning (#122).
 
     Raises:
-        PedigreeParseError: If the partner is not in the family.
+        PedigreeParseError: If the partner is not in the family, or is the
+            individual themselves (#122).
     """
     for ind in list(family.individuals.values()):
         partner = ind.notation.childless_partner
         kind = ind.notation.childlessness
         if partner is None or kind is None:
             continue
+        if partner == ind.sample_id:
+            raise PedigreeParseError(
+                f"{ind.sample_id}: childless partner {partner!r} is the individual themselves; "
+                "name the other partner, or give the code alone for an individual's childlessness"
+            )
         if partner not in family.individuals:
             raise PedigreeParseError(
                 f"{ind.sample_id}: childless partner {partner!r} is not in family "
@@ -1108,7 +1115,84 @@ def add_childless_unions(family: Family) -> None:
             )
             union = Union(partner_ids=(first, second))
             family.unions.append(union)
+        elif union.childlessness is not None and union.childlessness != kind:
+            warnings.warn(
+                f"{partner} and {ind.sample_id} give different kinds of childlessness for "
+                f"their couple ({union.childlessness.value} and {kind.value}): "
+                f"{union.childlessness.value} is drawn.",
+                PedigreeDataWarning,
+                stacklevel=3,
+            )
+            continue
         union.childlessness = kind
+
+
+# A "no" in the asymptomatic column, besides the missing values.
+_FALSE_VALUES = frozenset({"no", "n", "false"})
+
+
+def _reclaim_phenotype_columns(
+    col_map: ColumnMapping, header_fields: list[str], rows: list[list[str]]
+) -> None:
+    """Read a ``count`` / ``number`` / ``asymptomatic`` / ``presymptomatic``
+    column as a phenotype when its values are not that notation (#118).
+
+    Before 0.10.0 (#104) these names were ordinary phenotype columns (a number
+    of seizures, a cell count). A ``count`` column is the notation only if every
+    value is missing, ``n`` or a whole number of 2 or more, and no row it marks
+    is a parent; an ``asymptomatic`` column only if every value is missing, a yes
+    or a no. Otherwise the column goes back to the phenotypes, with a
+    `PedigreeDataWarning` saying why. Modifies `col_map` in place.
+    """
+
+    def cell(row: list[str], index: int) -> str:
+        return row[index].strip() if index < len(row) else ""
+
+    for role in ("count", "asymptomatic"):
+        index = col_map.notation_cols.get(role)
+        if index is None:
+            continue
+        reason = None
+        for line_num, row in enumerate(rows, start=2):
+            value = cell(row, index)
+            lowered = value.lower()
+            if role == "count":
+                ok = _is_missing(value) or lowered == "n" or (value.isdigit() and int(value) >= 2)
+            else:
+                ok = _is_missing(value) or lowered in _TRUE_VALUES or lowered in _FALSE_VALUES
+            if not ok:
+                reason = f"line {line_num} has {value!r}"
+                break
+        if reason is None and role == "count":
+            groups = {
+                (cell(row, col_map.family_id), cell(row, col_map.sample_id))
+                for row in rows
+                if not _is_missing(cell(row, index))
+            }
+            for row in rows:
+                fid = cell(row, col_map.family_id)
+                for parent in (cell(row, col_map.father), cell(row, col_map.mother)):
+                    if (fid, parent) in groups:
+                        reason = f"{parent} would stand for several individuals but is a parent"
+                        break
+                if reason:
+                    break
+        if reason is None:
+            continue
+        name = header_fields[index].strip()
+        del col_map.notation_cols[role]
+        col_map.extra_phenotype_cols = sorted([*col_map.extra_phenotype_cols, (index, name)])
+        what = (
+            "several individuals in one symbol (2 or more, or n)"
+            if role == "count"
+            else "an asymptomatic carrier (1/yes or 0/no)"
+        )
+        warnings.warn(
+            f"Column {name!r} is read as a phenotype column, not as the notation for {what}: "
+            f"{reason}. Rename the column to silence this warning.",
+            PedigreeDataWarning,
+            stacklevel=4,
+        )
 
 
 def _check_count_rows(family: Family) -> None:
@@ -1690,6 +1774,8 @@ def _parse_text(
     if header:
         header_fields = _split_line(lines[0], separator)
         col_map = _parse_header_columns(header_fields)
+        rows = [_split_line(line, separator)[:max_columns] for line in lines[1:]]
+        _reclaim_phenotype_columns(col_map, header_fields, rows)
 
         if col_map.annotation_cols:
             annotation_names = [name for _, name in col_map.annotation_cols]
@@ -2090,14 +2176,24 @@ def _original_parent(family: Family, parent: str | None) -> str:
     return parent
 
 
-def fam_rows(pedigree: Pedigree) -> Iterator[tuple[str, str, str, str, Individual]]:
+def fam_rows(
+    pedigree: Pedigree, *, named_phantoms: bool = False
+) -> Iterator[tuple[str, str, str, str, Individual]]:
     """The individuals a PED export writes: family, ID, father, mother ("0"
     when unknown) and the individual, without phantom parents or duplicates,
     whose IDs are resolved back to the original (`export_fam`,
-    `phenopackets.export_phenopacket_pedigree`)."""
+    `phenopackets.export_phenopacket_pedigree`).
+
+    A parent named in the file but with no row of their own is a phantom that
+    keeps that ID, and the child's row names them. With `named_phantoms` they
+    are written as rows too (sex from their role, unknown affection, no
+    parents), so every ID a row names has a row (#108)."""
     groups = []
     for family in pedigree.families.values():
         for ind in family.individuals.values():
+            if ind.is_phantom and named_phantoms and not ind.sample_id.startswith("_phantom_"):
+                yield ind.family_id, ind.sample_id, "0", "0", ind
+                continue
             if ind.is_phantom or ind.is_duplicate:
                 continue
             if ind.notation.count:

@@ -144,6 +144,23 @@ class TestWrite:
         export_fam(back, fam_b)
         assert fam_a.read_text(encoding="utf-8") == fam_b.read_text(encoding="utf-8")
 
+    def test_named_parent_without_a_row_is_written(self, tmp_path):
+        """#108 comment: every paternalId / maternalId has its person."""
+        text = "FID\tIID\tPAT\tMAT\tSEX\tPHENO\nF\tc\tdad\tmum\t1\t2\nF\tmum\t0\t0\t2\t1\n"
+        with pytest.warns(PedigreeDataWarning):
+            ped = parse_pedigree_from_string(text)
+        out = export_phenopacket_pedigree(ped, tmp_path / "p.json")
+        persons = {
+            p["individualId"]: p for p in json.loads(out.read_text(encoding="utf-8"))["persons"]
+        }
+        assert set(persons) == {"c", "mum", "dad"}
+        assert persons["dad"]["sex"] == "MALE" and persons["dad"]["affectedStatus"] == "MISSING"
+        assert persons["dad"]["paternalId"] == persons["dad"]["maternalId"] == "0"
+        named = {p["paternalId"] for p in persons.values()} | {
+            p["maternalId"] for p in persons.values()
+        }
+        assert named - {"0"} <= set(persons)
+
     def test_defaults_written_out_and_no_phantoms(self, tmp_path):
         text = "FID\tIID\tPAT\tMAT\tSEX\tPHENO\nFAM1\tkid\tdad\t0\t0\t0\n"
         with pytest.warns(PedigreeDataWarning):

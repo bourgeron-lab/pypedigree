@@ -72,9 +72,6 @@ from pypedigree.phenotypes import (
     LEG_X0,
     NA_FILL,
     NA_TEXT_COLOR,
-    NOT_APPLICABLE_FILL,
-    NOT_APPLICABLE_STROKE,
-    NOT_APPLICABLE_STROKE_PT,
     OUTLINE_WIDTH_SCALE,
     PGS_BOX_PAD,
     PGS_CURVE_SIGMA,
@@ -113,7 +110,6 @@ from pypedigree.phenotypes import (
     legend_sex_items,
     legend_slot_count,
     letter_box,
-    not_applicable_stroke,
     outline_colors,
     outline_reach,
     outline_ring_offsets,
@@ -294,6 +290,7 @@ def render_pedigree(
         # The circular layout keeps no room for labels: they find theirs at
         # draw time (`_RadialLabels`).
         _keep_text_scale(fig, pedigree_axes)
+    _same_scale(fig, pedigree_axes)
     for ax_obj in pedigree_axes:
         _fit_view_to_content(ax_obj)
     _fit_figure(fig, pedigree_axes)
@@ -1753,10 +1750,6 @@ def _draw_bands(
         )
         band_rect.set_clip_path(clip_patch)
         ax.add_patch(band_rect)
-        if cell.not_applicable:
-            _draw_not_applicable(
-                ax, cx - half, band_top - band_height, 2 * half, band_height, clip_patch
-            )
 
         # Draw band separator line (thin grey)
         if i > 0:
@@ -1792,6 +1785,7 @@ def _draw_bands(
     for j, key in enumerate(carrier_keys):
         band_top = shape_top - (len(band_names) + j) * band_height
         state = carrier_state(node, key)
+        not_applicable = state is None and key in node.not_applicable  # #121
         hatch = None
         if state in (CARRIER, OBLIGATE_CARRIER):
             hatch = _hatch(carriers.pattern(key), state == OBLIGATE_CARRIER)
@@ -1799,7 +1793,7 @@ def _draw_bands(
             (cx - half * 1.5, band_top - band_height),
             half * 3,
             band_height,
-            facecolor=NA_FILL if state is None else "white",
+            facecolor=NA_FILL if state is None and not not_applicable else "white",
             edgecolor=style.fill_color if hatch else "none",
             linewidth=0,
             hatch=hatch,
@@ -1816,7 +1810,7 @@ def _draw_bands(
             clip_path=clip_patch,
             clip_on=True,
         )
-        if state is None and style.show_na_labels:
+        if state is None and not not_applicable and style.show_na_labels:
             yc = band_top - band_height / 2
             _fitted_text(
                 ax,
@@ -1870,8 +1864,9 @@ def _draw_quadrants(
             state = carrier_state(node, name)
             if state in (CARRIER, OBLIGATE_CARRIER):
                 hatch = _hatch(carriers.pattern(name), state == OBLIGATE_CARRIER)
-            fill: Any = NA_FILL if state is None else "white"
-            texts: tuple[str, ...] = ("NA",) if state is None and style.show_na_labels else ()
+            no_data = state is None and name not in node.not_applicable  # N/A: #121
+            fill: Any = NA_FILL if no_data else "white"
+            texts: tuple[str, ...] = ("NA",) if no_data and style.show_na_labels else ()
             text_color = NA_TEXT_COLOR
         else:
             cell = quadrant_cell(node, name, style, pheno_render, display_modes)
@@ -1890,8 +1885,6 @@ def _draw_quadrants(
         )
         rect.set_clip_path(clip_patch)
         ax.add_patch(rect)
-        if name not in carriers.keys and cell.not_applicable:
-            _draw_not_applicable(ax, x, y, w, h, clip_patch)
         if texts:
             tx, ty = quadrant_center(position, cx, cy, half)
             _fitted_text(
@@ -1909,22 +1902,6 @@ def _draw_quadrants(
                 zorder=6,
             )
     return all_na
-
-
-def _draw_not_applicable(
-    ax: Axes, x: float, y: float, w: float, h: float, clip_patch: mpatches.Patch
-) -> None:
-    """The stroke crossing a band or quadrant that does not apply (#107)."""
-    (x1, y1), (x2, y2) = not_applicable_stroke(x, y, w, h)
-    ax.plot(
-        [x1, x2],
-        [y1, y2],
-        color=NOT_APPLICABLE_STROKE,
-        linewidth=NOT_APPLICABLE_STROKE_PT,
-        zorder=5,
-        clip_path=clip_patch,
-        clip_on=True,
-    )
 
 
 def _units_per_point(axes: _AxesBase, renderer: Any) -> float | None:
@@ -2505,6 +2482,43 @@ def _keep_text_scale(fig: Figure, axes: Sequence[Axes]) -> None:
     fig.tight_layout()
 
 
+def _same_scale(fig: Figure, axes: Sequence[Axes]) -> None:
+    """Draw every family of a figure at the scale of the smallest (#123).
+
+    Families side by side each get an equal share of the figure, and the
+    equal aspect fits each one to its share: a family with fewer generations
+    was drawn larger (148 points per layout unit beside 77 for a family one
+    generation taller), its symbols almost twice the size of the others'
+    while the text kept its size. Each axes is resized to its limits at the
+    smallest scale, the tops of their drawings level (each family's first
+    generation on one line, whatever its margins); `_fit_figure` then packs
+    them.
+
+    Args:
+        fig: A figure `render_pedigree` made, after `tight_layout`.
+        axes: Its pedigree axes.
+    """
+    if len(axes) < 2:
+        return
+    scales = [_points_per_unit(ax) for ax in axes]
+    target = min(scales)
+    if target <= 0 or max(scales) - target < 1e-6 * target:
+        return
+    width, height = fig.get_size_inches()
+    per_unit = target / 72 / height  # figure fraction per layout unit, vertically
+    placed = []
+    for ax in axes:
+        box = ax.get_position()  # as drawn: the aspect applied
+        (x0, x1), (y0, y1) = ax.get_xlim(), ax.get_ylim()
+        w = abs(x1 - x0) * target / 72 / width
+        h = abs(y1 - y0) * per_unit
+        above = (max(y0, y1) - ax.dataLim.y1) * per_unit  # margin above the drawing
+        placed.append((ax, box, w, h, above))
+    top = max(box.y1 - above for _, box, _, _, above in placed)  # the drawings' common top
+    for ax, box, w, h, above in placed:
+        ax.set_position((box.x0 + (box.width - w) / 2, top + above - h, w, h))
+
+
 def _content_extent(ax: Axes, renderer: Any) -> Bbox | None:
     """Display box of everything drawn in ``ax``, text included.
 
@@ -2924,22 +2938,6 @@ def _draw_legend_outline_row(
     _legend_row_label(ax, y_center, row.label, m.icon_text_x, m, style)
 
 
-def _draw_legend_not_applicable_row(
-    ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics, style: PedigreeStyle
-) -> None:
-    """Draw the white swatch crossed by the "not applicable" stroke (#107)."""
-    _legend_swatch(ax, LEG_X0, y_center, m.sw_w, m.sw_h, NOT_APPLICABLE_FILL)
-    (x0, y0), (x1, y1) = not_applicable_stroke(LEG_X0, y_center - m.sw_h / 2, m.sw_w, m.sw_h)
-    ax.plot(
-        [x0, x1],
-        [y0, y1],
-        color=NOT_APPLICABLE_STROKE,
-        linewidth=NOT_APPLICABLE_STROKE_PT,
-        solid_capstyle="butt",
-    )
-    _legend_row_label(ax, y_center, row.label, m.icon_text_x, m, style)
-
-
 def _draw_legend_asymptomatic_row(
     ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics, style: PedigreeStyle
 ) -> None:
@@ -3210,8 +3208,6 @@ def _draw_legend(
             _draw_legend_outline_row(ax, y_center, row, m, style)
         elif row.kind == "outline_rings":
             _draw_legend_outline_rings_row(ax, y_center, row, m, style)
-        elif row.kind == "not_applicable":
-            _draw_legend_not_applicable_row(ax, y_center, row, m, style)
         elif row.kind == "asymptomatic":
             _draw_legend_asymptomatic_row(ax, y_center, row, m, style)
         elif row.kind == "pgs":

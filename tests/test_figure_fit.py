@@ -171,3 +171,34 @@ def test_callers_axes_left_alone():
         assert ax.get_position(original=True).bounds == pytest.approx(position)
     finally:
         plt.close(fig)
+
+
+class TestFamiliesAtOneScale:
+    """#123: families of different heights side by side are drawn at one scale."""
+
+    TWO = (
+        "FID\tIID\tPAT\tMAT\tSEX\tPHENO\n"
+        "A\ta1\t0\t0\t1\t1\nA\ta2\t0\t0\t2\t2\nA\ta3\ta1\ta2\t2\t1\n"
+        "A\ta4\t0\t0\t1\t1\nA\ta5\ta4\ta3\t1\t2\n"
+        "B\tb1\t0\t0\t1\t1\nB\tb2\t0\t0\t2\t1\nB\tb3\tb1\tb2\t1\t2\n"
+    )
+
+    def test_same_points_per_unit_and_first_generation_level(self):
+        import matplotlib.pyplot as plt
+
+        from pypedigree import parse_pedigree_from_string, render_pedigree
+
+        fig = render_pedigree(parse_pedigree_from_string(self.TWO))
+        try:
+            fig.canvas.draw()
+            a, b = fig.axes[:2]
+            scales = []
+            for ax in (a, b):
+                x0, x1 = ax.get_xlim()
+                scales.append(ax.get_window_extent().width / fig.dpi * 72 / abs(x1 - x0))
+            assert scales[0] == pytest.approx(scales[1], rel=1e-3)
+            # The founders' row (top of each drawing) on one line.
+            tops = [ax.transData.transform((0, ax.dataLim.y1))[1] for ax in (a, b)]
+            assert tops[0] == pytest.approx(tops[1], abs=1.0)
+        finally:
+            plt.close(fig)
