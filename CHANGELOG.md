@@ -102,6 +102,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   draws a separated couple's line from outline to outline. `symbols.separation_marks`,
   `EdgeLayout.has_descent`; `docs/imgs/broken_relationship.png` and (missed by #139)
   `unknown_zygocity_twins.png` redrawn.
+- The room the layout keeps beside a proband's or consultand's arrow ignored a left neighbour's
+  evaluation asterisk, level with the arrow at the lower right of their symbol: with tight spacing or
+  large text the asterisk ran into the arrow's tail (#143). The arrow now keeps the asterisk's gap
+  from the widest-reaching asterisk of the generation; at the default style nothing moves.
+  `symbols.marker_clearance(..., neighbour_mark=)`, `symbols.evaluation_mark_reach`.
 - A long line of text under one partner of a couple crossed the couple's descent line (#130): the
   couple was spaced for the sum of the two partners' labels (#41), so they did not meet, but the
   descent line starts in the middle, and since #120 a CanRisk panel's gene line ("BRCA1, BRCA2,

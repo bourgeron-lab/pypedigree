@@ -312,20 +312,36 @@ class _HierarchicalPlacer:
         Their marker sits at the lower left of the symbol, level with the
         labels; with tight spacing or large text it would run into the
         label on the left (`symbols.marker_clearance`, for the longest
-        label of the generation). Only those who need more than the
-        sibling gap are listed.
+        label of the generation), or into a left neighbour's evaluation
+        asterisk (the widest-reaching one of the generation, #143). Only
+        those who need more than the sibling gap are listed.
         """
         style = self.style
+        half = style.shape_size / 2
+        mark_size = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
         longest: dict[int, int] = {}
+        # The asterisks of the generation, as far as they reach right of
+        # their symbol, gap included (#143): any of them may be on the left.
+        marks: dict[int, list[tuple[float, str]]] = {}
         for sid, g in self.gen.items():
-            label = _get_node_label(sid, self.family.individuals[sid], style)
+            ind = self.family.individuals[sid]
+            label = _get_node_label(sid, ind, style)
             longest[g] = max(longest.get(g, 0), len(label))
+            if ind.notation.is_evaluated:
+                brackets = style.line_width if ind.notation.adoption is not None else None
+                sex = symbols.symbol_sex(ind.sex, ind.notation)
+                reach = symbols.evaluation_mark_reach(
+                    half, sex, mark_size, style.shape_line_width, brackets
+                )
+                reach += symbols.EVALUATION_MARK_GAP_EM * mark_size * symbols.UNITS_PER_POINT
+                marks.setdefault(g, []).append((reach, sid))
         room: dict[str, float] = {}
         for sid, g in self.gen.items():
             ind = self.family.individuals[sid]
             if ind.is_proband or ind.notation.is_consultand:
+                mark = max((r for r, other in marks.get(g, []) if other != sid), default=0.0)
                 need = symbols.marker_clearance(
-                    style.shape_size / 2, style.text_size(), longest[g], ind.is_proband
+                    half, style.text_size(), longest[g], ind.is_proband, neighbour_mark=mark
                 )
                 if need > style.sibling_gap:
                     room[sid] = need

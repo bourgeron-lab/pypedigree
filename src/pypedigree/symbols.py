@@ -487,13 +487,17 @@ def marker_points(tip_x: float, tip_y: float, em: float, up: float = 1.0) -> tup
     return tip_x - em * MARKER_ARROW_EM, tip_y - up * em * MARKER_ARROW_EM
 
 
-def marker_clearance(half: float, font_size: float, label_chars: int, letter: bool) -> float:
+def marker_clearance(
+    half: float, font_size: float, label_chars: int, letter: bool, neighbour_mark: float = 0.0
+) -> float:
     """Distance to the left neighbour that keeps the marker off their label.
 
     The marker sits at the lower left of the symbol, level with the labels,
     so with tight spacing or large text the "P" would run into the label of
     the individual on the left. The layout keeps a proband's or a
-    consultand's left neighbour at least this far, centre to centre.
+    consultand's left neighbour at least this far, centre to centre. A
+    neighbour's evaluation asterisk, at the lower right of their symbol,
+    keeps clear of the whole arrow too (#143).
 
     Args:
         half: Half the shape size.
@@ -501,12 +505,17 @@ def marker_clearance(half: float, font_size: float, label_chars: int, letter: bo
         label_chars: Length of the longest label the neighbour may have.
         letter: Whether the marker has a "P" (a proband) or is an arrow
             alone (a consultand).
+        neighbour_mark: How far the neighbour's asterisk reaches right of
+            their centre, its gap included (`evaluation_mark_reach` +
+            `EVALUATION_MARK_GAP_EM`), or 0 without one.
     """
     em = font_size * UNITS_PER_POINT
-    reach = half + em * MARKER_ARROW_EM
+    tail = half + em * MARKER_ARROW_EM
+    reach = tail
     if letter:
         reach += em * (MARKER_LETTER_GAP_EM + _MARKER_LETTER_EM)
-    return reach + em * (_MARKER_PAD_EM + _LABEL_CHAR_EM * label_chars / 2)
+    labels = reach + em * (_MARKER_PAD_EM + _LABEL_CHAR_EM * label_chars / 2)
+    return max(labels, neighbour_mark + tail) if neighbour_mark else labels
 
 
 def shape_half_width_at(sex: Sex, half: float, y: float) -> float:
@@ -755,17 +764,7 @@ def pgs_box_near(
         outside = bracket_offset(grown, sex) + bracket_width / 2 * UNITS_PER_POINT
         near = max(near, outside + half * PGS_BOX_GAP)
     if side == "right" and evaluated:
-        mark_x, _ = evaluation_mark_position(
-            0.0,
-            0.0,
-            grown,
-            sex,
-            mark_size,
-            line_width,
-            UNITS_PER_POINT,
-            bracket_width=bracket_width,
-        )
-        mark_right = mark_x + EVALUATION_MARK_INK_HALF_W_EM * mark_size * UNITS_PER_POINT
+        mark_right = evaluation_mark_reach(grown, sex, mark_size, line_width, bracket_width)
         near = max(near, mark_right + half * PGS_BOX_GAP)
     return near
 
@@ -834,6 +833,22 @@ def evaluation_mark_placement(
         across = bracket_width / 2 + (EVALUATION_MARK_INK_HALF_W_EM + EVALUATION_MARK_GAP_EM) * size
         return x + bracket_offset(half, sex, triangle), py, across, dy * distance
     return px, py, dx * distance, dy * distance
+
+
+def evaluation_mark_reach(
+    half: float,
+    sex: Sex,
+    size: float,
+    line_width: float,
+    bracket_width: float | None = None,
+) -> float:
+    """From a symbol's centre to the right edge of its asterisk's ink, in
+    layout units at the text scale (`UNITS_PER_POINT`), as the layout plans
+    room (`pgs_box_near`, `marker_clearance`)."""
+    mark_x, _ = evaluation_mark_position(
+        0.0, 0.0, half, sex, size, line_width, UNITS_PER_POINT, bracket_width=bracket_width
+    )
+    return mark_x + EVALUATION_MARK_INK_HALF_W_EM * size * UNITS_PER_POINT
 
 
 def evaluation_mark_position(
