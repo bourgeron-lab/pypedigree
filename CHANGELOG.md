@@ -122,6 +122,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `legend_minimal`, `multi_phenotype_pgs` and `circular_test_all` change by their dots' rims.
   `phenotypes.pgs_box_width`, `box_width`, `pgs_dot_size`, `pgs_dot_count`; `PedigreeStyle.pgs_box_width`
   (set by `apply_pgs_spacing`).
+- The dotted line joining a person's two copies (a loop drawn with a duplicate) ran from centre to
+  centre as a shallow curve, through the symbols between them: in the paper's Fig. 1c pedigree its 3
+  lines crossed 12 symbols (#149). In the hierarchical layout it now leaves the top of each copy, runs
+  in the band above their row, between the symbols and their sibship lines, and comes back down,
+  with rounded corners; lines of a row whose spans overlap run at different heights. It touches no
+  other symbol. The circular layout keeps its curves. `DuplicateArc.waypoints`; golden
+  `multiple_partners_complex` changes.
 - A long line of text under one partner of a couple crossed the couple's descent line (#130): the
   couple was spaced for the sum of the two partners' labels (#41), so they did not meet, but the
   descent line starts in the middle, and since #120 a CanRisk panel's gene line ("BRCA1, BRCA2,

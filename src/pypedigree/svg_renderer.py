@@ -414,7 +414,13 @@ def _map_layout(
             for tc in layout.twin_connectors
         ],
         duplicate_arcs=[
-            replace(a, from_pos=p(a.from_pos), to_pos=p(a.to_pos)) for a in layout.duplicate_arcs
+            replace(
+                a,
+                from_pos=p(a.from_pos),
+                to_pos=p(a.to_pos),
+                waypoints=[p(w) for w in a.waypoints],
+            )
+            for a in layout.duplicate_arcs
         ],
     )
 
@@ -1976,6 +1982,13 @@ def _svg_duplicate_arc(arc: DuplicateArc, style: PedigreeStyle) -> str:
     x1, y1 = arc.from_pos
     x2, y2 = arc.to_pos
     sw = style.line_width * pt
+    if arc.waypoints:
+        # The hierarchical layout's route, above the row (#149).
+        points = " ".join(f"{x:.3f},{y:.3f}" for x, y in arc.waypoints)
+        return (
+            f'<polyline class="duplicate-link" points="{points}" fill="none" '
+            f'stroke="{style.line_color}" stroke-width="{sw:.3f}" stroke-dasharray="0.05 0.05"/>'
+        )
 
     # Compute control point for quadratic bezier
     mid_x = (x1 + x2) / 2
