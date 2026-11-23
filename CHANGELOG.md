@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Long labels and annotations overlapped in the PNG and PDF of a wide pedigree. The layout keeps
+  room for text measured at the interactive SVG's scale (50 pt per layout unit), but the PNG drew
+  a wide pedigree smaller, at 44 pt per unit or less (39 pt at 60 inches wide), so text took
+  up to 28% more room than was kept for it. A pedigree is now never drawn smaller than that scale:
+  the figure grows, as long as the drawing stays within 80 x 60 inches (beyond that it is drawn
+  smaller, as before). Families drawn side by side get the same scale. Three examples of the test
+  suite are drawn about 14% larger (the quadrants example, the 81-person example and its
+  quadrants variant); smaller pedigrees and the circular layout are unchanged.
+- Partners were drawn too close when one had a long label and the other a medium one: the couple
+  was spaced by the long label alone, as if the other took no room, and their texts touched. The
+  couple is now as wide as both labels.
+
 ## [0.9.1] - 2026-11-21
 
 ### Changed
