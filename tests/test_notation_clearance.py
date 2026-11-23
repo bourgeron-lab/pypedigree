@@ -1,4 +1,4 @@
-"""Notation that keeps clear of the symbol: the evaluation asterisk (#110), the
+"""Notation that keeps clear of the symbol: the evaluation asterisk (#110, #134), the
 inner letter (#105) and the PGS box beside a diamond (#111).
 
 - The asterisk's gap is in ems of its font, from the outside of the outline's
@@ -22,6 +22,7 @@ import xml.etree.ElementTree as ET
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+from matplotlib.patches import FancyBboxPatch
 from matplotlib.text import Annotation, Text
 
 from pypedigree import (
@@ -466,3 +467,102 @@ class TestAsteriskBesideBrackets:
         )  # fmt: skip
         ink_right = cx + symbols.EVALUATION_MARK_INK_HALF_W_EM * MARK * symbols.UNITS_PER_POINT
         assert near >= ink_right + HALF * symbols.PGS_BOX_GAP - 1e-9
+
+
+class TestPgsBoxBesideBrackets:
+    """An adopted person's PGS box keeps its gap from the bracket (#136): it is
+    measured from the bracket's stroke, not the shape, on either side."""
+
+    BRACKET = PedigreeStyle().line_width
+    PED = (
+        "FID\tID\tFather\tMother\tSex\tPhenotype\tadopted\tPGS_x\n"
+        "1\tF\t0\t0\t1\t1\t0\t0.1\n"
+        "1\tM\t0\t0\t2\t1\t0\t-0.2\n"
+        "1\tA\tF\tM\t2\t1\tout\t1.2\n"
+        "1\tB\tF\tM\t1\t1\tin\t-0.4\n"
+        "1\tC\tF\tM\t0\t1\tin\t0.6\n"
+        "1\tD\tF\tM\t2\t1\tout\t-1.1\n"
+    )
+
+    @pytest.mark.parametrize("side", ["left", "right"])
+    @pytest.mark.parametrize("sex", [Sex.MALE, Sex.FEMALE, Sex.UNKNOWN])
+    def test_gap_from_the_bracket(self, sex, side):
+        near = symbols.pgs_box_near(
+            HALF, sex, False, MARK, side, line_width=LINE, bracket_width=self.BRACKET
+        )
+        outside = symbols.bracket_offset(HALF, sex) + self.BRACKET / 2 * symbols.UNITS_PER_POINT
+        assert near == pytest.approx(outside + HALF * symbols.PGS_BOX_GAP)
+
+    def test_no_brackets_unchanged(self):
+        near = symbols.pgs_box_near(HALF, Sex.FEMALE, False, MARK, "left", line_width=LINE)
+        assert near == pytest.approx(HALF * (1 + symbols.PGS_BOX_GAP))
+
+    def test_ring_grows_the_brackets_and_the_box(self):
+        ring = 0.05
+        near = symbols.pgs_box_near(
+            HALF, Sex.MALE, False, MARK, "left", ring=ring, bracket_width=self.BRACKET
+        )
+        grown = symbols.grown_half(Sex.MALE, HALF, ring)
+        outside = (
+            symbols.bracket_offset(grown, Sex.MALE) + self.BRACKET / 2 * symbols.UNITS_PER_POINT
+        )
+        assert near == pytest.approx(outside + HALF * symbols.PGS_BOX_GAP)
+
+    def test_svg_box_clear_of_the_bracket(self):
+        root = ET.fromstring(render_interactive_svg(parse_pedigree_from_string(self.PED)))
+        checked = 0
+        for group in root.iter("{http://www.w3.org/2000/svg}g"):
+            if group.get("class") != "node":
+                continue
+            brackets = group.findall("svg:polyline[@class='adoption-bracket']", SVG_NS)
+            box = group.find("svg:g[@class='pgs']/svg:rect", SVG_NS)
+            if not brackets or box is None:
+                continue
+            box_left = float(box.get("x"))
+            box_right = box_left + float(box.get("width"))
+            stroke = float(brackets[0].get("stroke-width")) / 2
+            xs = [float(p.split(",")[0]) for b in brackets for p in b.get("points").split()]
+            cx = float(group.get("data-x"))
+            # A box on the left is measured from the left bracket, on the right from the right one.
+            left_gap, right_gap = min(xs) - stroke - box_right, box_left - (max(xs) + stroke)
+            gap = left_gap if box_right <= cx else right_gap
+            assert gap == pytest.approx(HALF * symbols.PGS_BOX_GAP, abs=2e-3)
+            checked += 1
+        assert checked == 4
+
+    def test_png_box_clear_of_the_bracket(self):
+        """The PNG's box is where pgs_box_left puts it, clear of the drawn bracket."""
+        fig = render_pedigree(parse_pedigree_from_string(self.PED), show_legend=False)
+        try:
+            ax = fig.axes[0]
+            uprights = [
+                ln.get_xdata()[1] for ln in ax.lines
+                if len(ln.get_xdata()) == 4 and ln.get_xdata()[1] == ln.get_xdata()[2]
+                and ln.get_xdata()[0] > ln.get_xdata()[1]
+            ]  # fmt: skip
+            assert len(uprights) == 4  # the left bracket of each adopted child
+            boxes = [
+                p for p in ax.patches
+                if isinstance(p, FancyBboxPatch)
+                and p.get_width() == pytest.approx(HALF * symbols.PGS_BOX_WIDTH)
+                and p.get_height() == pytest.approx(2 * HALF)
+            ]  # fmt: skip
+            assert len(boxes) == 6
+            for left_bracket in uprights:
+                box = min(boxes, key=lambda p: abs(p.get_x() + p.get_width() - left_bracket))
+                assert left_bracket - (box.get_x() + box.get_width()) > HALF * symbols.PGS_BOX_GAP
+        finally:
+            plt.close(fig)
+
+    def test_layout_keeps_the_box_off_the_neighbour(self):
+        """Each box ends right of its left neighbour's right bracket."""
+        style = apply_pgs_spacing(PedigreeStyle(), ["PGS_x"])
+        family = parse_pedigree_from_string(self.PED).families["1"]
+        nodes = sorted(
+            (n for n in compute_layout(family, style).nodes if n.individual_id in "ABCD"),
+            key=lambda n: n.x,
+        )
+        for left, node in zip(nodes, nodes[1:], strict=False):
+            assert node.pgs_side == "left"
+            box_left = pgs_box_left(node, style)
+            assert box_left > left.x + symbols.bracket_offset(HALF, left.sex), node.individual_id
