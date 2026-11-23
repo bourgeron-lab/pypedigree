@@ -219,8 +219,11 @@ _AFFECTED_NAMES = {
 def export_phenopacket_pedigree(pedigree: Pedigree, file_path: str | Path) -> Path:
     """Write a GA4GH Phenopackets v2 ``Pedigree`` message (``{"persons": [...]}``).
 
-    From the PED fields, without phantom parents or duplicates, as
-    `export_fam` does; unknown parents are ``"0"``, and ``UNKNOWN_SEX`` and
+    From the PED fields, without duplicates, as `export_fam` does; a parent
+    named in the input but with no row of their own is written as a person
+    (sex from their role, ``MISSING``), so a strict validator finds every
+    ``paternalId`` and ``maternalId`` (#108); unknown parents are ``"0"``, and
+    ``UNKNOWN_SEX`` and
     ``MISSING`` are written out for readers that do not apply proto3
     defaults. A whole ``Family`` is not written: it needs phenopackets with
     clinical data and metadata pypedigree does not hold.
@@ -243,7 +246,7 @@ def export_phenopacket_pedigree(pedigree: Pedigree, file_path: str | Path) -> Pa
             "sex": _SEX_NAMES.get(ind.sex, "UNKNOWN_SEX"),
             "affectedStatus": _AFFECTED_NAMES.get(ind.phenotype, "MISSING"),
         }
-        for fid, iid, father, mother, ind in fam_rows(pedigree)
+        for fid, iid, father, mother, ind in fam_rows(pedigree, named_phantoms=True)
     ]
     path = Path(file_path)
     text = json.dumps({"persons": persons}, indent=2, ensure_ascii=False)

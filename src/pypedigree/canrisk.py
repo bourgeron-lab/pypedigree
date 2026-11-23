@@ -67,6 +67,19 @@ _PRS = {
     "prs_pc": "PGS_prostate_cancer",
 }
 _REQUIRED = ("FamID", "IndivID", "FathID", "MothID", "Sex")
+# The columns of each format, in order, for a file without a ``##FamID`` line,
+# which the CanRisk services read by position (#119): 28 fields in format 4,
+# 27 in formats 2 and 3 (no HOXB13), 26 in format 1 (no BARD1 either).
+_COLUMNS_V4 = (
+    "FamID", "Name", "Target", "IndivID", "FathID", "MothID", "Sex", "MZtwin", "Dead", "Age",
+    "Yob", "BC1", "BC2", "OC", "PRO", "PAN", "Ashkn", *_GENES, _HOXB13, _PATHOLOGY,
+)  # fmt: skip
+_DEFAULT_COLUMNS = {
+    "4": _COLUMNS_V4,
+    "3": tuple(c for c in _COLUMNS_V4 if c != _HOXB13),
+    "2": tuple(c for c in _COLUMNS_V4 if c != _HOXB13),
+    "1": tuple(c for c in _COLUMNS_V4 if c not in (_HOXB13, "BARD1")),
+}
 _ZSCORE = re.compile(r"zscore\s*=\s*([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)", re.IGNORECASE)
 
 
@@ -112,6 +125,7 @@ def _read_blocks(text: str) -> list[_Person]:
     """Every person of every family block, with their block's PRS."""
     people: list[_Person] = []
     columns: list[str] | None = None
+    default_columns: list[str] | None = None
     prs: dict[str, float] = {}
     block: list[_Person] = []
 
@@ -132,6 +146,7 @@ def _read_blocks(text: str) -> list[_Person]:
                     f"(expected {', '.join(CANRISK_VERSIONS)})"
                 )
             columns, prs, block = None, {}, []
+            default_columns = list(_DEFAULT_COLUMNS.get(version.split(".")[0], ()))
             continue
         if stripped.startswith("##"):
             body = stripped[2:]
@@ -149,10 +164,16 @@ def _read_blocks(text: str) -> list[_Person]:
                     prs[key.strip().lower()] = _prs_zscore(value, number)
             continue
         if columns is None:
-            raise PedigreeParseError(
-                f"Line {number}: a CanRisk row before the '##FamID ...' column line"
-            )
-        cells = line.split("\t") if "\t" in line else line.split()
+            if not default_columns:
+                raise PedigreeParseError(
+                    f"Line {number}: a CanRisk row before the '##FamID ...' column line"
+                )
+            # No column line: the format's columns by position, as CanRisk reads them.
+            columns = default_columns
+        # Any run of whitespace separates fields, as the CanRisk services split
+        # them (no field holds a space): tabs and spaces mixed in a row, or a
+        # trailing tab from a spreadsheet, are read (#119).
+        cells = line.split()
         if len(cells) != len(columns):
             raise PedigreeParseError(
                 f"Line {number}: {len(cells)} CanRisk fields, the column line names {len(columns)}"
@@ -173,7 +194,12 @@ def _prs_zscore(value: str, line: int) -> float:
 
 
 def _give_prs(block: Sequence[_Person], prs: dict[str, float]) -> None:
-    """Attach a family block's PRS to its target."""
+    """Attach a header block's PRS to the target of the family after it.
+
+    As the CanRisk services read a file, the header lines belong to the family
+    whose rows follow them; another family in the same block has none of its
+    own, which a warning says (#119).
+    """
     if not prs:
         return
     targets = [p for p in block if p.get("Target") == "1"]
@@ -184,7 +210,19 @@ def _give_prs(block: Sequence[_Person], prs: dict[str, float]) -> None:
             stacklevel=4,
         )
         return
-    targets[0].prs.update(prs)
+    first = block[0].get("FamID")
+    owner = next((p for p in targets if p.get("FamID") == first), None)
+    others = sorted({p.get("FamID") for p in targets if p.get("FamID") != first})
+    if owner is not None:
+        owner.prs.update(prs)
+    if others or owner is None:
+        warnings.warn(
+            f"The CanRisk PRS lines before family {first} are that family's, as CanRisk reads "
+            f"them: the targets of {', '.join(others)} get no PRS. Give each family its own "
+            "'##CanRisk' header block with its PRS lines.",
+            PedigreeDataWarning,
+            stacklevel=4,
+        )
 
 
 def _sex(person: _Person) -> str:

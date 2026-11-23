@@ -615,9 +615,14 @@ def couple_childless_segments(
     """A couple's childlessness marker (#104): from the middle of their
     relationship line at (``x``, ``y``), where a descent line would start, a
     stem ending in one or two bars, as `childless_segments` draws it under
-    one symbol."""
+    one symbol.
+
+    The bars hang as low as an individual's marker under a square, below the
+    partners' symbols (`half` + `CHILDLESS_STEM` from the line): just under
+    the line they filled the gap between the partners and read as a second
+    relationship line, a consanguineous couple (#124)."""
     c, s = math.cos(direction), math.sin(direction)
-    end = CHILDLESS_STEM
+    end = half + CHILDLESS_STEM
     w = half * CHILDLESS_BAR_HALF_WIDTH
 
     def at(d: float, across: float) -> tuple[float, float]:

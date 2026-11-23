@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- "Not applicable" (`N/A`, #107) is drawn white, as unaffected, with no mark and no legend row
+  (#120): the grey diagonal of 0.10.0 read as the deceased line, and a CanRisk family put one in
+  every man's ovarian-cancer quadrant and every woman's prostate-cancer one. The SVG tooltip still
+  says "ovarian cancer: not applicable". The `legend_text` role `not_applicable` is still accepted,
+  unused; `phenotypes.not_applicable_stroke` and `PhenotypeRender.not_applicable` are removed.
+- Families drawn side by side in one PNG or PDF share one scale, the smallest, with their first
+  generations level (#123). A family with fewer generations was drawn larger (148 points per layout
+  unit beside 77 for a family one generation taller), its symbols almost twice the size of the
+  others'. Golden `nomenclature` changes (its donor family was drawn at twice the scale). Families
+  drawn one per file, into your own `ax`, or in the SVG, are unchanged.
+- A couple's childlessness marker (#104) hangs below the partners' symbols, as low as an
+  individual's marker under a square (#124): just under the relationship line, its bars filled
+  the gap between the partners and read as a double line, a consanguineous couple. Golden
+  `group_carrier_couple` and `docs/imgs/childless_couple.png` change.
+
+### Fixed
+
+- Raw PGS were drawn as z-scores without a warning in small families (#117): the checks of #106
+  needed 5 values (spread) or 20 (mean), more than a clinical pedigree has genotyped. Every value
+  within ±0.05 (raw PLINK sums, from 2 values not all 0) now warns, and the mean check runs from
+  3 values; a person drawn twice (second partner) counts once.
+- Columns named `count`, `number`, `asymptomatic` or `presymptomatic`, ordinary phenotype columns
+  before 0.10.0 (#104 made them notation), made files that drew in 0.9.1 fail (#118). Such a column
+  is read as a phenotype again, with a `PedigreeDataWarning`, when a value is not that notation
+  (`0`, `1`, a decimal or text for `count`; anything but yes or no for `asymptomatic`) or a counted
+  row is a parent. `PedigreeBuilder(..., count=)` stays strict.
+- The CanRisk reader (#109) rejected files the CanRisk services read (#119): fields are now split
+  on any whitespace, as CanRisk does (tabs and spaces mixed in a row, a trailing tab), and a file
+  without a `##FamID` line is read by position with its format's columns. All 38 test files of the
+  CanRisk web services now parse (34 before). A `##PRS_*` line before several families goes to the
+  first one's target, as CanRisk reads it, now with a warning naming the others.
+- "Not applicable" in a `cr_` carrier column was drawn grey with "NA", as no data, with no word in
+  the tooltip (#121): the section is now white without "NA", and the tooltip says "GJB2: not
+  applicable". `pd.read_csv` reads `N/A` as NaN by default: the docs give
+  `keep_default_na=False, na_values=["NA", ""]` to keep it.
+- A couple childlessness naming oneself (`infertility:s` on s's row) was silently lost: it raises
+  `PedigreeParseError` (#122). Two partners giving different kinds draw the first one read, with a
+  warning, instead of the last silently.
+- `export_phenopacket_pedigree` named parents it did not write (#108): a parent named in the file but
+  with no row of their own is now written as a person (sex from their role, `MISSING`), so a strict
+  Phenopackets validator finds every `paternalId` and `maternalId`. `export_fam` is unchanged.
+- The HTML documentation listed several individuals in one symbol, the asymptomatic-carrier line and
+  a couple's childlessness under "Not covered", which 0.10.0 draws.
+
 ## [0.10.0] - 2026-11-23
 
 ### Added

@@ -175,7 +175,7 @@ class TestZscoreDefault:
         result = CliRunner().invoke(main, ["--help"])
         assert "zscore, default" in " ".join(result.output.split())
 
-    @pytest.mark.parametrize(("text", "detail"), [(RAW, "a value of 131"), (TINY, "spread")])
+    @pytest.mark.parametrize(("text", "detail"), [(RAW, "a value of 131"), (TINY, "within ±0.05")])
     def test_raw_scores_warn(self, text, detail):
         with pytest.warns(PedigreeDataWarning, match="do not look like z-scores") as record:
             render_interactive_svg(parse_pedigree_from_string(text))
@@ -202,6 +202,53 @@ class TestZscoreDefault:
     def test_png_warns_too(self):
         with pytest.warns(PedigreeDataWarning, match="do not look like z-scores"):
             plt.close(render_pedigree(parse_pedigree_from_string(RAW)))
+
+    @pytest.mark.parametrize(
+        ("values", "detail"),
+        [
+            (["0.00012", "0.00031", "0.00025"], "within ±0.05"),  # PLINK sums in a trio
+            (["2.4", "3.1", "3.6", "2.9"], "mean 3.00"),  # raw scores around 3 in a quartet
+            (["-3.1", "-2.4", "-2.6"], "mean -2.70"),
+        ],
+    )
+    def test_small_families_warn(self, values, detail):
+        """#117: the checks also run on the 3 or 4 people of a clinical pedigree."""
+        rows = [
+            ("a", "0", "0", "1"),
+            ("b", "0", "0", "2"),
+            ("c", "a", "b", "1"),
+            ("d", "a", "b", "2"),
+        ]
+        text = "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tPGS_x\n" + "".join(
+            f"F\t{i}\t{f}\t{m}\t{s}\t1\t{v}\n"
+            for (i, f, m, s), v in zip(rows, values, strict=False)
+        )
+        with pytest.warns(PedigreeDataWarning, match=re.escape(detail)):
+            render_interactive_svg(parse_pedigree_from_string(text))
+
+    @pytest.mark.parametrize("values", [["0.02"], ["0", "0", "0"], ["0.3", "0.35"], ["2.1", "2.4"]])
+    def test_plausible_z_scores_do_not_warn(self, values, recwarn):
+        """One small value, zeros, two close parents, or two high scores are z-scores."""
+        text = "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tPGS_x\n" + "".join(
+            f"F\tp{n}\t0\t0\t1\t1\t{v}\n" for n, v in enumerate(values)
+        )
+        render_interactive_svg(parse_pedigree_from_string(text))
+        assert not [w for w in recwarn if "z-scores" in str(w.message)]
+
+    def test_a_person_drawn_twice_counts_once(self, recwarn):
+        """A duplicate (second partner) copies the phenotypes: not a second value."""
+        text = (
+            "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tPGS_x\n"
+            "F\tm\t0\t0\t1\t1\t0.01\n"
+            "F\tw1\t0\t0\t2\t1\tNA\n"
+            "F\tw2\t0\t0\t2\t1\tNA\n"
+            "F\tc1\tm\tw1\t1\t1\tNA\n"
+            "F\tc2\tm\tw2\t2\t1\tNA\n"
+        )
+        ped = parse_pedigree_from_string(text)
+        assert any(i.is_duplicate for i in ped.individuals())
+        render_interactive_svg(ped)
+        assert not [w for w in recwarn if "z-scores" in str(w.message)]
 
     def test_one_message_for_every_family(self, tmp_path):
         """--output-dir: each family is checked against the whole file, so the

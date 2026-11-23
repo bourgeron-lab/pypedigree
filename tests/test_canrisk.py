@@ -212,9 +212,49 @@ class TestErrors:
         with pytest.raises(PedigreeParseError, match="CanRisk fields"):
             parse_pedigree_from_string(_file("FAM1\ta\t0"))
 
-    def test_missing_column_line(self):
-        with pytest.raises(PedigreeParseError, match="before the"):
-            parse_pedigree_from_string("##CanRisk 4.0\n" + _row(FamID="FAM1", IndivID="a", Sex="F"))
+
+class TestFilesCanRiskAccepts:
+    """#119: files the CanRisk services read, as synthetic rows of the same shape."""
+
+    def test_no_column_line_read_by_position(self):
+        text = "##CanRisk 4.0\n" + _row(FamID="FAM1", IndivID="a", Sex="F", BC1=44)
+        (person,) = parse_pedigree_from_string(text).individuals()
+        assert person.sample_id == "a" and person.extra_phenotypes_raw["breast_cancer"] == 2
+
+    @pytest.mark.parametrize(
+        ("version", "drop"), [("2.0", ("HOXB13",)), ("1.0", ("HOXB13", "BARD1"))]
+    )
+    def test_no_column_line_older_formats(self, version, drop):
+        cells = dict(
+            zip(COLUMNS, _row(FamID="FAM1", IndivID="a", Sex="M", PRO=61).split("\t"), strict=True)
+        )
+        row = "\t".join(v for c, v in cells.items() if c not in drop)
+        (person,) = parse_pedigree_from_string(f"##CanRisk {version}\n{row}").individuals()
+        assert person.extra_phenotypes_raw["prostate_cancer"] == 2
+
+    def test_tabs_and_spaces_mixed(self):
+        row = _row(FamID="FAM1", IndivID="a", Sex="F", BC1=44)
+        head, last = row.rsplit("\t", 1)
+        (person,) = parse_pedigree_from_string(_file(head + "   " + last)).individuals()
+        assert person.extra_phenotypes_raw["breast_cancer"] == 2
+
+    def test_trailing_tab(self):
+        (person,) = parse_pedigree_from_string(
+            _file(_row(FamID="FAM1", IndivID="a", Sex="F") + "\t")
+        ).individuals()
+        assert person.sample_id == "a"
+
+    def test_one_prs_line_before_two_families_warns(self):
+        text = _file(
+            _row(FamID="F1", IndivID="a", Sex="F", Target=1),
+            _row(FamID="F2", IndivID="b", Sex="F", Target=1),
+            header=("##PRS_BC=alpha=0.45,zscore=1.5",),
+        )
+        with pytest.warns(PedigreeDataWarning, match="targets of F2 get no PRS"):
+            ped = parse_pedigree_from_string(text)
+        people = {i.sample_id: i for i in ped.individuals()}
+        assert people["a"].extra_phenotypes_raw["PGS_breast_cancer"] == 1.5
+        assert people["b"].extra_phenotypes_raw["PGS_breast_cancer"] is None
 
 
 class TestOutputs:
@@ -222,7 +262,7 @@ class TestOutputs:
         fig = render_pedigree(parse_pedigree(V4))
         try:
             texts = [t.get_text() for ax in fig.axes for t in ax.texts]
-            assert "BRCA1 +" in texts and "Not applicable" in texts
+            assert "BRCA1 +" in texts and "Not applicable" not in texts  # N/A drawn white (#120)
         finally:
             plt.close(fig)
 
