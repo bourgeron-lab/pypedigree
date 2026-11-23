@@ -411,6 +411,7 @@ class _HierarchicalPlacer:
             side,
             struck=symbols.is_struck_through(ind),
             line_width=style.shape_line_width,
+            bracket_width=style.line_width if ind.notation.adoption is not None else None,
         )
         # Measured from a square's box: a diamond reaches further (#111).
         return near - symbols.pgs_box_near(half, Sex.MALE, False, size, side)

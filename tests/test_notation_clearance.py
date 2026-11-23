@@ -3,7 +3,8 @@ inner letter (#105) and the PGS box beside a diamond (#111).
 
 - The asterisk's gap is in ems of its font, from the outside of the outline's
   stroke to the glyph's ink, on every shape and at any scale; it touched
-  circles before.
+  circles before. Round adoption brackets it goes outside the right one, with
+  the same gap from the bracket.
 - The pregnancy "P" (and "D", "S") is written at the centre whatever the
   phenotype columns; band and quadrant text keeps clear of it.
 - A diamond reaches `DIAMOND_SCALE` half-sizes, and its PGS box keeps the same
@@ -346,3 +347,122 @@ class TestDiamondPgsBox:
 
         square = self.PED.replace("1\tC\tA\tB\t0", "1\tC\tA\tB\t1")
         assert room(self.PED) >= room(square) - 1e-9
+
+
+def _adopted(kind: str = "in") -> str:
+    """Two parents and three adopted, evaluated children: a man, a woman, a diamond."""
+    rows = ["FID\tID\tFather\tMother\tSex\tPhenotype\tadopted\tevaluated"]
+    rows += ["F1\tdad\t0\t0\t1\t1\t0\t0", "F1\tmum\t0\t0\t2\t1\t0\t0"]
+    for i, sex in enumerate((1, 2, 0)):
+        rows.append(f"F1\tc{i}\tdad\tmum\t{sex}\t{1 + (i == 1)}\t{kind}\t1")
+    return "\n".join(rows) + "\n"
+
+
+def _bracket_right(sex: Sex, triangle: bool = False) -> float:
+    """X of the right adoption bracket's upright, round a symbol at the origin."""
+    lines = symbols.bracket_lines(0.0, 0.0, HALF, sex, triangle)
+    return max(x for line in lines for x, _ in line)
+
+
+class TestAsteriskBesideBrackets:
+    """An adopted person's asterisk goes outside the right bracket (#134), with the
+    same gap in ems as from an outline (#110); it touched the bracket before."""
+
+    BRACKET = PedigreeStyle().line_width
+
+    @pytest.mark.parametrize("upp", [symbols.UNITS_PER_POINT, 0.06])
+    @pytest.mark.parametrize("sex", [Sex.MALE, Sex.FEMALE, Sex.UNKNOWN])
+    @pytest.mark.parametrize("triangle", [False, True])
+    def test_ink_clear_of_the_bracket(self, sex, upp, triangle):
+        cx, _ = symbols.evaluation_mark_position(
+            0.0, 0.0, HALF, sex, MARK, LINE, upp, triangle, bracket_width=self.BRACKET
+        )
+        ink_left = cx - symbols.EVALUATION_MARK_INK_HALF_W_EM * MARK * upp
+        outside = _bracket_right(sex, triangle) + self.BRACKET / 2 * upp
+        want = symbols.EVALUATION_MARK_GAP_EM * MARK * upp
+        assert ink_left - outside == pytest.approx(want)
+
+    @pytest.mark.parametrize("sex", [Sex.MALE, Sex.FEMALE, Sex.UNKNOWN])
+    def test_same_height_as_without_brackets(self, sex):
+        """Pushed sideways only: still at the symbol's lower right."""
+        _, y = symbols.evaluation_mark_position(0.0, 0.0, HALF, sex, MARK, LINE, 0.02)
+        _, yb = symbols.evaluation_mark_position(
+            0.0, 0.0, HALF, sex, MARK, LINE, 0.02, bracket_width=self.BRACKET
+        )
+        assert yb == pytest.approx(y)
+        _, ys = symbols.evaluation_mark_position(
+            0.0, 0.0, HALF, sex, MARK, LINE, 0.02, up=-1.0, bracket_width=self.BRACKET
+        )
+        assert ys == pytest.approx(-y)
+
+    @pytest.mark.parametrize("kind", ["in", "out"])
+    def test_svg_asterisk_outside_the_bracket(self, kind):
+        root = ET.fromstring(render_interactive_svg(parse_pedigree_from_string(_adopted(kind))))
+        checked = 0
+        for group in root.iter("{http://www.w3.org/2000/svg}g"):
+            if group.get("class") != "node":
+                continue
+            mark = group.find("svg:text[@class='documented-evaluation']", SVG_NS)
+            brackets = group.findall("svg:polyline[@class='adoption-bracket']", SVG_NS)
+            if mark is None:
+                continue
+            assert len(brackets) == 2
+            right = max(float(p.split(",")[0]) for b in brackets for p in b.get("points").split())
+            stroke = float(brackets[0].get("stroke-width")) / 2
+            size = float(mark.get("font-size"))
+            ink_left = float(mark.get("x")) - symbols.EVALUATION_MARK_INK_HALF_W_EM * size
+            assert ink_left - (right + stroke) >= symbols.EVALUATION_MARK_GAP_EM * size - 1e-3
+            checked += 1
+        assert checked == 3
+
+    def test_png_white_between_bracket_and_asterisk(self):
+        """At 300 dpi, along a row through the asterisk: bracket, white, then ink."""
+        dpi = 300
+        fig = render_pedigree(parse_pedigree_from_string(_adopted()), show_legend=False)
+        try:
+            fig.set_dpi(dpi)
+            fig.canvas.draw()
+            image = np.asarray(fig.canvas.buffer_rgba())[:, :, :3].mean(axis=2)
+            height = image.shape[0]
+            ax = fig.axes[0]
+            marks = [t for t in ax.texts if isinstance(t, Annotation)]
+            assert len(marks) == 3
+            px_per_pt = dpi / 72
+            want = symbols.EVALUATION_MARK_GAP_EM * MARK * px_per_pt
+            for mark in marks:
+                sx, sy = ax.transData.transform(mark.xy)
+                ox, oy = mark.xyann
+                oy += symbols.EVALUATION_MARK_INK_MIDDLE_EM * MARK  # the ink's middle
+                row = int(round(height - (sy + oy * px_per_pt)))
+                x_ink = sx + ox * px_per_pt
+                # Walk left from the ink's middle to the end of its ink.
+                xs = range(int(x_ink), int(x_ink - (ox + 6) * px_per_pt), -1)
+                dark = [image[row, x] < 128 for x in xs]
+                ink_end = next(i for i in range(len(dark) - 1) if dark[i] and not dark[i + 1])
+                ink_left = int(x_ink) - ink_end
+                # The right bracket as drawn: its upright at x[1] == x[2], ticks to its left.
+                uprights = [
+                    ln for ln in ax.lines
+                    if len(ln.get_xdata()) == 4 and ln.get_xdata()[1] == ln.get_xdata()[2]
+                    and ln.get_xdata()[0] < ln.get_xdata()[1]
+                    and min(ln.get_ydata()) <= mark.xy[1] <= max(ln.get_ydata())
+                    and abs(ln.get_xdata()[1] - mark.xy[0]) < 2 * HALF
+                ]  # fmt: skip
+                assert len(uprights) == 1
+                bx, _ = ax.transData.transform((uprights[0].get_xdata()[1], 0.0))
+                outside = bx + uprights[0].get_linewidth() / 2 * px_per_pt
+                assert ink_left - outside >= 0.7 * want, (mark.xy, ink_left - outside, want)
+        finally:
+            plt.close(fig)
+
+    def test_pgs_box_clear_of_the_moved_asterisk(self):
+        """A box on the right clears the asterisk, now outside the bracket."""
+        near = symbols.pgs_box_near(
+            HALF, Sex.FEMALE, True, MARK, "right", line_width=LINE, bracket_width=self.BRACKET
+        )
+        cx, _ = symbols.evaluation_mark_position(
+            0.0, 0.0, HALF, Sex.FEMALE, MARK, LINE, symbols.UNITS_PER_POINT,
+            bracket_width=self.BRACKET,
+        )  # fmt: skip
+        ink_right = cx + symbols.EVALUATION_MARK_INK_HALF_W_EM * MARK * symbols.UNITS_PER_POINT
+        assert near >= ink_right + HALF * symbols.PGS_BOX_GAP - 1e-9

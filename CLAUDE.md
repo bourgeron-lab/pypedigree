@@ -348,7 +348,8 @@ Extended format adds:
   `pregnancy` (P/SAB/TOP/ECT/SB), `adopted` (in/out), `childless` (choice/infertility),
   `art` (D/S), `evaluated` (1/yes/true, or a result text written below; asterisk at the
   lower right, `symbols.evaluation_mark_placement`: a point on the outline and an offset in points to
-  the ink's middle, half the stroke + the ink's half-extent + `EVALUATION_MARK_GAP_EM`, #110; the PNG
+  the ink's middle, half the stroke + the ink's half-extent + `EVALUATION_MARK_GAP_EM`, #110; round
+  adoption brackets, `bracket_width=` puts it outside the right one (#134), `symbols.bracket_offset`; the PNG
   draws it with `annotate(..., textcoords="offset points")`, the SVG with
   `evaluation_mark_position(..., _PT)`), `gender_identity` (man/woman/nonbinary; `gender` means this only when
   a `sex` column is also present, otherwise it is the sex column), `consultand` (1).

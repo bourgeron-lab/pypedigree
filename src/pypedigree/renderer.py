@@ -1038,8 +1038,9 @@ def _draw_notation(
     if node.notation.is_evaluated:
         size = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
         width = style.shape_line_width if outline_width is None else outline_width
+        brackets = style.line_width if node.notation.adoption is not None else None
         px, py, dx, dy = symbols.evaluation_mark_placement(
-            node.x, node.y, half, node.sex, size, width, triangle
+            node.x, node.y, half, node.sex, size, width, triangle, bracket_width=brackets
         )
         # Offsets in points from the outline, so the gap keeps its size at
         # any scale; the baseline goes below the ink's middle.

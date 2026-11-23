@@ -1328,6 +1328,7 @@ def pgs_box_left(node: NodeLayout, style: PedigreeStyle, ring: float = 0.0) -> f
         struck=node.is_deceased,
         ring=ring,
         line_width=style.shape_line_width * (OUTLINE_WIDTH_SCALE if ring else 1.0),
+        bracket_width=style.line_width if node.notation.adoption is not None else None,
     )
     if node.pgs_side == "right":
         return node.x + near

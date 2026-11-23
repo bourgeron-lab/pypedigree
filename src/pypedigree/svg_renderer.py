@@ -1033,8 +1033,18 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
         width = style.shape_line_width
         if banded and outline_colors(node, ctx.outline_names, style):
             width *= OUTLINE_WIDTH_SCALE
+        brackets = style.line_width if node.notation.adoption is not None else None
         ex, ey = symbols.evaluation_mark_position(
-            node.x, node.y, half, node.sex, mark_pt, width, _PT, triangle, up=-1.0
+            node.x,
+            node.y,
+            half,
+            node.sex,
+            mark_pt,
+            width,
+            _PT,
+            triangle,
+            up=-1.0,
+            bracket_width=brackets,
         )
         size = mark_pt * _PT
         out.append(
