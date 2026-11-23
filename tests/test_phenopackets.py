@@ -171,3 +171,51 @@ class TestWrite:
         assert kid["sex"] == "UNKNOWN_SEX" and kid["affectedStatus"] == "MISSING"
         assert kid["maternalId"] == "0"
         assert not [p for p in persons if p["individualId"].startswith("_phantom_")]
+
+
+class TestDiseaseAndFeatures:
+    """#108: the proband's disease names the affected status; HPO terms as columns."""
+
+    def test_one_disease_is_a_named_column(self):
+        ped, people = _people(FAMILY)
+        assert ped.phenotype_names == ["Invented_syndrome"]
+        assert people["II-1"].extra_phenotypes_raw["Invented_syndrome"] == 2
+        svg = render_interactive_svg(ped)
+        assert "Invented syndrome" in svg  # shown with spaces, in the legend and tooltips
+
+    def test_no_disease_or_several_no_column(self):
+        data = json.loads(FAMILY.read_text(encoding="utf-8"))
+        data["proband"]["diseases"].append({"term": {"id": "OMIM:1", "label": "Other"}})
+        with pytest.warns(PedigreeDataWarning):
+            ped = parse_pedigree_from_string(json.dumps(data))
+        assert ped.phenotype_names == []
+        data["proband"]["diseases"] = [
+            {"term": {"id": "OMIM:1", "label": "Other"}, "excluded": True}
+        ]
+        with pytest.warns(PedigreeDataWarning):
+            assert parse_pedigree_from_string(json.dumps(data)).phenotype_names == []
+
+    def test_hpo_terms_only_when_asked(self):
+        with pytest.warns(PedigreeDataWarning):
+            ped = parse_pedigree(FAMILY, phenopacket_features=True)
+        assert ped.phenotype_names == ["Invented_syndrome", "Seizure", "Global_developmental_delay"]
+        people = {i.sample_id: i for i in ped.individuals()}
+        seizure = {sid: p.extra_phenotypes_raw.get("Seizure") for sid, p in people.items()}
+        assert seizure["II-1"] == 2  # observed
+        assert seizure["I-2"] == 1  # excluded
+        assert seizure["I-1"] == 0  # a phenopacket without the term
+        assert (
+            seizure["II-3"] is None or seizure["II-3"] != seizure["II-3"]
+        )  # no phenopacket: no data
+
+    def test_cli_flag(self, tmp_path):
+        out = tmp_path / "f.svg"
+        result = CliRunner().invoke(
+            main, [str(FAMILY), "--hpo-features", "--interactive", "-o", str(out)]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Global developmental delay" in out.read_text(encoding="utf-8")
+
+    def test_bare_pedigree_unchanged(self):
+        ped, _ = _people(PEDIGREE)
+        assert ped.phenotype_names == []

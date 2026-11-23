@@ -44,7 +44,7 @@ When a **header row is present**, the parser uses **smart column mapping** to de
 Phenotype types:
 
 - **Binary phenotypes**: values use standard pedigree encoding — `2`=affected (color band), `1`=unaffected (white band), `0`=unknown (grey band), `-9`=no data (grey band with "NA" text, the grey of `0` told apart by the text; `--no-na-labels` or the `show_na_labels` style option removes the text). When all bands for an individual are NA (`-9`), a single centered "NA" is shown instead of repeating per band.
-- **Quadrant layout** (the default since 0.5.0): each symbol is cut in four and each phenotype column, or `cr_` carrier source, fills one quadrant instead of a horizontal band, up to four columns. With more, the default (`phenotype_layout: "auto"`) draws bands; `--phenotype-layout quadrants` does the same with a warning, and `--phenotype-layout bands` always draws bands. Carrier sources alone, with no phenotype column, are drawn as with bands. The same codes apply: color, white, grey, grey with "NA".
+- **Quadrant layout** (the default since 0.5.0): each symbol is cut in four and each phenotype column, or `cr_` carrier source, fills one quadrant instead of a horizontal band, up to four columns. With more, the default (`phenotype_layout: "auto"`) draws bands; `--phenotype-layout quadrants` does the same with a warning, and `--phenotype-layout bands` always draws bands. Carrier sources alone, with no phenotype column, are drawn as with bands. A single source (one phenotype column, no carrier column) fills the whole symbol under "auto", as NSGC draws one condition (since 0.11.0). The same codes apply: color, white, grey, grey with "NA".
 - **Conventional phenotypes**: columns named for autism (`Autism`, `ASD`, `TSA`), intellectual disability (`ID`, `DI`, `Intellectual disability`), ADHD (`ADHD`, `TDAH`) or epilepsy (`Epilepsy`, `Épilepsie`), whatever their prefix and case, are drawn blue, red, yellow and purple, and take the top-left, bottom-left, top-right and bottom-right quadrants. A color in `phenotype_colors` or a quadrant in `phenotype_quadrants` overrides them.
 - **Continuous phenotypes**: numeric values > 2 — rendered as color gradients (min→white, max→full color).
 - **Missing values**: empty, `.`, `NA`, `NaN` — treated as `-9` (no data).
@@ -204,8 +204,16 @@ A GA4GH Phenopackets v2 (ISO 4454:2022) JSON file is read by the CLI, `parse_ped
 proto3 JSON is read as protobuf writes it: camelCase or snake_case names (`individualId` /
 `individual_id`), fields at their default value left out (no `sex`: `UNKNOWN_SEX`; no
 `affectedStatus`: `MISSING`), and enums as names or numbers. Numbers follow the Phenopackets
-schema, not PED: `Sex` is `FEMALE = 1`, `MALE = 2`. Phenotypic features (HPO terms), diseases and
-`gender` are not drawn.
+schema, not PED: `Sex` is `FEMALE = 1`, `MALE = 2`. `gender` is not drawn.
+
+When the proband has exactly one disease (`diseases[].term`, not `excluded`), the affected status is
+also a binary column named after it (its label, else its ID; characters other than letters, digits
+and `-` become `_`, shown as spaces), so the legend names the condition, "Invented syndrome"
+(`AFFECTED` 2, `UNAFFECTED` 1, `MISSING` 0). With `phenopacket_features`
+(`parse_pedigree(..., phenopacket_features=True)`, `--hpo-features`), each HPO term of the
+phenopackets' `phenotypicFeatures` is a binary column named by its label, in order of first
+appearance: observed 2, `excluded: true` 1, a phenopacket without the term 0 (unknown), a person
+without a phenopacket no data (#108). Off by default: a family can carry dozens of terms.
 
 `export_phenopacket_pedigree(pedigree, path)` writes a `Pedigree` message from the PED fields,
 without duplicates, as `export_fam` does, with `UNKNOWN_SEX` and `MISSING` written out. A parent

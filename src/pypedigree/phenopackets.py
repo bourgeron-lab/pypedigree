@@ -10,9 +10,15 @@ Reading: the persons are rewritten as a pedigree file with a header and
 parsed as any other (`parser._parse_text`), so phantoms, validation and
 consanguinity detection stay in one place. The proband comes from
 ``proband.subject.id``, deaths from ``subject.vitalStatus`` of every
-phenopacket. proto3 JSON is accepted as protobuf writes it: camelCase or the
-original snake_case names, fields at their default value left out, enums as
-names or as numbers, read by the Phenopackets numbering (``Sex``:
+phenopacket. When the proband has exactly one disease (``diseases[].term``,
+not excluded), the affected status is also a binary column named after it,
+so the legend names the condition ("Invented syndrome"). With
+``features=True`` (``phenopacket_features``, ``--hpo-features``) each HPO
+term of the phenopackets' ``phenotypicFeatures`` is a binary column named by
+its label: observed 2, ``excluded`` 1, a phenopacket without the term 0, a
+person without a phenopacket no data. proto3 JSON is accepted as protobuf
+writes it: camelCase or the original snake_case names, fields at their
+default value left out, enums as names or as numbers, read by the Phenopackets numbering (``Sex``:
 ``FEMALE = 1``, ``MALE = 2``, the reverse of PED), never as PED codes.
 
 Writing: `export_phenopacket_pedigree` writes a ``Pedigree`` message from the
@@ -24,6 +30,7 @@ Standard library only (rule 1).
 from __future__ import annotations
 
 import json
+import re
 import warnings
 from pathlib import Path
 from typing import Any
@@ -112,8 +119,59 @@ def proband_id(data: dict[str, Any]) -> str | None:
     return str(value) if value else None
 
 
-def phenopacket_to_text(data: dict[str, Any]) -> str:
+def _term_name(term: Any) -> str | None:
+    """An ontology class's label, else its ID, as a column name: runs of
+    characters other than letters, digits and ``-`` become ``_`` (shown as
+    spaces)."""
+    text = _field(term, "label", "label") or _field(term, "id", "id")
+    if not text:
+        return None
+    name = re.sub(r"[^\w-]+", "_", str(text)).strip("_")
+    return name or None
+
+
+def _disease_column(data: dict[str, Any]) -> str | None:
+    """The column naming the affected status: the proband's one disease (#108)."""
+    diseases = _field(data.get("proband"), "diseases", "diseases", []) or []
+    names = {
+        name
+        for d in diseases
+        if isinstance(d, dict)
+        and not _field(d, "excluded", "excluded", False)
+        and (name := _term_name(_field(d, "term", "term")))
+    }
+    return names.pop() if len(names) == 1 else None
+
+
+def _features(data: dict[str, Any]) -> tuple[list[str], dict[str, dict[str, str]]]:
+    """HPO terms as columns (#108): their names in order of first appearance,
+    and each subject's value per term ("2" observed, "1" excluded)."""
+    columns: list[str] = []
+    values: dict[str, dict[str, str]] = {}
+    for packet in _phenopackets(data):
+        sid = _field(_field(packet, "subject", "subject"), "id", "id")
+        if not sid:
+            continue
+        mine = values.setdefault(str(sid), {})
+        for feature in _field(packet, "phenotypicFeatures", "phenotypic_features", []) or []:
+            name = _term_name(_field(feature, "type", "type"))
+            if name is None:
+                continue
+            if name not in columns:
+                columns.append(name)
+            excluded = bool(_field(feature, "excluded", "excluded", False))
+            # Observed wins if a term is both observed and excluded.
+            if mine.get(name) != "2":
+                mine[name] = "1" if excluded else "2"
+    return columns, values
+
+
+def phenopacket_to_text(data: dict[str, Any], features: bool = False) -> str:
     """Rewrite a Phenopackets ``Family`` or ``Pedigree`` as a pedigree file with a header.
+
+    Args:
+        data: The ``Family`` or ``Pedigree`` message (`load_phenopacket`).
+        features: Read each HPO term of the phenopackets as a binary column (#108).
 
     Raises:
         PedigreeParseError: For a pedigree with no persons, a person without
@@ -129,9 +187,15 @@ def phenopacket_to_text(data: dict[str, Any]) -> str:
         if str(status).upper() == "DECEASED" and _field(subject, "id", "id"):
             deceased.add(str(_field(subject, "id", "id")))
     proband = proband_id(data)
+    disease = _disease_column(data)
+    terms, observed = _features(data) if features else ([], {})
+    terms = [t for t in terms if t != disease]
+    extra = ([f"b_{disease}"] if disease else []) + [f"b_{t}" for t in terms]
 
     rows = [
-        "\t".join(("FID", "IID", "Father", "Mother", "Sex", "Phenotype", "deceased", "proband"))
+        "\t".join(
+            ("FID", "IID", "Father", "Mother", "Sex", "Phenotype", "deceased", "proband", *extra)
+        )
     ]
     for person in _persons(data):
         iid = _field(person, "individualId", "individual_id")
@@ -158,6 +222,10 @@ def phenopacket_to_text(data: dict[str, Any]) -> str:
             status,
             "1" if iid in deceased else "0",
             "1" if iid == proband else "0",
+            # The disease column: the affected status again (MISSING: unknown).
+            *([status] if disease else []),
+            # HPO terms: no phenopacket, no data; a phenopacket without the term, 0.
+            *(observed[iid].get(t, "0") if iid in observed else "NA" for t in terms),
         )
         if any("\t" in c or "\n" in c for c in cells):
             raise PedigreeParseError(f"Person {iid!r}: an ID contains a tab or a line break")

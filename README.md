@@ -366,8 +366,8 @@ PLINK `.fam` files use the same 6-column format (FID, IID, PAT, MAT, SEX, PHENO)
 
 `phenotype_layout` is `"auto"` (default), `"quadrants"` or `"bands"`. With
 quadrants the symbol is cut in four and each phenotype column, or `cr_` carrier
-source, fills one quadrant, at most four. `"auto"` draws quadrants up to four and
-bands beyond; `"quadrants"` does the same but warns when it falls back to bands;
+source, fills one quadrant, at most four. `"auto"` draws quadrants for two to four,
+the whole symbol for one (as NSGC draws one condition) and bands beyond; `"quadrants"` does the same but warns when it falls back to bands;
 `"bands"` always draws one horizontal band per column (the default before 0.5.0).
 With carrier sources and no phenotype column, nothing is cut: the symbol is drawn
 as with bands. Autism
@@ -418,6 +418,7 @@ Options:
   --no-labels                    Hide sample ID labels
   --labels [id|generation|both]  Label with the sample ID (default), the NSGC number from the drawing (I-1, II-3), or both
   --canrisk-names                For a CanRisk file: label with its Name column, where given and unique
+  --hpo-features                 For a Phenopackets Family: each HPO term of its phenopackets as a binary column
   --no-legend                    Hide the phenotype legend
   --show-phenotype-labels        Show YES/NO text labels inside binary phenotype bands
   --no-na-labels                 Do not write "NA" in bands with no data (they stay grey)
@@ -426,7 +427,7 @@ Options:
   --show-pgs-values              Write each PGS value beside its marker
   --phenotype-layout [auto|quadrants|bands]
                                  Four quadrants, one per phenotype, or horizontal bands; default
-                                 auto: quadrants up to four phenotypes, bands beyond
+                                 auto: quadrants for two to four phenotypes, the whole symbol for one, bands beyond
   --interactive                  Generate interactive SVG with tooltips and click highlighting
   --no-script                    With --interactive: same SVG without script or tooltip (print, host pages)
   --id-prefix PREFIX             With --interactive: prepend PREFIX to every id in the SVG

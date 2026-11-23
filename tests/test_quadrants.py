@@ -384,3 +384,36 @@ class TestOptions:
         assert pedigree.phenotype_names == ["Autism", "ADHD", "ID", "Epilepsy", "WGS"]
         fig = render_pedigree(pedigree, style=QUADRANTS)
         plt.close(fig)
+
+
+class TestOneSourceFillsTheSymbol:
+    """#108: under "auto", one column fills the whole symbol, as NSGC draws one condition."""
+
+    ONE = "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tb_autism\nF\ta\t0\t0\t1\t1\t2\nF\tb\t0\t0\t2\t1\t1\n"
+
+    def _quadrants(self, text, layout):
+        from pypedigree import PedigreeStyle, parse_pedigree_from_string
+        from pypedigree.carriers import resolve_carrier_scheme
+        from pypedigree.config import resolve_style
+        from pypedigree.phenotypes import resolve_phenotype_render, with_quadrants
+
+        ped = parse_pedigree_from_string(text)
+        names = ped.phenotype_names
+        style = resolve_style(PedigreeStyle(phenotype_layout=layout), names)
+        render = resolve_phenotype_render(ped, names, ped.phenotype_display_modes, style)
+        modes = ped.phenotype_display_modes
+        cr = [n for n in names if modes.get(n) is not None and modes[n].value == "carrier"]
+        carriers = resolve_carrier_scheme(ped.individuals(), cr, style.carrier_notation)
+        return with_quadrants(render, render.band_names(names), carriers, style).quadrants
+
+    def test_auto_one_column_no_quadrant(self):
+        assert self._quadrants(self.ONE, "auto") == {}
+        assert self._quadrants(self.ONE, "quadrants") == {"autism": "top-left"}
+
+    def test_a_carrier_column_makes_two_sources(self):
+        text = (
+            self.ONE.replace("b_autism\n", "b_autism\tcr_CFTR\n")
+            .replace("\t2\n", "\t2\t1\n")
+            .replace("\t1\n", "\t1\t0\n")
+        )
+        assert len(self._quadrants(text, "auto")) == 2

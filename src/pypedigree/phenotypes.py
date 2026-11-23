@@ -882,9 +882,13 @@ def with_quadrants(
     With no phenotype column, nothing is divided into quadrants: both
     renderers then draw the affection status and the carrier sections on
     the whole symbol, as with bands, so the legend has no quadrant key
-    either.
+    either. Under "auto", a single source (one band column, no carrier
+    column) fills the whole symbol too, as NSGC draws one condition: in one
+    quadrant, an affected individual looked three quarters unaffected (#108).
     """
     if not band_names:
+        return replace(render, quadrants={})
+    if style.phenotype_layout == "auto" and len(band_names) + len(carriers.keys) == 1:
         return replace(render, quadrants={})
     if render.asymptomatic and style.phenotype_layout != "bands":
         # The asymptomatic carrier's line runs where the quadrants meet (#104):

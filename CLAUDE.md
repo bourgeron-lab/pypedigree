@@ -213,7 +213,8 @@ src/pypedigree/
    give the geometry (with an `up` sign for the SVG) and `quadrant_cell()` the
    fill and shorter text. With carrier sources but no band column,
    `with_quadrants()` assigns nothing: the symbol is drawn whole, as with bands,
-   and the legend has no key. Conventional colors (`KNOWN_PHENOTYPE_COLORS`,
+   and the legend has no key; under "auto" a single source (one band column, no carrier
+   column) is drawn whole too, as NSGC draws one condition (#108). Conventional colors (`KNOWN_PHENOTYPE_COLORS`,
    `known_phenotype()`) are applied in `config.resolve_style()`. The matplotlib renderer and the SVG renderer only translate these into
    artists or elements, so the PNG, its legend and the interactive SVG can never
    disagree. Put any new display decision there, not in a renderer. Nothing is
@@ -551,7 +552,7 @@ pypedigree INPUT.ped [OPTIONS]
 --no-na-labels           Do not write "NA" in bands with no data (style `show_na_labels`)
 --pgs-scale [zscore|minmax|percentile]  PGS position: z-score (default), min-max over the pedigree (raw scores) or percentile
 --show-pgs-values        Write each PGS value beside its marker (style `show_pgs_values`)
---phenotype-layout [auto|quadrants|bands]  Quadrants up to four phenotypes, bands beyond (auto, default), or one of them
+--phenotype-layout [auto|quadrants|bands]  Quadrants for 2-4 phenotypes, whole symbol for 1, bands beyond (auto, default), or one of them
 --interactive            Generate interactive SVG with tooltips and click highlighting
 --no-script              With --interactive: same SVG, no script or tooltip (`render_svg`)
 --id-prefix PREFIX       With --interactive: prefix every id in the SVG
@@ -788,7 +789,11 @@ Phenopackets number, `Sex` FEMALE = 1, MALE = 2; proband from `proband.subject.i
 phenopacket's `vitalStatus`) and `mark_declared_consanguinity` (`consanguinousParents`: the proband's
 parents' union `is_consanguinous`, warning when the structure did not find it), all called by
 `parser._parse_any`. `export_phenopacket_pedigree` writes `{"persons": [...]}` from `parser.fam_rows(..., named_phantoms=True)`: the
-rows `export_fam` writes plus a parent named without a row (a phantom keeping that ID), so every ID has a person (#108). HPO features and diseases are not read. `tests/test_phenopackets.py`.
+rows `export_fam` writes plus a parent named without a row (a phantom keeping that ID), so every ID has a person (#108).
+`phenopacket_to_text(data, features)`: the proband's one non-excluded disease → `b_<name>` (`_disease_column`,
+`_term_name`: label else ID, `[^\w-]+` → `_`), the affected status again; with `features`
+(`parse_pedigree(..., phenopacket_features=True)`, `--hpo-features`) `_features` makes one `b_` column per HPO term
+(observed 2, excluded 1, not in that phenopacket 0, no phenopacket NA). `tests/test_phenopackets.py`.
 
 ## Pandas Integration
 

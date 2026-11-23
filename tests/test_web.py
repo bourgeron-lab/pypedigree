@@ -106,8 +106,9 @@ class TestRender:
     def test_options_reach_the_drawing(self):
         default = _render()["static_svg"]
         assert ">3</text>" in default and "Legend" in default
-        assert _render(phenotype_layout="quadrants")["static_svg"] == default  # auto, one column
-        assert _render(phenotype_layout="bands")["static_svg"] != default
+        # auto: one column fills the whole symbol, as bands do (#108)
+        assert _render(phenotype_layout="bands")["static_svg"] == default
+        assert _render(phenotype_layout="quadrants")["static_svg"] != default
         assert ">3</text>" not in _render(show_labels=False)["static_svg"]
         assert "Legend" not in _render(show_legend=False)["static_svg"]
 

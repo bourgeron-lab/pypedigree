@@ -233,17 +233,20 @@ class TestMinimal:
 
     def test_one_binary_column_is_read_from_the_key(self):
         """The key alone, and a caption under it: no Affected / Unaffected row."""
-        rows = _rows(ONE_BINARY, legend="minimal")
+        # One column fills the whole symbol under "auto" (#108): ask for quadrants.
+        rows = _rows(ONE_BINARY, legend="minimal", phenotype_layout="quadrants")
         assert [r.kind for r in rows] == ["quadrants", "key_note"]
         assert rows[0].single_symbol
-        texts = _legend_texts(ONE_BINARY, legend="minimal")
+        texts = _legend_texts(ONE_BINARY, legend="minimal", phenotype_layout="quadrants")
         assert LEG_KEY_NOTE_LABEL in texts
         assert "Affected" not in texts and "autism" in texts
-        svg = _svg_legend(ONE_BINARY, legend="minimal")
+        svg = _svg_legend(ONE_BINARY, legend="minimal", phenotype_layout="quadrants")
         assert "Affected" not in svg and "white: unaffected" in svg
 
     def test_compact_keeps_its_rows(self):
-        assert [r.kind for r in _rows(ONE_BINARY, legend="compact")] == ["quadrants", "binary"]
+        one = _rows(ONE_BINARY, legend="compact", phenotype_layout="quadrants")
+        assert [r.kind for r in one] == ["quadrants", "binary"]
+        assert [r.kind for r in _rows(ONE_BINARY, legend="compact")] == ["binary"]  # auto: whole
         kinds = [r.kind for r in _rows(MANY, legend="compact")]
         assert kinds[:2] == ["quadrants", "binary_shared"]
 
