@@ -104,3 +104,158 @@ class TestDrawn:
             assert len(dots) == n_scores + 1
             for cx, r in dots:
                 assert x - 1e-3 <= float(cx) - float(r) and float(cx) + float(r) <= x + w + 1e-3
+
+
+class TestDotSize:
+    """Dots drawn smaller when the box cannot hold all of an individual's dots
+    side by side, `PGS_DOT_SPREAD` diameters apart, so they never cover each
+    other (#147); in the paper's Fig. 1b four 3 pt dots were 2.5 pt apart."""
+
+    def test_full_size_when_they_fit(self):
+        from pypedigree.phenotypes import PGS_DOT_PT, pgs_dot_size
+
+        pt = 0.02
+        width = PGS_DOT_PT * pt * (1 + 3 * PGS_DOT_SPREAD) * 1.01
+        assert pgs_dot_size(4, width, pt) == pytest.approx(PGS_DOT_PT * pt)
+        assert pgs_dot_size(1, 0.001, pt) == pytest.approx(PGS_DOT_PT * pt)
+
+    def test_smaller_to_fit(self):
+        from pypedigree.phenotypes import PGS_DOT_PT, pgs_dot_size
+
+        pt = 0.03
+        width = 10.6 * pt  # Fig. 1b's box
+        dot = pgs_dot_size(4, width, pt)
+        assert dot < PGS_DOT_PT * pt
+        assert dot * (1 + 3 * PGS_DOT_SPREAD) == pytest.approx(width)
+
+    def test_floor(self):
+        from pypedigree.phenotypes import PGS_DOT_MIN_PT, pgs_dot_size
+
+        assert pgs_dot_size(6, 0.01, 0.02) == pytest.approx(PGS_DOT_MIN_PT * 0.02)
+
+    @staticmethod
+    def _apart(centres: list[float], diameters: list[float]) -> bool:
+        pairs = sorted(zip(centres, diameters, strict=True))
+        return all(
+            b[0] - a[0] >= (a[1] + b[1]) / 2 - 1e-6 for a, b in zip(pairs, pairs[1:], strict=False)
+        )
+
+    def test_png_dots_apart_when_drawn_small(self):
+        """Four coinciding scores, font 6, in an 8 cm x 5 cm axes (a box about
+        12 pt wide, as in the paper's Fig. 1b): every dot in its box and none
+        covering another."""
+        fig, ax = plt.subplots(figsize=(8 / 2.54, 5 / 2.54), dpi=300)
+        style = PedigreeStyle(font_size=6, pgs_scale="zscore")
+        try:
+            render_pedigree(
+                parse_pedigree_from_string(_ped(4)), style=style, ax=ax, show_legend=False
+            )
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            boxes = [
+                p.get_window_extent(renderer)
+                for p in ax.patches
+                if type(p).__name__ == "FancyBboxPatch" and p.get_width() < 0.5
+            ]
+            dots = [
+                line
+                for line in ax.findobj(Line2D)
+                if line.get_marker() == "o" and len(line.get_xdata())
+            ]
+            assert len(boxes) == 3 and len(dots) == 12
+            per_box: dict[int, list] = {}
+            for d in dots:
+                ext = d.get_window_extent(renderer)
+                k = min(
+                    range(3), key=lambda i: abs((boxes[i].x0 + boxes[i].x1) - (ext.x0 + ext.x1))
+                )
+                assert boxes[k].x0 - 0.5 <= ext.x0 and ext.x1 <= boxes[k].x1 + 0.5
+                diameter = d.get_markersize() * fig.dpi / 72
+                per_box.setdefault(k, []).append(((ext.x0 + ext.x1) / 2, diameter))
+            for group in per_box.values():
+                assert len(group) == 4
+                assert group[0][1] < 3.0 * fig.dpi / 72  # smaller than 3 pt
+                assert self._apart([c for c, _ in group], [w for _, w in group])
+        finally:
+            plt.close(fig)
+
+    def test_svg_dots_apart_at_a_larger_text_scale(self):
+        svg = render_interactive_svg(
+            parse_pedigree_from_string(_ped(4)),
+            style=PedigreeStyle(pgs_scale="zscore", text_scale=1.5),
+        )
+        for group in svg.split('<g class="pgs">')[1:]:
+            body = group.split("</g>")[0]
+            x, w = (
+                float(v)
+                for v in re.search(
+                    r'<rect x="([-0-9.]+)" y="[-0-9.]+" width="([0-9.]+)"', body
+                ).groups()
+            )
+            dots = [
+                (float(c), 2 * float(r))
+                for c, r in re.findall(r'<circle cx="([-0-9.]+)" cy="[-0-9.]+" r="([0-9.]+)"', body)
+            ]
+            assert len(dots) == 4
+            for cx, d in dots:
+                assert x - 1e-3 <= cx - d / 2 and cx + d / 2 <= x + w + 1e-3
+            assert self._apart([c for c, _ in dots], [d for _, d in dots])
+
+
+class TestBoxWidth:
+    """The box grows to hold all of an individual's dots side by side at full
+    size, at the style's text scale (#147)."""
+
+    def test_usual_width_when_they_fit(self):
+        from pypedigree.phenotypes import pgs_box_width
+
+        style = PedigreeStyle()
+        usual = style.shape_size / 2 * 0.8
+        assert pgs_box_width(["PGS_a", "PGS_b"], style) == (pytest.approx(usual), 0.0)
+
+    def test_wider_for_many_dots_at_a_larger_scale(self):
+        from pypedigree import symbols
+        from pypedigree.phenotypes import PGS_DOT_PT, pgs_box_width
+
+        style = PedigreeStyle(text_scale=1.5)
+        width, wider = pgs_box_width([f"PGS_{k}" for k in range(4)], style)
+        dot = PGS_DOT_PT * symbols.units_per_point(1.5)
+        assert width == pytest.approx(dot * (1 + 3 * PGS_DOT_SPREAD))
+        assert wider == pytest.approx(width - style.shape_size / 2 * 0.8)
+
+    def test_kinds_counted_apart(self):
+        from pypedigree.phenotypes import pgs_dot_count
+
+        assert pgs_dot_count(["PGS_a", "PGS_b", "pTDT_a"]) == 2
+        assert pgs_dot_count(["pTDT_a", "pTDT_b", "pTDT_c", "PGS_a"]) == 3
+
+    def test_svg_full_size_dots_in_the_wider_box(self):
+        from pypedigree.phenotypes import PGS_DOT_PT
+
+        style = PedigreeStyle(pgs_scale="zscore", text_scale=1.5)
+        svg = render_interactive_svg(parse_pedigree_from_string(_ped(4)), style=style)
+        pt = 0.02 * 1.5
+        for group in svg.split('<g class="pgs">')[1:]:
+            body = group.split("</g>")[0]
+            width = float(re.search(r'<rect x="[-0-9.]+" y="[-0-9.]+" width="([0-9.]+)"', body)[1])
+            assert width == pytest.approx(PGS_DOT_PT * pt * (1 + 3 * PGS_DOT_SPREAD), abs=1e-3)
+            radii = [
+                float(r)
+                for r in re.findall(r'<circle cx="[-0-9.]+" cy="[-0-9.]+" r="([0-9.]+)"', body)
+            ]
+            assert radii == [pytest.approx(PGS_DOT_PT / 2 * pt, abs=1e-3)] * 4
+
+    def test_layout_keeps_room_for_the_wider_box(self):
+        from pypedigree import compute_layout
+        from pypedigree.config import apply_pgs_spacing
+        from pypedigree.phenotypes import pgs_box_width
+
+        names = [f"PGS_s{k}" for k in range(4)]
+        family = parse_pedigree_from_string(_ped(4)).families["FAM1"]
+        style = PedigreeStyle(text_scale=1.5)
+        usual = apply_pgs_spacing(style, names)
+        wide = apply_pgs_spacing(style, names, 0.0, pgs_box_width(names, style))
+        assert wide.sibling_gap - usual.sibling_gap == pytest.approx(pgs_box_width(names, style)[1])
+        xs = {n.individual_id: n.x for n in compute_layout(family, wide).nodes}
+        xu = {n.individual_id: n.x for n in compute_layout(family, usual).nodes}
+        assert xs["M"] - xs["F"] > xu["M"] - xu["F"]

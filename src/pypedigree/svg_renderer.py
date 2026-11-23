@@ -76,7 +76,6 @@ from pypedigree.phenotypes import (
     NA_FILL,
     NA_TEXT_COLOR,
     OUTLINE_WIDTH_SCALE,
-    PGS_DOT_PT,
     PGS_VALUE_GAP_EM,
     PGS_VALUE_HALO_PT,
     PGS_VALUE_LINE_EM,
@@ -116,11 +115,13 @@ from pypedigree.phenotypes import (
     outline_reach,
     outline_ring_offsets,
     pgs_box_left,
+    pgs_box_width,
     pgs_caption_above,
     pgs_caption_offset,
     pgs_curve,
     pgs_curve_base,
     pgs_curve_x,
+    pgs_dot_size,
     pgs_marker_values,
     pgs_row_layout,
     pgs_tail_positions,
@@ -144,6 +145,7 @@ from pypedigree.phenotypes import (
     with_outline_rings,
     with_quadrants,
 )
+from pypedigree.phenotypes import box_width as pgs_box_w
 from pypedigree.transmission import with_transmission
 
 
@@ -252,7 +254,7 @@ def _render(
     warn_pgs_scale(pedigree.column_scope.individuals(), pgs_cols, style.pgs_scale)
     values_width = pgs_values_width(pedigree.individuals(), pgs_cols, style)
     # The only place the PGS spacing is applied (see `apply_pgs_spacing`).
-    style = apply_pgs_spacing(style, names, values_width)
+    style = apply_pgs_spacing(style, names, values_width, pgs_box_width(pgs_cols, style))
     check_notation(style.carrier_notation)
     families = list(pedigree.families.values())
     # A subset is drawn as in the whole file (`Pedigree.column_scope`).
@@ -450,7 +452,7 @@ def _family_extent(layout: FamilyLayout, ctx: _SvgContext) -> _Extent:
         # Each PGS box, left of its symbol or right of it (#78), and its
         # values beyond it.
         values = pgs_values_width(layout.nodes, ctx.pgs_names, style)
-        box_w = half * symbols.PGS_BOX_WIDTH
+        box_w = pgs_box_w(style)
         for n in layout.nodes:
             if active_pgs(n, ctx.pgs_names, style.pgs_scale):
                 box_left = pgs_box_left(n, style, _node_ring(n, ctx))
@@ -1351,7 +1353,7 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
     if not active:
         return ""
     half = style.shape_size / 2
-    box_w, box_h = half * symbols.PGS_BOX_WIDTH, half * 2
+    box_w, box_h = pgs_box_w(style), half * 2
     # Clear of several o_ borders (#46); right of a right-hand partner (#78).
     left = pgs_box_left(node, style, _node_ring(node, ctx))
     bottom = node.y + half
@@ -1379,8 +1381,10 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
         )
     ys = [bottom - value * box_h for _name, value in active]
     # Dots closer than their diameter side by side, so none hides another (#54).
-    # Within the box, so no dot reaches the symbol (#89).
-    offsets = spread_dots(ys, PGS_DOT_PT * pt, box_w)
+    # Within the box, so no dot reaches the symbol (#89), and smaller when the
+    # box cannot hold them all side by side (#147).
+    dot = pgs_dot_size(len(active), box_w, pt)
+    offsets = spread_dots(ys, dot, box_w)
     for (name, _value), y, dx in zip(active, ys, offsets, strict=True):
         color = html.escape(style.pgs_colors.get(name, DEFAULT_PGS_COLOR))
         out.append(
@@ -1388,9 +1392,7 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
             f'stroke="{color}" stroke-width="{pt:.3f}" stroke-dasharray="0.06 0.03"/>'
         )
         cx = left + box_w / 2 + dx
-        out.append(
-            f'<circle cx="{cx:.3f}" cy="{y:.3f}" r="{PGS_DOT_PT / 2 * pt:.3f}" fill="{color}"/>'
-        )
+        out.append(f'<circle cx="{cx:.3f}" cy="{y:.3f}" r="{dot / 2:.3f}" fill="{color}"/>')
     if style.show_pgs_values:
         out.extend(_svg_pgs_values(node, active, ys, left, bottom - box_h, bottom, style))
     above = pgs_caption_above(node)
@@ -1426,7 +1428,7 @@ def _svg_pgs_values(
     size = style.text_size(symbols.PGS_CAPTION_SCALE)
     step = PGS_VALUE_LINE_EM * size * pt
     placed = spread_labels(ys, step, top + step / 2, bottom - step / 2)
-    box_w = style.shape_size / 2 * symbols.PGS_BOX_WIDTH
+    box_w = pgs_box_w(style)
     # The far side of the box from the symbol (#78).
     x, side = pgs_values_x(node, left, box_w, PGS_VALUE_GAP_EM * size * pt)
     anchor = "start" if side == "left" else "end"
