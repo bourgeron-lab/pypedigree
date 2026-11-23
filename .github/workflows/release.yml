@@ -129,7 +129,10 @@ jobs:
         # build job.
         env:
           GH_TOKEN: ${{ github.token }}
+        # A release candidate (v1.0.0rc1) is marked as a pre-release.
         run: |
+          prerelease=""
+          if [[ "${GITHUB_REF_NAME}" =~ (a|b|rc)[0-9]+$ ]]; then prerelease="--prerelease"; fi
           gh release create "${GITHUB_REF_NAME}" dist/* \
             --title "pypedigree ${GITHUB_REF_NAME#v}" \
-            --notes-file release-notes.md
+            --notes-file release-notes.md $prerelease

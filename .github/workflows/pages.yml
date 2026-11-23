@@ -9,7 +9,9 @@ name: Web app
 
 on:
   push:
-    tags: ["v*"]
+    # Not for a release candidate (v1.0.0rc1): the public app keeps drawing
+    # with the last final release.
+    tags: ["v*", "!v*rc*"]
   workflow_dispatch:
 
 permissions:
