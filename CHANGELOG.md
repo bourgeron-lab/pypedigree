@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-11-23
+
 ### Fixed
 
 - Long labels and annotations overlapped in the PNG and PDF of a wide pedigree. The layout keeps
