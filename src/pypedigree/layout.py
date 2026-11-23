@@ -1679,6 +1679,10 @@ def compute_layout_circular(
     Founders are placed at the centre and descendants radiate outward
     in concentric rings, one ring per generation.
 
+    Experimental: its structure (rings, order, duplicates) is stable, but how
+    it is drawn (ring spacing, labels, lines between rings) may change in a
+    1.x release. The hierarchical layout (`compute_layout`) is the reference.
+
     The angular order comes from the hierarchical layout: each individual's
     horizontal position becomes an angle, so the circular layout inherits
     its guarantees (siblings stay together, sibships of different couples
@@ -1751,7 +1755,8 @@ def _circular_positions(
     only the arc it needs. Angles are kept continuous (no wrap at ±π), so
     the children of a union always span one unbroken arc.
 
-    A lone founder couple sits at the centre. Every other generation gets a
+    A lone founder couple sits at the centre, ``couple_gap`` apart (#151).
+    Every other generation gets a
     ring; rings are ``style.radial_gap`` apart, and the first descendant
     ring has ``style.base_radius``, or more if one ring would otherwise be
     too crowded for its nodes to be ``1.8 × shape_size`` apart.
@@ -1780,7 +1785,9 @@ def _circular_positions(
     if centre_couple:
         left, right = sorted(founders, key=lambda s: x_positions[s])
         angles[left], angles[right] = math.pi, 0.0
-        radii[left] = radii[right] = style.shape_size * 0.7
+        # As far apart as any couple, whose gap holds their PGS boxes and
+        # labels (#151); 0.7 symbol sizes each made their boxes overlap.
+        radii[left] = radii[right] = max(style.shape_size * 0.7, style.couple_gap / 2)
     first_ring = min_gen + 1 if centre_couple else min_gen
 
     # Angular room on each ring decides how far out the rings must start.
@@ -1823,7 +1830,9 @@ def _build_circular_nodes(
     Returns:
         List of NodeLayout objects.
     """
-    right_partners = _pgs_right_side(family, angles)
+    # By x on the page, not by angle: angles grow right to left at the top of
+    # the circle, and the centre couple's left partner is at angle π (#151).
+    right_partners = _pgs_right_side(family, {sid: p[0] for sid, p in xy.items()})
 
     nodes = []
     for sid, ind in family.individuals.items():
