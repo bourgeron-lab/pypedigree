@@ -113,7 +113,11 @@ src/pypedigree/
    under the twin connector; loop partners keep their forced right side.
    `TestTwinSpouses` checks it. The "?" of unknown zygosity is placed in points from the
    connector's apex (`symbols.twin_mark_offset`: down the widest gap between lines, its ink
-   `TWIN_MARK_GAP_EM` from each, #139), as the evaluation asterisk is from an outline.
+   `TWIN_MARK_GAP_EM` from each, #139), as the evaluation asterisk is from an outline. A
+   separated couple (`Union.is_broken`) gets two slashes across its relationship line
+   (`symbols.separation_marks`, #141, in half symbol sizes like the other line notation): between
+   the left partner and the line of descent when `EdgeLayout.has_descent`, the line stopping round
+   them; the circular layout draws that line outline to outline. `broken_gap_size` has no effect.
 
    A proband's or consultand's marker sits at the lower left of the symbol,
    level with the labels. A PGS box goes on `NodeLayout.pgs_side` (#78): "right" for the right-hand

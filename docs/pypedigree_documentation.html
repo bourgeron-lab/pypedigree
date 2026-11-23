@@ -1283,7 +1283,7 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>line_color</code></td><td>str</td><td>"black"</td><td>Connection line color</td></tr>
     <tr><td><code>line_width</code></td><td>float</td><td>1.0</td><td>Connection line width</td></tr>
     <tr><td><code>double_line_gap</code></td><td>float</td><td>0.06</td><td>Gap between consanguinity double lines</td></tr>
-    <tr><td><code>broken_gap_size</code></td><td>float</td><td>0.15</td><td>Gap size in broken relationship lines</td></tr>
+    <tr><td><code>broken_gap_size</code></td><td>float</td><td>0.15</td><td>Deprecated, no effect: the separation marks of a broken relationship are sized with the symbols. To be removed in 1.0</td></tr>
     <tr><td><code>font_size</code></td><td>float</td><td>8.0</td><td>Label and text font size, in points. The legend panel is sized from it (text, swatches and row height), so raise it to keep a figure legible once scaled down for print</td></tr>
     <tr><td><code>min_font_size</code></td><td>float | None</td><td>None</td><td>Smallest size of any text, in points (e.g. 6, a common journal rule). Notes, annotations, band and quadrant text, &ldquo;NA&rdquo;, &ldquo;PGS&rdquo; captions and the legend, drawn at fractions of <code>font_size</code>, are raised to it; the layout and the legend make room. <code>PedigreeStyle.text_size(scale)</code> gives the size of any text</td></tr>
     <tr><td><code>font_family</code></td><td>str</td><td>"sans-serif"</td><td>Font family for all text</td></tr>

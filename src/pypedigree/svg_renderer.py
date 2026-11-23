@@ -1865,17 +1865,38 @@ def _svg_edge(edge: EdgeLayout, style: PedigreeStyle) -> str:
                 f"</g>"
             )
 
+    if edge.line_style == LineStyle.BROKEN:
+        return _svg_separation(edge, style)
+
     dash = ""
     if edge.line_style == LineStyle.DASHED:
         dash = 'stroke-dasharray="0.1 0.05"'
-    elif edge.line_style == LineStyle.BROKEN:
-        dash = 'stroke-dasharray="0.15 0.08"'
 
     return (
         f'<line class="edge" x1="{x1:.3f}" y1="{y1:.3f}" '
         f'x2="{x2:.3f}" y2="{y2:.3f}" '
         f'stroke="{style.line_color}" stroke-width="{sw:.3f}" {dash}/>'
     )
+
+
+def _svg_separation(edge: EdgeLayout, style: PedigreeStyle) -> str:
+    """A separated couple's relationship line, stopped round its two slashes (#141).
+
+    Mirrors `renderer._draw_separation`, with y pointing down.
+    """
+    line, slashes = symbols.separation_marks(
+        edge.start, edge.end, style.shape_size / 2, edge.has_descent, up=-1.0
+    )
+    stroke = f'stroke="{html.escape(style.line_color)}" stroke-width="{style.line_width * _PT:.3f}"'
+    out = ['<g class="edge">']
+    for cls, segments in (("relationship", line), ("separation-mark", slashes)):
+        for (x0, y0), (x1, y1) in segments:
+            out.append(
+                f'<line class="{cls}" x1="{x0:.3f}" y1="{y0:.3f}" '
+                f'x2="{x1:.3f}" y2="{y1:.3f}" {stroke}/>'
+            )
+    out.append("</g>")
+    return "\n".join(out)
 
 
 def _svg_twin_connector(tc: TwinConnector, style: PedigreeStyle) -> str:

@@ -73,6 +73,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the gap between the partners and read as a double line, a consanguineous couple. Golden
   `group_carrier_couple` and `docs/imgs/childless_couple.png` change.
 
+### Deprecated
+
+- `PedigreeStyle.broken_gap_size` has no effect (#141): the separation marks are sized with the
+  symbols. It still loads, and goes with `min_node_distance` in 1.0.
+
 ### Fixed
 
 - The documented-evaluation asterisk of an adopted person was drawn inside the right adoption
@@ -88,6 +93,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TWIN_MARK_GAP_EM` of its font from each, at any scale (#139). The SVG takes its size from the
   style (`text_size`), as the PNG did; it was 0.3 layout units whatever `font_size`.
   `symbols.twin_mark_offset`.
+- A separated couple's marks (`Union.is_broken`, `add_union(..., broken=True)`) were drawn on the
+  line of descent in the PNG, in a gap at the middle of the relationship line, and merged into one
+  mark when drawn small; the SVG drew a dashed line instead (#141). Both now draw two slashes across
+  the relationship line, which stops on either side of them, in the middle of the room between the
+  left partner and the line of descent (at the middle of the line without children). They are
+  sized with the symbols and shrink on a short line, so they fit at any scale. The circular layout
+  draws a separated couple's line from outline to outline. `symbols.separation_marks`,
+  `EdgeLayout.has_descent`; `docs/imgs/broken_relationship.png` and (missed by #139)
+  `unknown_zygocity_twins.png` redrawn.
 - A long line of text under one partner of a couple crossed the couple's descent line (#130): the
   couple was spaced for the sum of the two partners' labels (#41), so they did not meet, but the
   descent line starts in the middle, and since #120 a CanRisk panel's gene line ("BRCA1, BRCA2,

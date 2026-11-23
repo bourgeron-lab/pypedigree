@@ -291,7 +291,9 @@ existing parent-child structure.
 
 Broken (past/dissolved) relationships are currently API-only. The
 `Union.is_broken` field can be set programmatically for rendering
-a relationship line with a gap and "//" marks. No file format column
+a relationship line with two slashes "//" across it, the line stopping
+on either side of them. With children, they sit between the left partner
+and the line of descent, never on it; without, at the middle of the line. No file format column
 is currently defined for broken relationships.
 
 ### 3. Line of Descent

@@ -486,6 +486,10 @@ class EdgeLayout:
         end: (x, y) end point.
         edge_type: What kind of connection this represents.
         line_style: How to draw the line.
+        waypoints: Points the line passes through between start and end.
+        has_descent: For a relationship line, whether a line of descent
+            hangs from its middle: a broken one's separation marks then go
+            beside it, towards ``start`` (#141).
     """
 
     start: tuple[float, float]
@@ -493,6 +497,7 @@ class EdgeLayout:
     edge_type: EdgeType
     line_style: LineStyle = LineStyle.SOLID
     waypoints: list[tuple[float, float]] = field(default_factory=list)
+    has_descent: bool = False
 
 
 @dataclass

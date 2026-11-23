@@ -120,6 +120,8 @@ class PedigreeStyle:
     line_color: str = "black"
     line_width: float = 1.0
     double_line_gap: float = 0.06
+    # No effect since the separation marks are sized with the symbols (#141);
+    # kept so existing styles still load; to be removed in 1.0.
     broken_gap_size: float = 0.15
 
     # Text parameters
