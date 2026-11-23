@@ -344,6 +344,25 @@ def pgs_curve(n_points: int) -> list[tuple[float, float]]:
     return [(t, d / peak) for t, d in zip(ts, dens, strict=True)]
 
 
+# The curve in its box: values grow upward, the bell's baseline this far
+# (a fraction of the box's width) inside the box's right edge, its peak
+# `PGS_CURVE_REACH` of the width to the left (#126). Turned a quarter turn
+# clockwise it reads as the usual bell, peak up, positive values on the right,
+# as the legend's curve; before 0.11.0 it was mirrored (baseline on the left).
+PGS_CURVE_MARGIN = 0.1
+PGS_CURVE_REACH = 0.8
+
+
+def pgs_curve_base(box_left: float, box_width: float) -> float:
+    """x of the PGS curve's baseline in its box: near the right edge (#126)."""
+    return box_left + box_width * (1 - PGS_CURVE_MARGIN)
+
+
+def pgs_curve_x(box_left: float, box_width: float, density: float) -> float:
+    """x of the PGS curve at a density (0 to 1): from the baseline, leftward (#126)."""
+    return pgs_curve_base(box_left, box_width) - density * box_width * PGS_CURVE_REACH
+
+
 # --- Per-figure resolution --------------------------------------------------
 
 

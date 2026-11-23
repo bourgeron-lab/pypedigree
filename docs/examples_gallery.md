@@ -205,7 +205,7 @@ pypedigree tests/data/phenotype/legend_minimal.ped --style tests/data/phenotype/
 
 ## PGS distribution
 
-**Description**: If a column named `PGS` (case-insensitive) is present in the data, a vertical gaussian distribution curve is drawn to the left of each individual with a red marker indicating their score.
+**Description**: If a column named `PGS` (case-insensitive) is present in the data, an upright gaussian distribution curve, its peak to the left (turned clockwise, the usual bell with positive values on the right), is drawn to the left of each individual with a red marker indicating their score.
 
 ```bash
 # PGS as column 14 (inline)

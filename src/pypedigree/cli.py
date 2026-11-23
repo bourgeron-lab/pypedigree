@@ -114,6 +114,14 @@ def _reported_warnings() -> Iterator[None]:
     "annotations, band text, PGS captions and the legend are raised to it.",
 )
 @click.option("--no-labels", is_flag=True, help="Hide sample ID labels.")
+@click.option(
+    "--labels",
+    "label_mode",
+    type=click.Choice(["id", "generation", "both"]),
+    default=None,
+    help="What labels a symbol: its sample ID (default), its NSGC number from the "
+    "drawing, generation and position (I-1, II-3), or both, the ID under the number.",
+)
 @click.option("--no-legend", is_flag=True, help="Hide the phenotype legend.")
 @click.option(
     "--show-phenotype-labels",
@@ -180,6 +188,12 @@ def _reported_warnings() -> Iterator[None]:
     is_flag=True,
     help="Use circular (radial) layout with founders at the centre.",
 )
+@click.option(
+    "--canrisk-names",
+    is_flag=True,
+    help="For a CanRisk file: label individuals with the Name column (left out by "
+    "default, as it is often a real name), where given and unique in the family.",
+)
 @click.version_option(version=__version__, prog_name="pypedigree")
 def main(
     pedigree_file: str,
@@ -197,6 +211,7 @@ def main(
     carrier_notation: str | None,
     min_font_size: float | None,
     no_labels: bool,
+    label_mode: str | None,
     no_legend: bool,
     show_phenotype_labels: bool,
     no_na_labels: bool,
@@ -209,6 +224,7 @@ def main(
     responsive: bool,
     plink: bool,
     circular: bool,
+    canrisk_names: bool,
 ) -> None:
     """Generate pedigree diagrams from pedigree files.
 
@@ -242,6 +258,8 @@ def main(
                 style.pgs_scale = pgs_scale
             if phenotype_layout:
                 style.phenotype_layout = phenotype_layout
+            if label_mode:
+                style.labels = label_mode
 
             # Parse — auto-detect .fam or use --plink flag
             if input_path.suffix.lower() == ".fam":
@@ -249,7 +267,7 @@ def main(
             elif plink:
                 pedigree = parse_plink_ped(pedigree_file)
             else:
-                pedigree = parse_pedigree(pedigree_file)
+                pedigree = parse_pedigree(pedigree_file, canrisk_names=canrisk_names)
 
             # Apply external phenotype file if provided
             if pheno_file:

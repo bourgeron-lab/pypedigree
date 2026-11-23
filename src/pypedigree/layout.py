@@ -20,6 +20,7 @@ from dataclasses import replace
 
 from pypedigree import symbols
 from pypedigree.config import PedigreeStyle
+from pypedigree.errors import PedigreeError
 from pypedigree.models import (
     Adoption,
     DuplicateArc,
@@ -54,6 +55,7 @@ def compute_layout(
     """
     if style is None:
         style = PedigreeStyle()
+    check_labels(style)
 
     if not family.individuals:
         return FamilyLayout(family_id=family.family_id)
@@ -65,13 +67,15 @@ def compute_layout(
     family, generations, x_positions = _place_hierarchically(family, style, labels)
 
     # Step 3: Increase generation gap for what sits below the symbols:
-    # notes, annotations and childlessness markers.
-    below = _room_below_labels(family, style)
+    # notes, annotations and childlessness markers (and, with labels
+    # "both", the ID under the number).
+    below = _room_below_labels(family, style, 1 if style.labels == "both" else 0)
     if below > 0:
         style = replace(style, generation_gap=style.generation_gap + below)
 
     # Step 4: Build node layouts
     nodes = _build_nodes(family, x_positions, generations, style)
+    nodes = _numbered(nodes, family, generations, x_positions, style)
 
     # Step 5: Compute connection edges (twin groups excluded from individual lines)
     twin_groups = _find_twin_groups(family)
@@ -946,14 +950,64 @@ def _pgs_right_side(family: Family, positions: Mapping[str, float]) -> set[str]:
     return right - left
 
 
-def _room_below_labels(family: Family, style: PedigreeStyle) -> float:
+def check_labels(style: PedigreeStyle) -> None:
+    """Reject an unknown ``labels`` mode (#125) before anything is laid out.
+
+    Raises:
+        PedigreeError: If ``style.labels`` is not one of `symbols.LABEL_MODES`.
+    """
+    if style.labels not in symbols.LABEL_MODES:
+        raise PedigreeError(
+            f"Unknown labels {style.labels!r}: expected one of {', '.join(symbols.LABEL_MODES)}"
+        )
+
+
+def _numbered(
+    nodes: list[NodeLayout],
+    family: Family,
+    generations: Mapping[str, int],
+    x_positions: Mapping[str, float],
+    style: PedigreeStyle,
+) -> list[NodeLayout]:
+    """Label the nodes with their NSGC numbers (#125), with ``labels``
+    "generation" or "both".
+
+    Every labelled node is numbered (a named parent with no row too; not the
+    unnamed phantoms nor the unknown-offspring placeholder), by its place in
+    the drawing; a duplicate takes its original's number. With "both" the ID
+    is written right under the number, as the first note ("SB", "AMAB"), in
+    their smaller text.
+    """
+    if style.labels == "id":
+        return nodes
+    numbered = [
+        sid
+        for sid, ind in family.individuals.items()
+        if not ind.is_duplicate and _get_node_label(sid, ind, style)
+    ]
+    numbers = symbols.generation_numbers(generations, x_positions, numbered)
+    out = []
+    for node in nodes:
+        ind = family.individuals.get(node.individual_id)
+        original = ind.duplicate_of if ind is not None and ind.is_duplicate else None
+        number = numbers.get(original or node.individual_id)
+        if number is None:
+            out.append(node)
+            continue
+        notes = [node.label, *node.notes] if style.labels == "both" else node.notes
+        out.append(replace(node, label=number, number=number, notes=notes))
+    return out
+
+
+def _room_below_labels(family: Family, style: PedigreeStyle, extra_lines: int = 0) -> float:
     """Extra generation gap for what sits below the symbols.
 
     Each line of notes or annotations takes its step below the line above
     (`symbols.below_label_offsets`, at the SVG's scale: 0.25, more for text
     enlarged by ``min_font_size``, #66) plus `_LINE_BELOW_MARGIN`, and a
     childlessness marker its own depth, for the individual who needs the
-    most room.
+    most room. `extra_lines` more for everyone (the ID under an NSGC number,
+    #125).
     """
     size, small = style.text_size(), style.text_size(symbols.SMALL_TEXT_SCALE)
 
@@ -965,7 +1019,8 @@ def _room_below_labels(family: Family, style: PedigreeStyle) -> float:
 
     return max(
         (
-            text_room(symbols.text_lines_below(ind)) + symbols.childless_depth(ind.notation)
+            text_room(symbols.text_lines_below(ind) + extra_lines)
+            + symbols.childless_depth(ind.notation)
             for ind in family.individuals.values()
         ),
         default=0.0,
@@ -1541,6 +1596,7 @@ def compute_layout_circular(
     # Steps 1-2: Generations and left-to-right order, from the hierarchical
     # placement (the family may gain duplicate nodes there).
     family, generations, x_positions = _place_hierarchically(family, style, labels=False)
+    check_labels(style)
 
     # Step 3: Angles and ring radii
     angles, radii = _circular_positions(family, generations, x_positions, style)
@@ -1551,8 +1607,10 @@ def compute_layout_circular(
         for sid in family.individuals
     }
 
-    # Step 5: Build node layouts
+    # Step 5: Build node layouts; NSGC numbers (#125) follow the hierarchical
+    # order the angles come from, so a family gets the same in both layouts.
     nodes = _build_circular_nodes(family, xy, angles, radii, generations, style)
+    nodes = _numbered(nodes, family, generations, x_positions, style)
 
     # Step 6: Edges and twin connectors
     twin_groups = _find_twin_groups(family)

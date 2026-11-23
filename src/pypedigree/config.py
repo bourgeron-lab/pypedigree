@@ -273,6 +273,12 @@ class PedigreeStyle:
     # Zero-pad individual IDs to this width (0 = no padding)
     zero_pad_ids: int = 0
 
+    # What labels a symbol (#125): "id" its sample ID; "generation" its NSGC
+    # number from the drawing, generation in Roman numerals from the top and
+    # position from the left (I-1, II-3); "both" the number with the ID under
+    # it. The interactive SVG keeps the ID in the tooltip and `data-id`.
+    labels: str = "id"
+
     # Circular layout parameters
     radial_gap: float = 2.5
     base_radius: float = 3.0

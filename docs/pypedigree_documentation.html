@@ -461,7 +461,7 @@ FAM1       daughter   father  mother  2    1      0    0      0         0       
     <li><strong>Standard pedigree encoding (1/2)</strong>: values <code>1</code>=unaffected, <code>2</code>=affected, <code>0</code>=unknown and <code>-9</code>=no data are properly handled in extra phenotype columns, following the same convention as the main phenotype column</li>
     <li><strong>Binary</strong> (0 or 1): filled band (1) or empty band (0)</li>
     <li><strong>Continuous</strong> (values &gt; 1): color gradient from white (min) to full color (max), with the value written in the band: &ldquo;IQ: 90&rdquo;, or &ldquo;90&rdquo; alone, or smaller, as the room allows (a circle's top and bottom bands are narrow; see <code>band_text</code>)</li>
-    <li><strong>PGS column</strong>: rendered as a vertical Gaussian distribution curve</li>
+    <li><strong>PGS column</strong>: rendered as an upright Gaussian distribution curve, its peak to the left: turned a quarter turn clockwise it is the usual bell, positive values on the right</li>
     <li><strong>Missing</strong> (<code>.</code>, <code>NA</code>, <code>NaN</code>, <code>-9</code>, empty): grey band reading &ldquo;NA&rdquo; (the grey of <code>0</code>=unknown, told apart by the text); a single centred &ldquo;NA&rdquo; when every band of the symbol has no data. The text can be turned off with <code>show_na_labels</code> / <code>--no-na-labels</code></li>
     <li><strong>Not applicable</strong> (<code>N/A</code>, <code>not_applicable</code>, case-insensitive): the phenotype cannot apply to the individual (ovarian cancer for someone assigned male at birth). The band or quadrant is white, as for unaffected, with no text; the SVG tooltip says &ldquo;not applicable&rdquo;. It is not data (no part in a gradient&rsquo;s range); <code>NA</code> keeps meaning no data. It is read in <code>cr_</code> carrier columns too. With pandas, read the file with <code>keep_default_na=False, na_values=["NA", ""]</code>, or <code>read_csv</code> turns <code>N/A</code> into no data.</li>
     <li><strong><code>a_</code> prefix columns</strong> are annotation columns (text below IDs, not phenotypes)</li>
@@ -515,6 +515,8 @@ child      2         105   62</code></pre>
     <tr><td><code>--carrier-notation [nsgc2022|legacy]</code></td><td>Carrier notation: patterned sections (NSGC 2022) or half-fill and center dot</td><td>nsgc2022</td></tr>
     <tr><td><code>--min-font-size PT</code></td><td>Smallest size of any text, in points (style <code>min_font_size</code>; e.g. 6 for journals)</td><td>None</td></tr>
     <tr><td><code>--no-labels</code></td><td>Hide sample ID labels under shapes</td><td>Off</td></tr>
+    <tr><td><code>--labels [id|generation|both]</code></td><td>Label with the sample ID, the NSGC number from the drawing (generation in Roman numerals, position from the left: I-1, II-3), or the number with the ID under it (style <code>labels</code>)</td><td>id</td></tr>
+    <tr><td><code>--canrisk-names</code></td><td>For a CanRisk file: label individuals with its <code>Name</code> column, where given and unique in the family</td><td>Off</td></tr>
     <tr><td><code>--no-legend</code></td><td>Hide phenotype legend</td><td>Off</td></tr>
     <tr><td><code>--show-phenotype-labels</code></td><td>Show YES/NO text inside binary phenotype bands (hidden by default)</td><td>Off</td></tr>
     <tr><td><code>--phenotype-layout</code></td><td><code>auto</code> (quadrants up to four phenotypes, bands beyond), <code>quadrants</code> (the symbol cut in four, one quadrant per phenotype, up to four) or <code>bands</code> (horizontal bands)</td><td>auto</td></tr>
@@ -830,7 +832,7 @@ fig = builder.render(output=<span class="string">"family.png"</span>)</code></pr
   <tbody>
     <tr><td>Binary</td><td>0 or 1</td><td>Empty (0) or filled (1) color band</td></tr>
     <tr><td>Continuous</td><td>Numeric &gt; 1</td><td>Color gradient: white (min) &rarr; full color (max)</td></tr>
-    <tr><td>PGS</td><td>Any numeric</td><td>Vertical Gaussian distribution curve (to the left of shape)</td></tr>
+    <tr><td>PGS</td><td>Any numeric</td><td>Upright Gaussian distribution curve, peak to the left (to the left of the shape, or right of a right-hand partner)</td></tr>
     <tr><td>Missing</td><td><code>.</code>, <code>NA</code>, <code>NaN</code>, <code>-9</code>, empty</td><td>Grey band reading &ldquo;NA&rdquo;</td></tr>
   </tbody>
 </table>
@@ -1175,6 +1177,9 @@ fig = builder.render(output=<span class="string">"carriers.png"</span>)</code></
 builder.add_individual(<span class="string">"c2"</span>, sex=<span class="string">"male"</span>, father=<span class="string">"f"</span>, mother=<span class="string">"m"</span>, gender=<span class="string">"woman"</span>, adopted=<span class="string">"in"</span>)</code></pre>
 <p><code>build_notation()</code> turns the same codes into a <code>Notation</code>, the frozen dataclass attached to every <code>Individual</code> and <code>NodeLayout</code>.</p>
 
+<h3>Numbering</h3>
+<p>NSGC numbers individuals by generation, in Roman numerals from the top, and by position from the left (I-1, II-3). <code>--labels generation</code> (style <code>"labels": "generation"</code>) writes these numbers from the drawing instead of the IDs; <code>--labels both</code> writes the ID right under the number. A person drawn twice has one number; the unnamed parents pypedigree adds have none. The interactive SVG keeps the ID in the tooltip and <code>data-id</code> and adds <code>data-number</code>.</p>
+
 <h3>Not covered</h3>
 <p>The diagonal lines that join a gamete donor or a surrogate to a pregnancy in the NSGC figures: in a pedigree file a donor is a parent and is joined to the other parent like any couple.</p>
 </section>
@@ -1314,6 +1319,7 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>gradient_bin_labels</code></td><td>dict</td><td>{}</td><td>Names of the steps of <code>gradient_bins</code>, one per step from the lowest up (e.g. <code>{"SRS": [null, "mild", "moderate", "severe"]}</code>, <code>null</code> for an unnamed step); written under the limits in the legend and given in the tooltip</td></tr>
     <tr><td><code>gradient_diverging</code></td><td>dict</td><td>{}</td><td>Tricolor diverging gradient config (e.g. <code>{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}</code>)</td></tr>
     <tr><td><code>zero_pad_ids</code></td><td>int</td><td>0</td><td>Zero-pad individual IDs to this width (0 = no padding, 3 = "001")</td></tr>
+    <tr><td><code>labels</code></td><td>str</td><td>"id"</td><td>What labels a symbol: <code>"id"</code>, <code>"generation"</code> (NSGC number from the drawing, "II-3"; a person drawn twice has one number; the circular layout has the hierarchical layout&rsquo;s numbers) or <code>"both"</code> (the ID under the number). The interactive SVG keeps the ID in the tooltip and <code>data-id</code>, and adds <code>data-number</code></td></tr>
     <tr><td><code>radial_gap</code></td><td>float</td><td>2.5</td><td>Radial spacing between concentric rings (circular layout)</td></tr>
     <tr><td><code>base_radius</code></td><td>float</td><td>3.0</td><td>Radius of first generation ring (circular layout)</td></tr>
   </tbody>
@@ -1357,10 +1363,10 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
 
 <p>Pedigree files saved by the CanRisk tool (BOADICEA model; formats 1 to 4, first line <code>##CanRisk 4.0</code>) are read directly, from the CLI, <code>parse_pedigree()</code>, <code>parse_pedigree_from_string()</code> and the web app. A file may hold several families. Columns are read by the names of the <code>##FamID</code> line.</p>
 <ul>
-  <li><strong>Structure</strong>: family, ID, parents, sex, identical twins (<code>MZtwin</code>), deaths, year of birth. <code>Name</code> is left out (often a real name).</li>
+  <li><strong>Structure</strong>: family, ID, parents, sex, identical twins (<code>MZtwin</code>), deaths, year of birth. <code>Name</code> is left out (often a real name); with <code>--canrisk-names</code> (<code>parse_pedigree(..., canrisk_names=True)</code>) it labels each person instead of <code>IndivID</code>, where given and unique in the family, for example and teaching pedigrees.</li>
   <li><strong>Target</strong>: the consultand; an affected target is also the proband.</li>
   <li><strong>Cancers</strong>: one binary column per cancer someone has (breast, ovarian, prostate, pancreatic); ovarian cancer is &ldquo;not applicable&rdquo; for people assigned male at birth, prostate cancer for people assigned female at birth.</li>
-  <li><strong>Annotations</strong>, in NSGC order: age (&ldquo;45y&rdquo;, &ldquo;d. 61y&rdquo;), cancers with their ages (&ldquo;BC 40, BC2 52&rdquo;), one line per gene tested (&ldquo;BRCA1 +&rdquo;, &ldquo;BRCA2 &minus;&rdquo;, &ldquo;HOXB13 + (het)&rdquo;), breast pathology (&ldquo;ER+ PR+ HER2&minus;&rdquo;), &ldquo;Ashkenazi Jewish&rdquo;.</li>
+  <li><strong>Annotations</strong>, in NSGC order: age (&ldquo;45y&rdquo;, &ldquo;d. 61y&rdquo;), cancers with their ages (&ldquo;BC 40, BC2 52&rdquo;), gene tests, the genes with the same result and test type on one line, positives first, with the type (a search, <code>S</code>, or a direct test, <code>T</code>: &ldquo;BRCA1 + (direct test)&rdquo;, &ldquo;BRCA2, PALB2, ATM, CHEK2, BARD1 &minus; (search)&rdquo;, &ldquo;HOXB13 + (het, direct test)&rdquo;), breast pathology (&ldquo;ER+ PR+ HER2&minus;&rdquo;), &ldquo;Ashkenazi Jewish&rdquo;.</li>
   <li><strong>PRS</strong>: <code>##PRS_BC</code>, <code>##PRS_OC</code>, <code>##PRS_PC</code> give the target&rsquo;s z-score, drawn on the z-score scale. They belong to the family whose rows follow them: when one header block holds several families with a target, only the first gets them, with a warning.</li>
 </ul>
 <p>Other header keys (menarche, parity, BMI&hellip;) are ignored. A value CanRisk does not allow raises <code>PedigreeParseError</code> naming the line. CanRisk files are read, not written.</p>

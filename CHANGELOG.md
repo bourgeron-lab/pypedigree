@@ -7,7 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- NSGC numbering from the drawing (#125): style option `labels` (`--labels`, the web app's "Labels")
+  "generation" labels each individual with their generation in Roman numerals from the top and their
+  position from the left within it (I-1, II-3), as the NSGC recommends, so the numbers always match
+  the figure; "both" writes the sample ID right under the number. Every labelled individual is
+  numbered (a parent named without a row too); a person drawn twice has one number; the circular
+  layout has the hierarchical one's numbers. The interactive SVG keeps the ID in the tooltip and
+  `data-id`, and adds "Number: II-3" and `data-number` (so a `data_number` column is now reserved).
+  `NodeLayout.number`; `symbols.roman`, `symbols.generation_numbers`. Default "id": no figure changes.
+- CanRisk `Name` as labels (#120): `parse_pedigree(..., canrisk_names=True)`,
+  `parse_pedigree_from_string(..., canrisk_names=True)`, `--canrisk-names`, for example and teaching
+  pedigrees. A name replaces `IndivID` (and the parents' references to it) where it is given (not `0`
+  or `NA`) and unique in its family; a shared one keeps the ID, with a warning. Off by default, since
+  `Name` is often a real name.
+
 ### Changed
+
+- CanRisk gene tests (#120) are grouped: the genes with the same result and test type share one
+  annotation line, positives first, at most five a line, and the test type is kept, where it was
+  lost: "BRCA1 + (direct test)", "BRCA2, PALB2, ATM, CHEK2, BARD1 − (search)", "HOXB13 + (het,
+  direct test)". A panel took nine lines and ran into the sibship line below. Annotation columns
+  `a_gene_tests_1`, `a_gene_tests_2`... replace `a_BRCA1`, `a_BRCA2`...
+- The PGS / pTDT curve beside a symbol is flipped (#126): its baseline is near the box's right edge
+  and its peak points left, so turned a quarter turn clockwise it reads as the usual bell, positive
+  values on the right, as the legend's curve; it was the mirror image. Markers, dotted ±2 SD lines,
+  spread dots and values do not move. Every figure with a PGS changes slightly: goldens `ptdt`,
+  `legend_minimal`, `multi_phenotype_pgs`, `circular_test_all`, and the gallery's PGS images.
 
 - "Not applicable" (`N/A`, #107) is drawn white, as unaffected, with no mark and no legend row
   (#120): the grey diagonal of 0.10.0 read as the deceased line, and a CanRisk family put one in

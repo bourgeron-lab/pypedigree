@@ -14,7 +14,9 @@ stay in one place:
 - ``FamID``, ``IndivID``, ``FathID``, ``MothID``, ``Sex`` (M/F), ``Dead``,
   ``Yob`` (year of birth) and ``MZtwin`` (a code shared by identical twins)
   map onto the usual columns. ``Name`` is left out: in CanRisk it is often a
-  real name or a role.
+  real name or a role; with ``names=True`` (``canrisk_names``,
+  ``--canrisk-names``, #120) it replaces ``IndivID`` where it is given and
+  unique in its family, for example and teaching pedigrees.
 - ``Target`` (the person whose risk is computed) is the consultand; an
   affected target is also the proband.
 - Each cancer someone has gets a binary column: breast (``BC1`` or ``BC2``),
@@ -23,9 +25,11 @@ stay in one place:
   those cells are "not applicable" (#107), unless the file gives an age,
   which is kept with a warning.
 - Annotation lines, in NSGC order: age ("45y", "d. 61y"), cancers with
-  their ages ("BC 40, BC2 52"), one line per gene tested ("BRCA1 +",
-  "BRCA2 −", "HOXB13 + (het)"), breast pathology ("ER+ PR+ HER2−") and
-  "Ashkenazi Jewish".
+  their ages ("BC 40, BC2 52"), gene tests, the genes with the same result
+  and test type on one line, positives first, with the type (#120: "BRCA1 +
+  (direct test)", "BRCA2, PALB2, ATM, CHEK2, BARD1 − (search)", wrapped
+  every `GENES_PER_LINE` genes; "HOXB13 + (het, direct test)"), breast
+  pathology ("ER+ PR+ HER2−") and "Ashkenazi Jewish".
 - ``##PRS_BC``, ``##PRS_OC`` and ``##PRS_PC`` (``alpha=…, zscore=…``) give the
   target's polygenic risk score as a z-score, in a ``PGS_`` column drawn on
   the z-score scale (the default, #106).
@@ -67,6 +71,13 @@ _PRS = {
     "prs_pc": "PGS_prostate_cancer",
 }
 _REQUIRED = ("FamID", "IndivID", "FathID", "MothID", "Sex")
+# Gene tests: the type of test, written after the result (#120). S: a search
+# for variants (a panel, a screening); T: a direct test for a known variant.
+_TEST_TYPES = {"S": "search", "T": "direct test"}
+#: At most this many genes on one annotation line (#120).
+GENES_PER_LINE = 5
+# A ``Name`` that names nobody.
+_NO_NAME = frozenset({"0", "na", "n/a", ".", "-", ""})
 # The columns of each format, in order, for a file without a ``##FamID`` line,
 # which the CanRisk services read by position (#119): 28 fields in format 4,
 # 27 in formats 2 and 3 (no HOXB13), 26 in format 1 (no BARD1 either).
@@ -101,11 +112,13 @@ class _Person:
         return self.cells.get(column, "0").strip() or "0"
 
 
-def canrisk_to_text(text: str) -> str:
+def canrisk_to_text(text: str, names: bool = False) -> str:
     """Rewrite a CanRisk file as a tab-separated pedigree file with a header.
 
     Args:
         text: The CanRisk file's content.
+        names: Label individuals with ``Name`` instead of ``IndivID`` (#120),
+            where it is given and unique in its family.
 
     Returns:
         The same families as pedigree file text, for `parser._parse_text`.
@@ -118,7 +131,47 @@ def canrisk_to_text(text: str) -> str:
     people = _read_blocks(text)
     if not people:
         raise PedigreeParseError("CanRisk file has no individuals")
+    if names:
+        _use_names(people)
     return _to_pedigree_text(people)
+
+
+def _use_names(people: list[_Person]) -> None:
+    """Replace ``IndivID`` by ``Name``, and the parents' IDs with it (#120).
+
+    A person keeps their ``IndivID`` when their ``Name`` is empty or ``NA``,
+    or is given to another person of the family, or is another person's ID;
+    the clashes are named in a warning.
+    """
+    families: dict[str, list[_Person]] = {}
+    for p in people:
+        families.setdefault(p.get("FamID"), []).append(p)
+    kept = []
+    for fid, members in families.items():
+        names = [p.cells.get("Name", "").strip() for p in members]
+        given = [n for n in names if n.lower() not in _NO_NAME]
+        ids = {p.get("IndivID") for p in members}
+        new_id = {}
+        for p, name in zip(members, names, strict=True):
+            iid = p.get("IndivID")
+            if name.lower() in _NO_NAME:
+                continue
+            if given.count(name) > 1 or (name in ids and name != iid):
+                kept.append(f"{fid}/{iid} ({name})")
+                continue
+            new_id[iid] = name
+        for p in members:
+            for column in ("IndivID", "FathID", "MothID"):
+                value = p.get(column)
+                if value in new_id:
+                    p.cells[column] = new_id[value]
+    if kept:
+        warnings.warn(
+            f"CanRisk names given to more than one person, or equal to another's ID, are not "
+            f"used as labels: {', '.join(kept)} keep their IndivID.",
+            PedigreeDataWarning,
+            stacklevel=4,
+        )
 
 
 def _read_blocks(text: str) -> list[_Person]:
@@ -248,8 +301,9 @@ def _cancer_age(person: _Person, column: str) -> str | None:
     )
 
 
-def _gene_text(person: _Person, gene: str) -> str | None:
-    """ "BRCA1 +", "BRCA2 −", "HOXB13 + (het)", or None when untested."""
+def _gene_test(person: _Person, gene: str) -> tuple[str, str, str] | None:
+    """A gene's test: (result, its detail, test type), e.g. ("+", "het", "T"),
+    or None when untested."""
     value = person.get(gene).upper()
     if value == "0":
         return None
@@ -264,10 +318,24 @@ def _gene_text(person: _Person, gene: str) -> str | None:
     if kind == "0" or result == "0":
         return None
     if result == "N":
-        return f"{gene} {MINUS}"
-    if result in ("HET", "HOM"):
-        return f"{gene} + ({result.lower()})"
-    return f"{gene} +"
+        return MINUS, "", kind
+    return "+", result.lower() if result in ("HET", "HOM") else "", kind
+
+
+def _gene_lines(person: _Person) -> list[str]:
+    """The gene tests as annotation lines (#120): one per result and test type,
+    positives first, at most `GENES_PER_LINE` genes a line."""
+    groups: dict[tuple[str, str, str], list[str]] = {}
+    for gene in (*_GENES, _HOXB13):
+        if gene in person.cells and (test := _gene_test(person, gene)) is not None:
+            groups.setdefault(test, []).append(gene)
+    lines = []
+    for (result, detail, kind), genes in sorted(groups.items(), key=lambda g: g[0][0] != "+"):
+        about = ", ".join(d for d in (detail, _TEST_TYPES[kind]) if d)
+        for start in range(0, len(genes), GENES_PER_LINE):
+            chunk = ", ".join(genes[start : start + GENES_PER_LINE])
+            lines.append(f"{chunk} {result} ({about})")
+    return lines
 
 
 def _pathology_text(person: _Person) -> str | None:
@@ -313,7 +381,8 @@ def _to_pedigree_text(people: list[_Person]) -> str:
         return any(ages.get((id(p), c)) is not None for c in columns)
 
     cancers = [c for c in _CANCERS if any(affected(p, c[1]) for p in people)]
-    genes = [g for g in (*_GENES, _HOXB13) if any(_gene_text(p, g) for p in people)]
+    gene_lines = {id(p): _gene_lines(p) for p in people}
+    gene_columns = max((len(lines) for lines in gene_lines.values()), default=0)
     pgs = [name for key, name in _PRS.items() if any(key in p.prs for p in people)]
 
     twins: dict[tuple[str, str], list[str]] = {}
@@ -337,7 +406,8 @@ def _to_pedigree_text(people: list[_Person]) -> str:
     ]
     header += [f"b_{name}" for name, _, _, _ in cancers]
     header += pgs
-    header += ["a_age", "a_cancer"] + [f"a_{g}" for g in genes] + ["a_pathology", "a_ancestry"]
+    tests = [f"a_gene_tests_{i + 1}" for i in range(gene_columns)]
+    header += ["a_age", "a_cancer", *tests, "a_pathology", "a_ancestry"]
 
     rows = ["\t".join(header)]
     for p in people:
@@ -388,7 +458,8 @@ def _to_pedigree_text(people: list[_Person]) -> str:
             if ages.get((id(p), column)) is not None
         ]
         row.append(", ".join(diagnoses))
-        row += [_gene_text(p, g) or "" for g in genes]
+        lines = gene_lines[id(p)]
+        row += lines + [""] * (gene_columns - len(lines))
         pathology = _pathology_text(p) if _PATHOLOGY in p.cells else None  # checked for all
         row.append((pathology or "") if affected(p, ("BC1", "BC2")) else "")
         row.append("Ashkenazi Jewish" if p.get("Ashkn") == "1" else "")

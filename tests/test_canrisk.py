@@ -147,19 +147,38 @@ class TestAnnotations:
         assert list(people["t1"].annotations.values()) == [
             "38y",
             "BC 35, BC2 37",
-            "BRCA1 +",
+            "BRCA1 + (direct test)",
             "ER− PR− HER2−",
             "Ashkenazi Jewish",
         ]
-        assert list(people["m1"].annotations.values())[:3] == ["d. 61y", "OC 52", "BRCA1 +"]
+        assert list(people["m1"].annotations.values())[:3] == [
+            "d. 61y",
+            "OC 52",
+            "BRCA1 + (search)",
+        ]
         assert "BC ?" in people["gm1"].annotations.values()
         assert "PrC 61" in people["f1"].annotations.values()
-        assert "HOXB13 + (het)" in people["f1"].annotations.values()
-        assert "BRCA1 −" in people["b1"].annotations.values()
+        assert "HOXB13 + (het, direct test)" in people["f1"].annotations.values()
+        assert "BRCA1 − (direct test)" in people["b1"].annotations.values()
 
     def test_untested_genes_write_nothing(self):
         _, people = _people()
         assert not [a for a in people["s2"].annotations.values() if "BRCA" in a]
+
+    def test_genes_grouped_by_result_and_type(self):
+        """#120: a panel took one line per gene; same result and type share one, positives first."""
+        tests = {
+            "BRCA1": "S:N", "BRCA2": "S:N", "PALB2": "S:P", "ATM": "S:N", "CHEK2": "S:N",
+            "BARD1": "S:N", "RAD51D": "S:N", "RAD51C": "S:N", "BRIP1": "T:N", "HOXB13": "T:N",
+        }  # fmt: skip
+        text = _file(_row(FamID="FAM1", IndivID="a", Sex="F", **tests))
+        (person,) = parse_pedigree_from_string(text).individuals()
+        assert [a for a in person.annotations.values() if "(" in a] == [
+            "PALB2 + (search)",
+            "BRCA1, BRCA2, ATM, CHEK2, BARD1 − (search)",
+            "RAD51D, RAD51C − (search)",
+            "BRIP1, HOXB13 − (direct test)",
+        ]
 
     def test_pathology_only_with_breast_cancer(self):
         text = _file(
@@ -167,6 +186,46 @@ class TestAnnotations:
         )
         (person,) = parse_pedigree_from_string(text).individuals()
         assert not [a for a in person.annotations.values() if "ER" in a]
+
+
+class TestNames:
+    """#120: ``Name`` as the label, for example and teaching pedigrees."""
+
+    def test_left_out_by_default(self):
+        _, people = _people()
+        assert "t1" in people and "me" not in people
+
+    def test_names_replace_ids_and_parents_follow(self):
+        text = _file(
+            _row(FamID="F", Name="Jane", IndivID="pgm", Sex="F"),
+            _row(FamID="F", Name="NA", IndivID="pgf", Sex="M"),
+            _row(FamID="F", Name="Joy", IndivID="mo", FathID="pgf", MothID="pgm", Sex="F"),
+        )
+        people = {
+            i.sample_id: i
+            for i in parse_pedigree_from_string(text, canrisk_names=True).individuals()
+        }
+        assert set(people) == {"Jane", "pgf", "Joy"}
+        assert people["Joy"].mother_id == "Jane" and people["Joy"].father_id == "pgf"
+
+    def test_shared_names_keep_their_ids(self):
+        text = _file(
+            _row(FamID="F", Name="sister", IndivID="s1", Sex="F"),
+            _row(FamID="F", Name="sister", IndivID="s2", Sex="F"),
+            _row(FamID="F", Name="s1", IndivID="x", Sex="M"),
+        )
+        with pytest.warns(PedigreeDataWarning, match="keep their IndivID"):
+            ped = parse_pedigree_from_string(text, canrisk_names=True)
+        assert {i.sample_id for i in ped.individuals()} == {"s1", "s2", "x"}
+
+    def test_cli_flag(self, tmp_path):
+        out = tmp_path / "names.svg"
+        result = CliRunner().invoke(
+            main, [str(V4), "--canrisk-names", "--interactive", "-o", str(out)]
+        )
+        assert result.exit_code == 0, result.output
+        svg = out.read_text(encoding="utf-8")
+        assert ">grandmother<" in svg and ">gm1<" not in svg
 
 
 class TestPrs:
@@ -262,7 +321,7 @@ class TestOutputs:
         fig = render_pedigree(parse_pedigree(V4))
         try:
             texts = [t.get_text() for ax in fig.axes for t in ax.texts]
-            assert "BRCA1 +" in texts and "Not applicable" not in texts  # N/A drawn white (#120)
+            assert "BRCA1 + (direct test)" in texts and "Not applicable" not in texts
         finally:
             plt.close(fig)
 
