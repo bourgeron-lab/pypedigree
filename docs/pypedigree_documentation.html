@@ -502,6 +502,7 @@ child      2         105   62</code></pre>
   </thead>
   <tbody>
     <tr><td><code>-o, --output PATH</code></td><td>Output file path (format from extension: .png, .svg, .pdf)</td><td>None (display)</td></tr>
+    <tr><td><code>--export PATH</code></td><td>Also write the pedigree as <code>.fam</code> (PLINK) or <code>.json</code> (GA4GH Phenopackets <code>Pedigree</code>): the six PED fields only. Alone, nothing is drawn</td><td>None</td></tr>
     <tr><td><code>--format FORMAT</code></td><td>Force output format: <code>png</code>, <code>svg</code>, <code>pdf</code></td><td>Auto-detect</td></tr>
     <tr><td><code>--family ID</code></td><td>Render only this family</td><td>All families</td></tr>
     <tr><td><code>--output-dir DIR</code></td><td>One file per family in DIR, named after the family ID (<code>FAM1.png</code>; <code>.svg</code> with <code>--interactive</code>), with the colors and legend of the whole file. IDs are made safe for file names; two IDs giving the same name get <code>_2</code>, <code>_3</code>&hellip; A family that fails is reported, the others are written, and the exit code is 1. Not with <code>-o</code> or <code>--show</code></td><td>&mdash;</td></tr>
@@ -1421,6 +1422,9 @@ ped = parse_plink_ped("family.ped")
 
 ped = parse_pedigree("family.ped")
 export_fam(ped, "output.fam")  # Ready for PLINK/KING</code></pre>
+
+<p>From the command line: <code>pypedigree family.ped --export family.fam</code> (or <code>family.json</code> for a GA4GH Phenopackets <code>Pedigree</code>); alone, nothing is drawn, with <code>-o</code> the figure is drawn too.</p>
+<p><strong>What the writers keep.</strong> Both writers keep the six PED fields only: family, ID, father, mother, sex and affected status. Deceased and proband flags, twins, date of birth, the NSGC notation, carrier, phenotype, PGS and annotation columns are left out, as neither format has a place for them. Reading the file back gives the same people and family structure, drawn without those marks; a row standing for several people (<code>count</code>) is left out with a warning. To keep everything, keep the original file.</p>
 
 <h3>API Reference</h3>
 <table>

@@ -570,6 +570,7 @@ pypedigree INPUT.ped [OPTIONS]
 --format [png|svg|pdf]   Output format (auto-detected from extension)
 --family ID              Render only this family ID
 --output-dir DIR         One file per family in DIR (not with -o/--show)
+--export PATH            Also write .fam or .json (Phenopackets Pedigree): the six PED fields; alone, nothing drawn
 --dpi INT                Output resolution (default: 150)
 --show                   Display interactively instead of saving
 --style PATH             JSON file with style overrides
@@ -801,6 +802,8 @@ Native support for PLINK bioinformatics formats:
 - `parse_fam_file(path)` — reads `.fam` files (6-column, no header)
 - `parse_plink_ped(path)` — reads PLINK `.ped` files (ignores genotype columns after col 6)
 - `export_fam(pedigree, path)` — writes `.fam` format (excludes phantoms/duplicates)
+- CLI `--export PATH` (`cli._export`, `EXPORT_FORMATS`: `.fam`, `.json`), checked before parsing; both writers keep
+  the six PED fields only (docs/api.md "What the writers keep"). `tests/test_cli.py::TestExport`
 - CLI: `.fam` extension auto-detected; `--plink` flag for PLINK `.ped` files
 
 ## CanRisk files

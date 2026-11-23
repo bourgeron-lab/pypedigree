@@ -12,7 +12,7 @@ A GA4GH Phenopackets v2 JSON `Family` or `Pedigree` (#108) is read the same way 
 
 ### `export_phenopacket_pedigree(pedigree, file_path)`
 
-Write a Phenopackets v2 `Pedigree` message (`{"persons": [...]}`, camelCase, enums by name, `UNKNOWN_SEX` and `MISSING` written out) without duplicates, as `export_fam` does. A parent named in the input but with no row of their own is written as a person (sex from their role, `MISSING`), so a strict validator finds every `paternalId` and `maternalId`; the unnamed `_phantom_*` parents are not written. Returns the `Path` written.
+Write a Phenopackets v2 `Pedigree` message (`{"persons": [...]}`, camelCase, enums by name, `UNKNOWN_SEX` and `MISSING` written out) without duplicates, as `export_fam` does. A parent named in the input but with no row of their own is written as a person (sex from their role, `MISSING`), so a strict validator finds every `paternalId` and `maternalId`; the unnamed `_phantom_*` parents are not written. Returns the `Path` written. It keeps the same six fields as `export_fam`: see "What the writers keep" under `export_fam`. CLI: `--export pedigree.json`.
 
 ```python
 from pypedigree import export_phenopacket_pedigree, parse_pedigree
@@ -143,6 +143,18 @@ export_fam(ped, "output.fam")
 **Args**:
 - `pedigree` — `Pedigree` to export.
 - `file_path` — Output file path (str or Path).
+
+**What the writers keep.** `export_fam` and `export_phenopacket_pedigree` write the six PED fields
+only: family, ID, father, mother, sex, affected status. Everything else is left out, as both formats
+have no place for it: deceased and proband flags, twins, date of birth, NSGC notation (pregnancies,
+adoption, childlessness, gender identity, consultand, evaluation), carrier, phenotype, PGS and
+annotation columns. Reading the file back gives the same people and family structure (a second
+export is byte-identical), drawn without those marks; siblings ordered by date of birth or twins may
+change order. A row standing for several people (`count`) is left out, with a
+`PedigreeDataWarning`; a childless couple with no children is no longer drawn as a couple. To keep
+everything, keep the original file. CLI: `--export out.fam` or `--export out.json` (alone, nothing
+is drawn).
+
 
 **Returns**: `Path` of the written file.
 

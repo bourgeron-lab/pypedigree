@@ -17,11 +17,13 @@ from pypedigree.errors import PedigreeBatchError, PedigreeError
 from pypedigree.models import Pedigree
 from pypedigree.parser import (
     apply_phenotypes_to_pedigree,
+    export_fam,
     parse_fam_file,
     parse_pedigree,
     parse_phenotype_file,
     parse_plink_ped,
 )
+from pypedigree.phenopackets import export_phenopacket_pedigree
 
 
 @contextmanager
@@ -43,6 +45,37 @@ def _reported_warnings() -> Iterator[None]:
                 click.echo(f"Warning: {message}", err=True)
 
 
+# What --export writes, by file extension.
+EXPORT_FORMATS = {".fam": "PLINK .fam", ".json": "GA4GH Phenopackets Pedigree"}
+
+
+def _export_suffix(path: str) -> str:
+    """The extension of an --export path, checked against `EXPORT_FORMATS`."""
+    suffix = Path(path).suffix.lower()
+    if suffix not in EXPORT_FORMATS:
+        known = ", ".join(EXPORT_FORMATS)
+        raise click.BadParameter(
+            f"unknown extension {suffix or '(none)'!r}; use one of {known}", param_hint="--export"
+        )
+    return suffix
+
+
+def _export(pedigree: Pedigree, path: str) -> None:
+    """Write the pedigree to ``path`` in the format of its extension (`EXPORT_FORMATS`).
+
+    The six PED fields only: `export_fam` and `export_phenopacket_pedigree`
+    leave out everything else (deceased, proband, twins, notation, other
+    columns), and people drawn as one symbol (``count``) with a warning.
+    """
+    suffix = _export_suffix(path)
+    with _reported_warnings():
+        if suffix == ".fam":
+            export_fam(pedigree, path)
+        else:
+            export_phenopacket_pedigree(pedigree, path)
+    click.echo(f"Exported {EXPORT_FORMATS[suffix]}: {path}")
+
+
 @click.command()
 @click.argument("pedigree_file", type=click.Path(exists=True))
 @click.option("-o", "--output", type=click.Path(), default=None, help="Output file path.")
@@ -52,6 +85,15 @@ def _reported_warnings() -> Iterator[None]:
     default=None,
     help="Write one file per family into this directory, named after the family "
     "(e.g. FAM1.png), with the colors and legend of the whole file.",
+)
+@click.option(
+    "--export",
+    "export_path",
+    type=click.Path(dir_okay=False),
+    default=None,
+    help="Also write the pedigree to this file: .fam (PLINK) or .json (GA4GH Phenopackets "
+    "Pedigree). Only the six PED fields are kept (family, ID, parents, sex, affected "
+    "status). Alone, nothing is drawn.",
 )
 @click.option(
     "--format",
@@ -223,6 +265,7 @@ def main(
     pedigree_file: str,
     output: str | None,
     output_dir: str | None,
+    export_path: str | None,
     fmt: str | None,
     family: str | None,
     dpi: int | None,
@@ -258,6 +301,8 @@ def main(
     PEDIGREE_FILE is a tab/comma/space-separated pedigree file.
     Supports .ped, .fam (PLINK), and extended formats.
     """
+    if export_path is not None:
+        _export_suffix(export_path)  # before reading anything
     try:
         input_path = Path(pedigree_file)
         with _reported_warnings():
@@ -331,6 +376,12 @@ def main(
 
         if (no_script or id_prefix or responsive) and not interactive:
             raise click.UsageError("--no-script, --id-prefix and --responsive need --interactive.")
+
+        if export_path is not None:
+            _export(pedigree, export_path)
+            drawing = output or output_dir or show or interactive or fmt
+            if not drawing:
+                return
 
         if output_dir is not None:
             if output is not None or show:

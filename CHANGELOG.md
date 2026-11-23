@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--export PATH`: write the pedigree as PLINK `.fam` or a GA4GH Phenopackets `Pedigree` (`.json`),
+  with `export_fam` / `export_phenopacket_pedigree`; alone, nothing is drawn, with `-o` the figure is
+  drawn too. The documentation now says what both writers keep: the six PED fields only (family, ID,
+  parents, sex, affected status); deceased, proband, twins, date of birth, NSGC notation and phenotype
+  columns are left out, as neither format holds them.
 - Style option `text_scale` (`--text-scale`, default 1.0, #145): for a pedigree drawn into axes of
   your own smaller than pypedigree's text scale (0.02 layout units per point), say how many times
   larger text and marks sized in points are, relative to the symbols, so the layout keeps room for

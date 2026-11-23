@@ -198,7 +198,7 @@ render_pedigree(pedigree, output="family.png")
 pedigree = parse_plink_ped("family.ped")
 
 # Export to .fam for use with PLINK/KING/etc.
-export_fam(pedigree, "output.fam")
+export_fam(pedigree, "output.fam")  # or: pypedigree family.ped --export output.fam
 ```
 
 ```bash
@@ -323,7 +323,7 @@ pypedigree tests/data/format/canrisk_v4.txt -o canrisk.png
 
 ### GA4GH Phenopackets (.json)
 
-A Phenopackets v2 `Family` or `Pedigree` (JSON) is read as it is: persons, sex, affected status, the proband, deaths, and declared consanguinity of the proband's parents. `export_phenopacket_pedigree(pedigree, "pedigree.json")` writes a `Pedigree` message. See `docs/pedigree_standard.md`, "GA4GH Phenopackets v2".
+A Phenopackets v2 `Family` or `Pedigree` (JSON) is read as it is: persons, sex, affected status, the proband, deaths, and declared consanguinity of the proband's parents. `export_phenopacket_pedigree(pedigree, "pedigree.json")` (CLI `--export pedigree.json`) writes a `Pedigree` message. Both writers keep the six PED fields only (family, ID, parents, sex, affected status): marks such as deceased, twins or the NSGC notation, and phenotype columns, are left out. See `docs/pedigree_standard.md`, "GA4GH Phenopackets v2".
 
 ```bash
 pypedigree tests/data/format/phenopacket_family.json -o family.png
