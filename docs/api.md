@@ -1,5 +1,22 @@
 # API Reference
 
+## Stability
+
+From 1.0.0, pypedigree follows [Semantic Versioning](https://semver.org): a 1.x release does not
+remove or change what is listed here, except to fix a bug.
+
+- **Stable:** the names exported by `pypedigree` (`pypedigree.__all__`) and their arguments; the
+  `PedigreeStyle` options listed under "Configuration"; the command-line options; the input formats of
+  `docs/pedigree_standard.md` (PED and its extended columns, `.fam`, PLINK `.ped`, CanRisk,
+  Phenopackets); the SVG's hooks for host pages (`class="pypedigree"` root, `node` groups and their
+  `data-*` attributes, `id_prefix`); the `Pedigree*Warning` and `Pedigree*Error` classes.
+- **Not covered:** names starting with an underscore; the helper modules `pypedigree.symbols`,
+  `pypedigree.phenotypes` and `pypedigree.carriers` (they may change in a minor release); the style
+  fields `apply_pgs_spacing` sets (`pgs_box_room`, `pgs_box_width`); and exactly how a figure looks:
+  a minor release may move a mark to fix an overlap, so pin the version that drew a published figure.
+- **Experimental:** the circular layout (`compute_layout_circular`, `circular=True`, `--circular`):
+  its structure is stable, how it is drawn may change in a 1.x release.
+
 ## Parsing
 
 ### `parse_pedigree(file_path, *, canrisk_names=False, phenopacket_features=False)`
@@ -12,7 +29,7 @@ A GA4GH Phenopackets v2 JSON `Family` or `Pedigree` (#108) is read the same way 
 
 ### `export_phenopacket_pedigree(pedigree, file_path)`
 
-Write a Phenopackets v2 `Pedigree` message (`{"persons": [...]}`, camelCase, enums by name, `UNKNOWN_SEX` and `MISSING` written out) without duplicates, as `export_fam` does. A parent named in the input but with no row of their own is written as a person (sex from their role, `MISSING`), so a strict validator finds every `paternalId` and `maternalId`; the unnamed `_phantom_*` parents are not written. Returns the `Path` written.
+Write a Phenopackets v2 `Pedigree` message (`{"persons": [...]}`, camelCase, enums by name, `UNKNOWN_SEX` and `MISSING` written out) without duplicates, as `export_fam` does. A parent named in the input but with no row of their own is written as a person (sex from their role, `MISSING`), so a strict validator finds every `paternalId` and `maternalId`; the unnamed `_phantom_*` parents are not written. Returns the `Path` written. It keeps the same six fields as `export_fam`: see "What the writers keep" under `export_fam`. CLI: `--export pedigree.json`.
 
 ```python
 from pypedigree import export_phenopacket_pedigree, parse_pedigree
@@ -143,6 +160,18 @@ export_fam(ped, "output.fam")
 **Args**:
 - `pedigree` — `Pedigree` to export.
 - `file_path` — Output file path (str or Path).
+
+**What the writers keep.** `export_fam` and `export_phenopacket_pedigree` write the six PED fields
+only: family, ID, father, mother, sex, affected status. Everything else is left out, as both formats
+have no place for it: deceased and proband flags, twins, date of birth, NSGC notation (pregnancies,
+adoption, childlessness, gender identity, consultand, evaluation), carrier, phenotype, PGS and
+annotation columns. Reading the file back gives the same people and family structure (a second
+export is byte-identical), drawn without those marks; siblings ordered by date of birth or twins may
+change order. A row standing for several people (`count`) is left out, with a
+`PedigreeDataWarning`; a childless couple with no children is no longer drawn as a couple. To keep
+everything, keep the original file. CLI: `--export out.fam` or `--export out.json` (alone, nothing
+is drawn).
+
 
 **Returns**: `Path` of the written file.
 
@@ -702,7 +731,6 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `line_color` | `"black"` | Connection line color |
 | `line_width` | `1.0` | Connection line width |
 | `double_line_gap` | `0.06` | Gap between double lines (consanguinity) |
-| `broken_gap_size` | `0.15` | Deprecated, no effect: the separation marks of a broken relationship are sized with the symbols (#141). To be removed in 1.0 |
 | `carrier_notation` | `"nsgc2022"` | `"nsgc2022"`: the symbol is divided into patterned sections, one per carrier result, defined in the legend (Bennett et al., J Genet Couns 2022). `"legacy"`: half-filled shape for carriers, center dot for obligate carriers. Any other value raises `PedigreeError` |
 | `carrier_dot_radius` | `0.08` | Radius of the obligate carrier center dot (legacy notation) |
 | `font_size` | `8.0` | Label font size, in points. The legend panel is sized from it (text, swatches and row height), so raise it to keep a figure legible once scaled down for print |
@@ -713,7 +741,6 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `generation_gap` | `2.0` | Vertical distance between generations |
 | `sibling_gap` | `1.5` | Horizontal distance between siblings (more where long labels need it) |
 | `couple_gap` | `1.5` | Horizontal distance between partners (more where long labels need it) |
-| `min_node_distance` | `1.2` | Deprecated, no effect: `sibling_gap` and `couple_gap` set the spacing. To be removed in 1.0 |
 | `radial_gap` | `2.5` | Distance between concentric rings in circular layout |
 | `base_radius` | `3.0` | Radius of the innermost ring in circular layout |
 | `phenotype_colors` | `{}` | Map of phenotype name to hex color (e.g. `{"IQ": "#3498db"}`) |
@@ -828,7 +855,7 @@ function is idempotent.
 
 ---
 
-### `apply_pgs_spacing(style, phenotype_names=None, values_width=0.0)`
+### `apply_pgs_spacing(style, phenotype_names=None, values_width=0.0, box_width=(0.0, 0.0))`
 
 Widen `couple_gap` and `sibling_gap` to leave room for PGS distribution
 curves drawn beside each node, and by `values_width` (layout units) for the
@@ -839,7 +866,7 @@ Unlike `resolve_style()` this is **not** idempotent — each call widens
 further. `render_pedigree()` is its only caller; do not apply it yourself
 before calling `render_pedigree()`.
 
-**Args**: `style` — `PedigreeStyle`. `phenotype_names` — ordered phenotype column names. `values_width` — room for the PGS values, in layout units.
+**Args**: `style` — `PedigreeStyle`. `phenotype_names` — ordered phenotype column names. `values_width` — room for the PGS values, in layout units. `box_width` — the boxes' width and how much wider than usual it is (`phenotypes.pgs_box_width`, #147); the extra widens the gaps, the width is kept in `style.pgs_box_width`.
 
 **Returns**: a new `PedigreeStyle`, or the input unchanged.
 

@@ -11,11 +11,13 @@ authors:
   - given-names: Alexandre
     family-names: Mathieu
     email: alexandre.mathieu@pasteur.fr
-    affiliation: Institut Pasteur
+    affiliation: "Human Genetics and Cognitive Functions, Institut Pasteur, Université Paris Cité, CNRS UMR 3571, Paris, France"
+    orcid: "https://orcid.org/0000-0002-3418-9425"
   - given-names: Freddy
     family-names: Cliquet
     email: freddy.cliquet@pasteur.fr
-    affiliation: Institut Pasteur
+    affiliation: "Human Genetics and Cognitive Functions, Institut Pasteur, Université Paris Cité, CNRS UMR 3571, Paris, France"
+    orcid: "https://orcid.org/0000-0002-9989-0685"
 version: 0.10.0
 date-released: "2026-11-23"
 # Concept DOI: every release, resolving to the latest. Each release also

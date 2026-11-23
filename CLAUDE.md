@@ -121,7 +121,7 @@ src/pypedigree/
    separated couple (`Union.is_broken`) gets two slashes across its relationship line
    (`symbols.separation_marks`, #141, in half symbol sizes like the other line notation): between
    the left partner and the line of descent when `EdgeLayout.has_descent`, the line stopping round
-   them; the circular layout draws that line outline to outline. `broken_gap_size` has no effect.
+   them; the circular layout draws that line outline to outline.
 
    A proband's or consultand's marker sits at the lower left of the symbol,
    level with the labels. A PGS box goes on `NodeLayout.pgs_side` (#78): "right" for the right-hand
@@ -157,7 +157,7 @@ src/pypedigree/
    characters). `compute_layout(..., labels=show_labels)`; the circular layout
    calls `_place_hierarchically(..., labels=False)` and is unchanged. The SVG's
    `_family_extent` also widens the `viewBox` by labels wider than their symbol.
-   `min_node_distance` is deprecated: the layout never used it. The marker itself is sized in ems of the
+   The marker itself is sized in ems of the
    label font, never in layout units (`symbols.MARKER_ARROW_EM`,
    `MARKER_LETTER_GAP_EM`): the PNG draws the arrow and the right-aligned "P"
    as offsets in points from the tip (`annotate(..., textcoords="offset
@@ -570,6 +570,7 @@ pypedigree INPUT.ped [OPTIONS]
 --format [png|svg|pdf]   Output format (auto-detected from extension)
 --family ID              Render only this family ID
 --output-dir DIR         One file per family in DIR (not with -o/--show)
+--export PATH            Also write .fam or .json (Phenopackets Pedigree): the six PED fields; alone, nothing drawn
 --dpi INT                Output resolution (default: 150)
 --show                   Display interactively instead of saving
 --style PATH             JSON file with style overrides
@@ -801,6 +802,8 @@ Native support for PLINK bioinformatics formats:
 - `parse_fam_file(path)` — reads `.fam` files (6-column, no header)
 - `parse_plink_ped(path)` — reads PLINK `.ped` files (ignores genotype columns after col 6)
 - `export_fam(pedigree, path)` — writes `.fam` format (excludes phantoms/duplicates)
+- CLI `--export PATH` (`cli._export`, `EXPORT_FORMATS`: `.fam`, `.json`), checked before parsing; both writers keep
+  the six PED fields only (docs/api.md "What the writers keep"). `tests/test_cli.py::TestExport`
 - CLI: `.fam` extension auto-detected; `--plink` flag for PLINK `.ped` files
 
 ## CanRisk files

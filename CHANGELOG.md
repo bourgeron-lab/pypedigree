@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `--export PATH`: write the pedigree as PLINK `.fam` or a GA4GH Phenopackets `Pedigree` (`.json`),
+  with `export_fam` / `export_phenopacket_pedigree`; alone, nothing is drawn, with `-o` the figure is
+  drawn too. The documentation now says what both writers keep: the six PED fields only (family, ID,
+  parents, sex, affected status); deceased, proband, twins, date of birth, NSGC notation and phenotype
+  columns are left out, as neither format holds them.
 - Style option `text_scale` (`--text-scale`, default 1.0, #145): for a pedigree drawn into axes of
   your own smaller than pypedigree's text scale (0.02 layout units per point), say how many times
   larger text and marks sized in points are, relative to the symbols, so the layout keeps room for
@@ -50,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Stability (1.0.0): `docs/api.md` says what 1.x keeps stable under Semantic Versioning (the
+  exported names, style options, CLI options, input formats, SVG hooks, warning and error classes)
+  and what it does not (private names, the `symbols` / `phenotypes` / `carriers` helper modules,
+  the exact look of a figure; the circular layout is experimental). Classifier "Production/Stable".
 - The circular layout (`--circular`, `compute_layout_circular`) is documented as experimental: its
   structure is stable, but how it is drawn may change in a 1.x release (#151).
 - Under `phenotype_layout` "auto" (the default), a single phenotype column with no carrier column
@@ -82,10 +91,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the gap between the partners and read as a double line, a consanguineous couple. Golden
   `group_carrier_couple` and `docs/imgs/childless_couple.png` change.
 
-### Deprecated
+### Removed
 
-- `PedigreeStyle.broken_gap_size` has no effect (#141): the separation marks are sized with the
-  symbols. It still loads, and goes with `min_node_distance` in 1.0.
+- `PedigreeStyle.min_node_distance` and `broken_gap_size`, which had no effect (the layout never used
+  the first; the separation marks are sized with the symbols since #141). A style file that still
+  sets one loads, with a `PedigreeStyleWarning` saying it was removed; `PedigreeStyle(min_node_distance=...)`
+  raises `TypeError`. `config.REMOVED_STYLE_OPTIONS`.
 
 ### Fixed
 

@@ -107,8 +107,9 @@ class TestHorizontalPositioning:
             gen_groups.setdefault(node.y, []).append(node.x)
         for _y, xs in gen_groups.items():
             xs_sorted = sorted(xs)
+            closest = min(style.sibling_gap, style.couple_gap)
             for i in range(1, len(xs_sorted)):
-                assert xs_sorted[i] - xs_sorted[i - 1] >= style.min_node_distance - 0.01
+                assert xs_sorted[i] - xs_sorted[i - 1] >= closest - 0.01
 
     def test_three_gen_vertical_order(self, three_gen_family, style):
         layout = compute_layout(three_gen_family, style)

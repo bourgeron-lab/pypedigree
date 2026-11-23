@@ -50,6 +50,17 @@ class TestFromDict:
         with pytest.warns(PedigreeStyleWarning, match="did you mean 'phenotype_colors'"):
             PedigreeStyle.from_dict({"phenotype_color": {"IQ": "#111111"}})
 
+    @pytest.mark.parametrize("key", ["min_node_distance", "broken_gap_size"])
+    def test_removed_option_warns_it_was_removed(self, key):
+        """Options that had no effect were removed in 1.0.0: a style file that
+        still sets one loads, with a warning that says so."""
+        with pytest.warns(PedigreeStyleWarning, match=f"{key!r} was removed in 1.0.0"):
+            s = PedigreeStyle.from_dict({key: 1.0, "shape_size": 1.0})
+        assert s.shape_size == 1.0
+        assert not hasattr(s, key)
+        with pytest.raises(TypeError):
+            PedigreeStyle(**{key: 1.0})
+
     def test_unknown_key_without_close_match_still_warns(self):
         with pytest.warns(PedigreeStyleWarning, match="Unknown style option 'zzz'"):
             PedigreeStyle.from_dict({"zzz": 1})

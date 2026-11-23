@@ -372,3 +372,57 @@ class TestNoNaLabels:
         assert result.exit_code == 0, result.output
         assert ">NA<" in shown.read_text(encoding="utf-8")
         assert ">NA<" not in hidden.read_text(encoding="utf-8")
+
+
+class TestExport:
+    """`--export` writes the pedigree as .fam or GA4GH Phenopackets JSON (1.0.0)."""
+
+    def test_json_alone_draws_nothing(self, runner, tmp_path):
+        import json
+
+        src = tmp_path / "trio.ped"
+        shutil.copy(TEST_DATA_DIR / "basic" / "simple_trio.ped", src)
+        out = tmp_path / "trio.json"
+        result = runner.invoke(main, [str(src), "--export", str(out)])
+        assert result.exit_code == 0, result.output
+        assert "Exported GA4GH Phenopackets Pedigree" in result.output
+        persons = json.loads(out.read_text(encoding="utf-8"))["persons"]
+        assert len(persons) == 3
+        # No drawing next to the input, where one would go by default.
+        assert sorted(p.name for p in tmp_path.iterdir()) == ["trio.json", "trio.ped"]
+
+    def test_fam_and_a_drawing(self, runner, tmp_path):
+        from pypedigree import parse_fam_file
+
+        fam, png = tmp_path / "out.fam", tmp_path / "out.png"
+        src = TEST_DATA_DIR / "multi_partner" / "multiple_relationships.ped"
+        result = runner.invoke(main, [str(src), "--export", str(fam), "-o", str(png)])
+        assert result.exit_code == 0, result.output
+        assert png.exists()
+        back = parse_fam_file(fam)
+        assert sorted(back.families) == ["FAM1"]
+        assert "_dup_" not in fam.read_text(encoding="utf-8")
+
+    def test_family_filter_applies(self, runner, tmp_path):
+        out = tmp_path / "one.fam"
+        src = TEST_DATA_DIR / "basic" / "multi_family.ped"
+        result = runner.invoke(main, [str(src), "--family", "FAM2", "--export", str(out)])
+        assert result.exit_code == 0, result.output
+        rows = out.read_text(encoding="utf-8").splitlines()
+        assert rows and all(r.split("\t")[0] == "FAM2" for r in rows)
+
+    def test_unknown_extension(self, runner, tmp_path):
+        result = runner.invoke(
+            main,
+            [str(TEST_DATA_DIR / "basic" / "simple_trio.ped"), "--export", str(tmp_path / "x.csv")],
+        )
+        assert result.exit_code == 2
+        assert "unknown extension '.csv'" in result.output
+
+    def test_group_left_out_with_a_warning(self, runner, tmp_path):
+        out = tmp_path / "g.fam"
+        src = TEST_DATA_DIR / "nomenclature" / "group_carrier_couple.ped"
+        result = runner.invoke(main, [str(src), "--export", str(out)])
+        assert result.exit_code == 0, result.output
+        assert "Warning: " in result.output and "left out of the export" in result.output
+        assert "II-3" not in out.read_text(encoding="utf-8")
