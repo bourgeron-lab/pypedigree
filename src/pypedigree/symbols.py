@@ -84,6 +84,19 @@ EVALUATION_MARK_INK_HALF_W_EM = 0.242
 EVALUATION_MARK_INK_HALF_H_EM = 0.232
 EVALUATION_MARK_INK_MIDDLE_EM = 0.51
 
+# Twins of unknown zygosity: a "?" between their lines, at this size relative
+# to the style's font size, its ink `TWIN_MARK_GAP_EM` of its own font from
+# each line (#139). Placed in points from the apex, so it keeps its gap at any
+# scale; at 35% of the way down, in layout units, it covered both lines when
+# drawn small. The ink of "?" in DejaVu Sans Bold, in ems: half its width and
+# height, and its middle above the baseline (centred on its advance).
+TWIN_MARK = "?"
+TWIN_MARK_FONT_SCALE = 1.0
+TWIN_MARK_GAP_EM = 0.3
+TWIN_MARK_INK_HALF_W_EM = 0.223
+TWIN_MARK_INK_HALF_H_EM = 0.371
+TWIN_MARK_INK_MIDDLE_EM = 0.371
+
 # The "?" standing for an unknown child, relative to the style's font size.
 UNKNOWN_OFFSPRING_TEXT = "?"
 UNKNOWN_OFFSPRING_FONT_SCALE = 2.0
@@ -831,6 +844,58 @@ def evaluation_mark_position(
         x, y, half, sex, size, line_width, triangle, up, bracket_width
     )
     return px + dx * units_per_point, py + dy * units_per_point
+
+
+def twin_mark_offset(
+    apex: tuple[float, float],
+    children: Sequence[tuple[float, float]],
+    size: float,
+    line_width: float,
+) -> tuple[float, float]:
+    """From the apex of twins' lines to the middle of their "?" ink, in points.
+
+    The "?" of unknown zygosity goes down the bisector of the widest gap
+    between two neighbouring lines (the only one for two twins), just far
+    enough for its ink to clear both lines, and the sibship line through the
+    apex, by `TWIN_MARK_GAP_EM` of its font plus half the lines' stroke
+    (#139). The directions come from the layout, whose units are the same
+    across and down, so the offset holds at any scale and in either y
+    direction: the PNG (y up) and the SVG (y down) pass their own
+    coordinates and get the offset in the same frame.
+
+    Args:
+        apex: Where the twins' lines meet (`TwinConnector.convergence_point`).
+        children: The other ends of the lines.
+        size: The "?"'s font size, in points.
+        line_width: The lines' width, in points.
+    """
+    dirs = []
+    for x, y in children:
+        dx, dy = x - apex[0], y - apex[1]
+        norm = math.hypot(dx, dy)
+        if norm > 0:
+            dirs.append((dx / norm, dy / norm))
+    dirs.sort(key=lambda d: d[0])
+    # Neighbouring lines, left to right; the widest gap holds the "?".
+    pairs = list(zip(dirs, dirs[1:], strict=False)) or [(dirs[0], dirs[0])]
+    u1, u2 = max(
+        pairs, key=lambda p: math.acos(max(-1.0, min(1.0, p[0][0] * p[1][0] + p[0][1] * p[1][1])))
+    )
+    bx, by = u1[0] + u2[0], u1[1] + u2[1]
+    norm = math.hypot(bx, by)
+    bx, by = bx / norm, by / norm
+    hw = TWIN_MARK_INK_HALF_W_EM * size
+    hh = TWIN_MARK_INK_HALF_H_EM * size
+    clear = TWIN_MARK_GAP_EM * size + line_width / 2
+    # The box's centre s points down the bisector is s * |u x b| from a line
+    # of direction u; its half-extent across that line is hw |n_x| + hh |n_y|.
+    reach = 0.0
+    for ux, uy in (u1, u2, (1.0, 0.0)):
+        across = abs(ux * by - uy * bx)
+        extent = hw * abs(uy) + hh * abs(ux)
+        if across > 1e-9:
+            reach = max(reach, (clear + extent) / across)
+    return bx * reach, by * reach
 
 
 def text_lines_below(ind: Individual) -> int:

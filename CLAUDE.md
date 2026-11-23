@@ -111,7 +111,9 @@ src/pypedigree/
    partnership's order, but the end twins of a twin group take theirs on the
    group's outer side (`_twin_outer_sides`), so no spouse sits between twins
    under the twin connector; loop partners keep their forced right side.
-   `TestTwinSpouses` checks it.
+   `TestTwinSpouses` checks it. The "?" of unknown zygosity is placed in points from the
+   connector's apex (`symbols.twin_mark_offset`: down the widest gap between lines, its ink
+   `TWIN_MARK_GAP_EM` from each, #139), as the evaluation asterisk is from an outline.
 
    A proband's or consultand's marker sits at the lower left of the symbol,
    level with the labels. A PGS box goes on `NodeLayout.pgs_side` (#78): "right" for the right-hand
