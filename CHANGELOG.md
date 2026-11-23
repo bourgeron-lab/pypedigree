@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The documented-evaluation asterisk touched circles and almost touched squares, the more so the
+  smaller the pedigree was drawn (#110). Its gap was in layout units and measured to the glyph's
+  centre; it is now 0.3 em of the asterisk's font from the outside of the outline's stroke to the
+  glyph's ink (`symbols.EVALUATION_MARK_GAP_EM`), on the diagonal for a circle or a diamond, at
+  any scale. `symbols.evaluation_mark_position` takes the asterisk's size, the outline's width and
+  the scale; new `symbols.evaluation_mark_placement`. Figures with an asterisk change.
+- The pregnancy "P" (and the "D" or "S" of assisted reproduction) was written outside the
+  symbol, beside its upper-right corner, as soon as the figure had a phenotype column, even a
+  PGS column alone (#105). It is now always at the centre, as NSGC draws it: white on a filled
+  symbol, on a white backing over bands, quadrants or carrier sections. A band's text at its
+  height moves right of it, a quadrant's gets less room (`phenotypes.clear_of_letter`;
+  `fit_text(..., letter=, offset=)`; `FittedText.dx`). `symbols.letter_position` is removed.
+- The PGS box overlapped the tip of a diamond (#111): it was placed from a square's side. It is
+  now `PGS_BOX_GAP` beyond the shape's reach, and the layout keeps the extra room on the left.
+
 ## [0.9.1] - 2026-11-21
 
 ### Changed

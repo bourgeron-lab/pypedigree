@@ -317,8 +317,11 @@ gender-diverse person. When the symbol differs from the sex assigned at birth,
 AMAB (assigned male at birth) or AFAB (assigned female at birth) is written
 below it. A cisgender person gets no annotation.
 
-**Pregnancy**: a "P" inside the symbol (a diamond when the sex is unknown);
-white on a filled (affected) symbol.
+**Pregnancy**: a "P" inside the symbol (a diamond when the sex is unknown),
+at its centre whatever the phenotype columns; white on a filled (affected)
+symbol. On a symbol divided into bands, quadrants or carrier sections it is
+written on a white patch, and a band's text at its height moves to its right
+(a quadrant's text keeps clear of it).
 
 **Pregnancy loss**: a triangle whose apex meets the individual's line, filled
 when affected. A termination (TOP) is struck through; an ectopic pregnancy has
@@ -338,8 +341,7 @@ The label is moved below the marker. In the circular layout the marker points
 outward, on the side of the label.
 
 **Assisted reproduction**: "D" (gamete donor) or "S" (surrogate) inside the
-symbol. On a symbol with phenotype bands, which carry text of their own, the
-letter is written beside the upper-right corner instead. The diagonal lines that
+symbol, at its centre as the "P" is. The diagonal lines that
 join a donor or a surrogate to the pregnancy in the NSGC figures are not drawn:
 in a pedigree file a donor is a parent, joined to the other parent like any
 couple.
@@ -347,7 +349,10 @@ couple.
 **Consultand**: the proband's arrow without the "P".
 
 **Documented evaluation, records reviewed**: an asterisk beside the lower right
-of the symbol (beside the right end of a pregnancy-loss triangle's base). The
+of the symbol (beside the right end of a pregnancy-loss triangle's base), on the
+diagonal for a circle or a diamond. The gap between the outline and the asterisk
+is 0.3 of the asterisk's size, so it stays visible however small the pedigree is
+drawn. The
 evaluation's result, when given, is written below the symbol, after the other
 notes; the 2022 revision dropped the "E" notation of 2008 (E+, E-), so the
 result is written as given.

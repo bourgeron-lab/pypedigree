@@ -291,7 +291,8 @@ has a `sex` column: then it is the gender identity.
 Gestational age, karyotype and similar details go in `a_` annotation columns,
 written below the symbol. A pregnancy-loss triangle has no room for phenotype
 bands: in a figure with bands it takes the color of the individual's first band.
-On a symbol with bands, the "P", "D" or "S" moves beside its upper-right corner.
+The "P", "D" or "S" stays at the centre of the symbol, on a white patch over bands or
+quadrants; a band's text that would run into it moves to its right.
 
 ```
 FID	IID	Father	Mother	Sex	Phenotype	Pregnancy	Adopted	Gender_identity	a_Note
