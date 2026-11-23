@@ -348,6 +348,15 @@ _TRUE_VALUES = frozenset({"1", "yes", "y", "true"})
 # For extra phenotype columns (11+), "0" is a valid value (binary = unaffected)
 _PHENO_MISSING_VALUES = frozenset({"-9", "nan", "na", ".", ""})
 
+# "Not applicable" in an extra phenotype column (#107), case-insensitive:
+# the phenotype cannot apply to this individual. "NA" keeps meaning no data.
+NOT_APPLICABLE_VALUES = frozenset({"n/a", "not_applicable", "not applicable"})
+
+
+def _is_not_applicable(value: str) -> bool:
+    """Whether a phenotype cell reads "not applicable" (`NOT_APPLICABLE_VALUES`)."""
+    return value.strip().lower() in NOT_APPLICABLE_VALUES
+
 
 def _is_missing(value: str) -> bool:
     """Check if a value represents missing data."""
@@ -485,6 +494,7 @@ def _parse_individual(
     # The phenotype_names list excludes the carrier column, so we iterate
     # over all columns from index 10+ and skip the carrier column index.
     extra_phenotypes_raw: dict[str, float | None] = {}
+    not_applicable: set[str] = set()
     is_carrier = False
     is_obligate_carrier = False
     if len(fields) > 10:
@@ -506,6 +516,9 @@ def _parse_individual(
                 val_raw = fields[col_idx].strip()
                 if _is_pheno_missing(val_raw):
                     extra_phenotypes_raw[name] = None
+                elif _is_not_applicable(val_raw):
+                    extra_phenotypes_raw[name] = None
+                    not_applicable.add(name)
                 else:
                     try:
                         extra_phenotypes_raw[name] = float(val_raw)
@@ -526,6 +539,7 @@ def _parse_individual(
         is_carrier=is_carrier,
         is_obligate_carrier=is_obligate_carrier,
         extra_phenotypes_raw=extra_phenotypes_raw,
+        not_applicable=not_applicable,
     )
 
 
@@ -601,13 +615,16 @@ def _parse_individual_mapped(
     # Extra phenotypes from named columns
     extra_phenotypes_raw: dict[str, float | None] = {}
     extra_phenotypes_categorical: dict[str, str | None] = {}
+    not_applicable: set[str] = set()
     for col_idx, name in col_map.extra_phenotype_cols:
         val_raw = _get(col_idx)
         mode = col_map.phenotype_display_modes.get(name, PhenotypeDisplayMode.AUTO)
-        if not val_raw or _is_pheno_missing(val_raw):
+        if not val_raw or _is_pheno_missing(val_raw) or _is_not_applicable(val_raw):
             extra_phenotypes_raw[name] = None
             if mode == PhenotypeDisplayMode.CATEGORICAL:
                 extra_phenotypes_categorical[name] = None
+            if val_raw and _is_not_applicable(val_raw):
+                not_applicable.add(name)
         elif mode == PhenotypeDisplayMode.CATEGORICAL:
             # Categorical: store string value, also try numeric for raw
             extra_phenotypes_categorical[name] = val_raw.strip()
@@ -664,6 +681,7 @@ def _parse_individual_mapped(
         is_obligate_carrier=is_obligate_carrier,
         extra_phenotypes_raw=extra_phenotypes_raw,
         extra_phenotypes_categorical=extra_phenotypes_categorical,
+        not_applicable=not_applicable,
         annotations=annotations,
         notation=notation,
         css_classes=css_classes,
@@ -1322,6 +1340,7 @@ def _create_duplicate_nodes(family: Family) -> None:
                 extra_phenotypes=dict(original.extra_phenotypes),
                 extra_phenotypes_raw=dict(original.extra_phenotypes_raw),
                 extra_phenotypes_categorical=dict(original.extra_phenotypes_categorical),
+                not_applicable=set(original.not_applicable),
                 duplicate_of=original_id,
                 notation=replace(original.notation, is_consultand=False),
                 css_classes=list(original.css_classes),

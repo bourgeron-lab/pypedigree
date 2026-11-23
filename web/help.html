@@ -80,7 +80,9 @@
         <code>b_</code> affected or not (2 affected, 1 unaffected, 0 unknown), <code>g_</code> shaded from white to
         colour, <code>gi_</code> the reverse, <code>c_</code> one colour per category,
         <code>o_</code> a coloured outline (one per <code>o_</code> column an individual is affected in, inner first). Without a prefix, the column’s values decide. Missing
-        values (<code>-9</code>, <code>NA</code>, empty) are drawn grey with “NA”.</li>
+        values (<code>-9</code>, <code>NA</code>, empty) are drawn grey with “NA”;
+        <code>N/A</code> (or <code>not_applicable</code>) marks a phenotype that cannot apply to that
+        person, drawn white and crossed.</li>
       <li><strong>Polygenic scores</strong>: columns whose name starts with <code>PGS</code>.</li>
       <li><strong>Carriers</strong>: a <code>carrier</code> column, or one <code>cr_</code>
         column per gene (<code>cr_CFTR</code>): 1 carrier, 2 obligate carrier (as declared; it is
@@ -112,6 +114,8 @@
         donor, a surrogate</td></tr>
       <tr><td>Asterisk beside the lower right</td><td>Documented evaluation, records
         reviewed</td></tr>
+      <tr><td>White band or quadrant crossed by a thin diagonal</td><td>The phenotype does not
+        apply to that person (<code>N/A</code>)</td></tr>
       <tr><td>Hatched symbol or section</td><td>Carrier; wider hatching: obligate carrier
         (NSGC 2022). Each gene has its own pattern in the legend</td></tr>
       <tr><td>Bell curve beside a symbol</td><td>Polygenic score: the mark shows where the

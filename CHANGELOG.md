@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Not applicable as a value of phenotype columns (#107): `N/A`, `not_applicable` or
+  `not applicable` (case-insensitive) says a phenotype cannot apply to that individual (ovarian
+  cancer for someone assigned male at birth, an adult-onset measure for a child), where `NA`
+  keeps meaning no data. The band or quadrant stays white, crossed by a thin grey diagonal,
+  readable in greyscale; the legend gets a "Not applicable" row (`legend_text` role
+  `not_applicable`) and the SVG tooltip "ovarian cancer: not applicable". It is not data: no part
+  in a gradient's range, and a symbol whose bands are all not applicable gets no "NA". Read in
+  pedigree files, DataFrames and `PedigreeBuilder` (`phenotypes={"OC": "N/A"}`); new
+  `Individual.not_applicable` and `NodeLayout.not_applicable`, `BandCell.not_applicable`,
+  `phenotypes.not_applicable_stroke`. New fixture `phenotype/not_applicable.ped`.
+
 ### Changed
 
 - PGS values are read as z-scores by default (`pgs_scale` "zscore", #106): polygenic scores are

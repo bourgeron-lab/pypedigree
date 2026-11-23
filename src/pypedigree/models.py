@@ -233,6 +233,9 @@ class Individual:
     extra_phenotypes: dict[str, float | None] = field(default_factory=dict)
     extra_phenotypes_raw: dict[str, float | None] = field(default_factory=dict)
     extra_phenotypes_categorical: dict[str, str | None] = field(default_factory=dict)
+    # Phenotype columns that do not apply to this individual (N/A, #107):
+    # their value is stored as no data, and they are drawn as not applicable.
+    not_applicable: set[str] = field(default_factory=set)
     annotations: dict[str, str] = field(default_factory=dict)
     notation: Notation = field(default_factory=Notation)
     is_unknown_offspring: bool = False
@@ -441,6 +444,7 @@ class NodeLayout:
     extra_phenotypes: dict[str, float | None] = field(default_factory=dict)
     extra_phenotypes_raw: dict[str, float | None] = field(default_factory=dict)
     extra_phenotypes_categorical: dict[str, str | None] = field(default_factory=dict)
+    not_applicable: set[str] = field(default_factory=set)  # N/A columns (#107)
     rotation: float = 0.0  # Rotation angle in radians
     # Direction of the label from the node, in radians (circular layout: radially
     # outward, away from the lines arriving from the centre). None = below.

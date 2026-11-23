@@ -72,6 +72,9 @@ from pypedigree.phenotypes import (
     LEG_X0,
     NA_FILL,
     NA_TEXT_COLOR,
+    NOT_APPLICABLE_FILL,
+    NOT_APPLICABLE_STROKE,
+    NOT_APPLICABLE_STROKE_PT,
     OUTLINE_WIDTH_SCALE,
     PGS_BOX_PAD,
     PGS_CURVE_SIGMA,
@@ -108,6 +111,7 @@ from pypedigree.phenotypes import (
     legend_rows,
     legend_sex_items,
     legend_slot_count,
+    not_applicable_stroke,
     outline_colors,
     outline_reach,
     outline_ring_offsets,
@@ -1732,6 +1736,10 @@ def _draw_bands(
         )
         band_rect.set_clip_path(clip_patch)
         ax.add_patch(band_rect)
+        if cell.not_applicable:
+            _draw_not_applicable(
+                ax, cx - half, band_top - band_height, 2 * half, band_height, clip_patch
+            )
 
         # Draw band separator line (thin grey)
         if i > 0:
@@ -1865,6 +1873,8 @@ def _draw_quadrants(
         )
         rect.set_clip_path(clip_patch)
         ax.add_patch(rect)
+        if name not in carriers.keys and cell.not_applicable:
+            _draw_not_applicable(ax, x, y, w, h, clip_patch)
         if texts:
             tx, ty = quadrant_center(position, cx, cy, half)
             _fitted_text(
@@ -1882,6 +1892,22 @@ def _draw_quadrants(
                 zorder=6,
             )
     return all_na
+
+
+def _draw_not_applicable(
+    ax: Axes, x: float, y: float, w: float, h: float, clip_patch: mpatches.Patch
+) -> None:
+    """The stroke crossing a band or quadrant that does not apply (#107)."""
+    (x1, y1), (x2, y2) = not_applicable_stroke(x, y, w, h)
+    ax.plot(
+        [x1, x2],
+        [y1, y2],
+        color=NOT_APPLICABLE_STROKE,
+        linewidth=NOT_APPLICABLE_STROKE_PT,
+        zorder=5,
+        clip_path=clip_patch,
+        clip_on=True,
+    )
 
 
 def _units_per_point(axes: _AxesBase, renderer: Any) -> float | None:
@@ -2881,6 +2907,22 @@ def _draw_legend_outline_row(
     _legend_row_label(ax, y_center, row.label, m.icon_text_x, m, style)
 
 
+def _draw_legend_not_applicable_row(
+    ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics, style: PedigreeStyle
+) -> None:
+    """Draw the white swatch crossed by the "not applicable" stroke (#107)."""
+    _legend_swatch(ax, LEG_X0, y_center, m.sw_w, m.sw_h, NOT_APPLICABLE_FILL)
+    (x0, y0), (x1, y1) = not_applicable_stroke(LEG_X0, y_center - m.sw_h / 2, m.sw_w, m.sw_h)
+    ax.plot(
+        [x0, x1],
+        [y0, y1],
+        color=NOT_APPLICABLE_STROKE,
+        linewidth=NOT_APPLICABLE_STROKE_PT,
+        solid_capstyle="butt",
+    )
+    _legend_row_label(ax, y_center, row.label, m.icon_text_x, m, style)
+
+
 def _draw_legend_pgs_row(
     ax: Axes,
     y_center: float,
@@ -3134,6 +3176,8 @@ def _draw_legend(
             _draw_legend_outline_row(ax, y_center, row, m, style)
         elif row.kind == "outline_rings":
             _draw_legend_outline_rings_row(ax, y_center, row, m, style)
+        elif row.kind == "not_applicable":
+            _draw_legend_not_applicable_row(ax, y_center, row, m, style)
         elif row.kind == "pgs":
             _draw_legend_pgs_row(ax, y_center, row, m, style)
         elif row.kind == "legacy_carrier":

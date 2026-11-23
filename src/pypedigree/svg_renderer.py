@@ -74,6 +74,9 @@ from pypedigree.phenotypes import (
     LEG_X0,
     NA_FILL,
     NA_TEXT_COLOR,
+    NOT_APPLICABLE_FILL,
+    NOT_APPLICABLE_STROKE,
+    NOT_APPLICABLE_STROKE_PT,
     OUTLINE_WIDTH_SCALE,
     PGS_DOT_PT,
     PGS_VALUE_GAP_EM,
@@ -109,6 +112,7 @@ from pypedigree.phenotypes import (
     legend_rows,
     legend_sex_items,
     legend_slot_count,
+    not_applicable_stroke,
     outline_colors,
     outline_columns,
     outline_reach,
@@ -852,7 +856,9 @@ def _tooltip(
         category = categorical.get(name)
         value = raw.get(name)
         shown = display_name(name, style)
-        if category is not None:
+        if name in node.not_applicable:
+            lines.append(f"{shown}: not applicable")  # #107
+        elif category is not None:
             lines.append(f"{shown}: {category}")
         elif value is not None and math.isnan(value):
             lines.append(f"{shown}: NA")
@@ -1149,6 +1155,8 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
             out.append(
                 f'<line x1="{left:.3f}" y1="{y:.3f}" x2="{left + width:.3f}" y2="{y:.3f}" {sep}/>'
             )
+        if cell.not_applicable:
+            out.append(_svg_not_applicable(cx - half, y, 2 * half, band_h, clip_attr))
         if cell.text is not None and not (cell.is_na and all_na):
             texts = cell_texts(cell, style.band_text)
             if (svg := fitted(texts, y + band_h / 2, band_fs, cell.text_color)) is not None:
@@ -1206,6 +1214,16 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
     return "\n".join(out)
 
 
+def _svg_not_applicable(x: float, y: float, w: float, h: float, clip_attr: str) -> str:
+    """The stroke crossing a band or quadrant that does not apply (#107)."""
+    (x1, y1), (x2, y2) = not_applicable_stroke(x, y, w, h, up=-1.0)
+    return (
+        f'<line class="not-applicable" x1="{x1:.3f}" y1="{y1:.3f}" x2="{x2:.3f}" '
+        f'y2="{y2:.3f}" stroke="{NOT_APPLICABLE_STROKE}" '
+        f'stroke-width="{NOT_APPLICABLE_STROKE_PT * _PT:.3f}" {clip_attr}/>'
+    )
+
+
 def _node_ring(node: NodeLayout, ctx: _SvgContext) -> float:
     """Room the borders after the first take around this symbol (#46)."""
     return outline_reach(len(outline_colors(node, ctx.outline_names, ctx.style)), ctx.style)
@@ -1247,6 +1265,8 @@ def _svg_quadrants(node: NodeLayout, ctx: _SvgContext, clip_attr: str) -> tuple[
         else:
             cell = quadrant_cell(node, name, style, ctx.render, ctx.display_modes)
             out.append(f'<rect class="band" {geometry} fill="{to_hex(cell.color)}" {clip_attr}/>')
+            if cell.not_applicable:
+                out.append(_svg_not_applicable(x, y, w, h, clip_attr))
             if cell.text is not None and not (cell.is_na and all_na):
                 texts, color = cell_texts(cell, style.band_text), cell.text_color
         room = quadrant_room(node.sex, half, position)
@@ -1692,6 +1712,15 @@ def _svg_legend(
                 swatch(m.swatch_x(k), vc, m.sw_w, m.sw_h, fill)
         elif row.kind == "outline":
             swatch(LEG_X0, vc, m.sw_w, m.sw_h, "white", stroke=row.color, width_pt=2.5)
+        elif row.kind == "not_applicable":
+            # A white swatch crossed by the N/A stroke (#107).
+            swatch(LEG_X0, vc, m.sw_w, m.sw_h, NOT_APPLICABLE_FILL)
+            (u0, w0), (u1, w1) = not_applicable_stroke(LEG_X0, vc - m.sw_h / 2, m.sw_w, m.sw_h)
+            body.append(
+                f'<line class="not-applicable" x1="{X(u0):.3f}" y1="{Y(w0):.3f}" '
+                f'x2="{X(u1):.3f}" y2="{Y(w1):.3f}" stroke="{NOT_APPLICABLE_STROKE}" '
+                f'stroke-width="{NOT_APPLICABLE_STROKE_PT * _PT:.3f}"/>'
+            )
         elif row.kind == "outline_rings":
             # Two nested borders, inner first (#46).
             inner, outer = (to_hex(c) for c in row.colors)

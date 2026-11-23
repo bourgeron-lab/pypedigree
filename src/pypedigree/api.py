@@ -44,6 +44,7 @@ from pypedigree.models import (
     Union,
 )
 from pypedigree.parser import (
+    NOT_APPLICABLE_VALUES,
     _create_phantom_parents,
     _strip_display_prefix,
     build_data_attributes,
@@ -100,6 +101,11 @@ _PHENO_MAP = {
 }
 
 
+def _not_applicable(value: object) -> bool:
+    """Whether a builder phenotype value reads "not applicable" (#107)."""
+    return isinstance(value, str) and value.strip().lower() in NOT_APPLICABLE_VALUES
+
+
 class PedigreeBuilder:
     """Fluent builder for constructing a Pedigree programmatically.
 
@@ -130,7 +136,7 @@ class PedigreeBuilder:
         carrier: bool = False,
         obligate_carrier: bool = False,
         date_of_birth: str | None = None,
-        phenotypes: dict[str, float | int] | None = None,
+        phenotypes: dict[str, float | int | str] | None = None,
         annotations: list[str] | None = None,
         pregnancy: Pregnancy | str | None = None,
         adopted: Adoption | str | None = None,
@@ -162,7 +168,8 @@ class PedigreeBuilder:
             obligate_carrier: Whether this is an obligate carrier: a sparser
                 pattern, or a central dot with the legacy notation.
             date_of_birth: Date of birth string.
-            phenotypes: Extra phenotypes as name→value dict.
+            phenotypes: Extra phenotypes as name→value dict; "N/A" (or
+                "not_applicable") for a phenotype that does not apply (#107).
             annotations: Text lines to display below the individual's ID label.
             pregnancy: "P" (ongoing pregnancy), "SAB" (miscarriage), "TOP"
                 (termination), "ECT" (ectopic) or "SB" (stillbirth), or a
@@ -246,7 +253,7 @@ class PedigreeBuilder:
 
         # Track phenotype names (strip prefix if present)
         if phenotypes:
-            stripped_phenos: dict[str, float | int] = {}
+            stripped_phenos: dict[str, float | int | str] = {}
             for name, val in phenotypes.items():
                 stripped_name, mode = _strip_display_prefix(name)
                 stripped_phenos[stripped_name] = val
@@ -391,16 +398,22 @@ class PedigreeBuilder:
             # Normalize phenotype values
             extra_pheno: dict[str, float | None] = {}
             extra_pheno_raw: dict[str, float | None] = {}
+            not_applicable: set[str] = set()
             if data["phenotypes"]:
                 # Collect all values for normalization
                 all_values: dict[str, list[float]] = {}
                 for ind_data in self._individuals.values():
                     for pname, pval in ind_data.get("phenotypes", {}).items():
-                        if pval is not None:
+                        if pval is not None and not _not_applicable(pval):
                             all_values.setdefault(pname, []).append(float(pval))
 
                 for pname, pval in data["phenotypes"].items():
-                    if pval is not None:
+                    if _not_applicable(pval):
+                        # "N/A": the phenotype does not apply (#107).
+                        extra_pheno[pname] = float("nan")
+                        extra_pheno_raw[pname] = None
+                        not_applicable.add(pname)
+                    elif pval is not None:
                         raw = float(pval)
                         extra_pheno_raw[pname] = raw
                         vals = all_values.get(pname, [raw])
@@ -428,6 +441,7 @@ class PedigreeBuilder:
                 is_obligate_carrier=data["obligate_carrier"],
                 extra_phenotypes=extra_pheno,
                 extra_phenotypes_raw=extra_pheno_raw,
+                not_applicable=not_applicable,
                 annotations={str(i): v for i, v in enumerate(data.get("annotations", []))},
                 notation=data["notation"],
                 css_classes=list(data["css_classes"]),

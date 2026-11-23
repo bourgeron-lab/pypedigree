@@ -67,6 +67,12 @@ NA_FILL = UNKNOWN_FILL
 FALLBACK_COLOR = "#999999"  # column without a phenotype_colors entry
 SEPARATOR_COLOR = "#cccccc"  # thin line between bands
 NA_TEXT_COLOR = "#555555"  # "NA" written on NA_FILL (contrast 5:1)
+# "Not applicable" (#107): the band or quadrant stays white, crossed by a
+# thin grey diagonal, lower left to upper right; readable in greyscale, and
+# unlike white (unaffected), grey (unknown) and grey with "NA" (no data).
+NOT_APPLICABLE_FILL = "white"
+NOT_APPLICABLE_STROKE = "#7f7f7f"
+NOT_APPLICABLE_STROKE_PT = 0.8
 DARK_TEXT = "#333333"  # band text on a light background
 GRADIENT_STEPS = 20  # swatches making up a legend gradient bar
 
@@ -364,12 +370,15 @@ class PhenotypeRender:
             drawn families has, one per ``o_`` column they are affected in
             (`with_outline_rings`, #46). Above one, every symbol is spaced
             and labelled for that many.
+        not_applicable: Whether some individual has a band column that does
+            not apply to them (N/A, #107), which the legend explains.
     """
 
     effective_modes: dict[str, str] = field(default_factory=dict)
     categorical_colors: dict[str, dict[str, str]] = field(default_factory=dict)
     quadrants: dict[str, str] = field(default_factory=dict)
     outline_rings: int = 0
+    not_applicable: bool = False
 
     def effective(self, name: str) -> str:
         """Effective display mode of a column ("binary" if unknown)."""
@@ -505,7 +514,13 @@ def resolve_phenotype_render(
         if effective == "categorical":
             categorical_colors[name] = assign_categorical_colors(name, individuals, style)
 
-    return PhenotypeRender(effective_modes, categorical_colors)
+    band_kinds = ("binary", "gradient", "categorical")
+    not_applicable = any(
+        effective_modes.get(name) in band_kinds
+        for ind in individuals
+        for name in ind.not_applicable
+    )
+    return PhenotypeRender(effective_modes, categorical_colors, not_applicable=not_applicable)
 
 
 # --- Names shown (#56) --------------------------------------------------------
@@ -604,6 +619,7 @@ class _HasPhenotypes(Protocol):
     extra_phenotypes: dict[str, float | None]
     extra_phenotypes_raw: dict[str, float | None]
     extra_phenotypes_categorical: dict[str, str | None]
+    not_applicable: set[str]
 
 
 @dataclass(frozen=True)
@@ -620,12 +636,15 @@ class BandCell:
             "NA" at all and ``text`` is None.
         short: The value alone, for a gradient band whose ``text`` is
             "name: value"; None when ``text`` is already as short (#55).
+        not_applicable: Whether the column does not apply to the individual
+            (N/A, #107): white, no text, crossed by `not_applicable_stroke`.
     """
 
     color: Color
     text: str | None
     is_na: bool
     short: str | None = None
+    not_applicable: bool = False
 
     @property
     def text_color(self) -> str:
@@ -643,6 +662,8 @@ def band_cell(
     display_modes: Mapping[str, PhenotypeDisplayMode],
 ) -> BandCell:
     """Color and text of one phenotype band of one individual."""
+    if name in node.not_applicable:
+        return BandCell(NOT_APPLICABLE_FILL, None, False, not_applicable=True)
     color_hex = style.phenotype_colors.get(name, FALLBACK_COLOR)
     norm_val = node.extra_phenotypes.get(name)
     raw_val = node.extra_phenotypes_raw.get(name)
@@ -724,6 +745,8 @@ def band_has_no_data(node: _HasPhenotypes, name: str) -> bool:
     missing); an individual a separate phenotype file does not list has no
     entry.
     """
+    if name in node.not_applicable:
+        return False  # "not applicable" is said, not missing (#107)
     if name not in node.extra_phenotypes:
         return True
     value = node.extra_phenotypes[name]
@@ -738,9 +761,27 @@ def all_bands_na(node: _HasPhenotypes, band_names: Sequence[str]) -> bool:
     """Whether a symbol has no data in any of its bands (`band_has_no_data`).
 
     Then a single centred "NA" is written instead of one per band. A symbol
-    with a 0 ("unknown") or a category in one of them does not qualify.
+    with a 0 ("unknown") or a category in one of them does not qualify. A
+    band that does not apply (N/A, #107) is no data either, but keeps its
+    stroke; a symbol whose bands are all N/A gets no "NA".
     """
-    return all(band_has_no_data(node, n) for n in band_names)
+    missing = [band_has_no_data(node, n) for n in band_names]
+    applicable = [n not in node.not_applicable for n in band_names]
+    return any(missing) and all(m or not a for m, a in zip(missing, applicable, strict=True))
+
+
+def not_applicable_stroke(
+    x: float, y: float, w: float, h: float, up: float = 1.0
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """The diagonal crossing a band or quadrant that does not apply (#107).
+
+    From the lower left to the upper right of the box (``x``, ``y``, ``w``,
+    ``h``: ``y`` its lower edge with the y axis up, its upper edge with it
+    down, ``up`` -1); the renderers clip it to the symbol.
+    """
+    if up > 0:
+        return (x, y), (x + w, y + h)
+    return (x, y + h), (x + w, y)
 
 
 # --- Quadrants ----------------------------------------------------------------
@@ -886,7 +927,7 @@ def quadrant_cell(
     alone ("103"), without its column name, which the legend key gives.
     """
     cell = band_cell(node, name, style, render, display_modes)
-    if cell.is_na or render.effective(name) != "gradient":
+    if cell.is_na or cell.not_applicable or render.effective(name) != "gradient":
         return cell
     raw = node.extra_phenotypes_raw.get(name)
     return BandCell(cell.color, None if raw is None else f"{raw:g}", False)
@@ -1642,6 +1683,7 @@ LEGEND_TEXT_DEFAULTS: dict[str, str] = {
     "female": "Female",
     "low": "Low",
     "high": "High",
+    "not_applicable": "Not applicable",
 }
 
 
@@ -2484,6 +2526,10 @@ def legend_rows(
                 color=style.phenotype_colors.get(name, FALLBACK_COLOR),
             )
         )
+    if render.not_applicable:
+        # A white swatch crossed by the N/A stroke (#107).
+        rows.append(LegendRow("not_applicable", legend_text(style, "not_applicable")))
+
     outline_names = render.outline_names(names)
     if render.outline_rings > 1 and len(outline_names) > 1:
         # Some individual has several borders: say how to read them (#46).

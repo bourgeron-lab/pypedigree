@@ -218,6 +218,12 @@ class TestVisualExtended:
         fig = render_pedigree(ped)
         _assert_visual_match(fig, "outline_rings", regen_golden)
 
+    def test_not_applicable(self, regen_golden: bool) -> None:
+        """Cancers that do not apply to one sex: white, crossed, a legend row (#107)."""
+        ped = parse_pedigree(DATA_DIR / "phenotype/not_applicable.ped")
+        fig = render_pedigree(ped, style=PedigreeStyle(phenotype_layout="bands"))
+        _assert_visual_match(fig, "not_applicable", regen_golden)
+
     def test_gradient_bins(self, regen_golden: bool) -> None:
         """Clinical thresholds (#57): stepped SRS and inverted IQ, a range's ends."""
         ped = parse_pedigree(DATA_DIR / "phenotype/gradient_bins.ped")

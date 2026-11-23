@@ -367,6 +367,13 @@ Multi-phenotype support:
 - Inline phenotypes parsed from columns 11+ when header is present
 - Separate .pheno TSV file via `--pheno` CLI option
 - Binary phenotypes: 1=unaffected (white), 2=affected (color), 0=unknown (grey), -9=no data (grey with "NA" text: `NA_FILL`, the grey of 0, and `NA_TEXT_COLOR`; a `cr_` band with no data too; `show_na_labels=False` / `--no-na-labels` drops the text, leaving plain grey)
+- Not applicable (#107): `N/A` / `not_applicable` / `not applicable` (`parser.NOT_APPLICABLE_VALUES`) in an extra
+  column → raw None (no data) and the name in `Individual.not_applicable` (copied to `NodeLayout` and duplicates;
+  `PedigreeBuilder` takes "N/A"; `--pheno` files and `cr_` read it as no data). `band_cell` → `BandCell(not_applicable=True)`
+  (white, no text), drawn with `phenotypes.not_applicable_stroke` (clipped `/`, `NOT_APPLICABLE_STROKE`), legend row
+  `"not_applicable"` when `PhenotypeRender.not_applicable` (any band column of the scope), role `not_applicable` in
+  `legend_text`, tooltip "name: not applicable". `band_has_no_data` is False for it; `all_bands_na` needs one no-data band
+  among no-data-or-N/A ones. `tests/test_not_applicable.py`, golden `not_applicable`
 - When all bands are NA for an individual, a single centered "NA" is shown instead of repeating per band
   (`phenotypes.all_bands_na`, per band `band_has_no_data`: -9/NA, a missing category or no value at
   all; a 0 "unknown" or a category is a value. `tests/test_na_label.py`)
@@ -627,6 +634,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   PGS box, tooltip, legend row, PNG borders in points, warning above three
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
 - `tests/test_deceased_pgs.py` — The deceased line clear of the PGS box (#80)
+- `tests/test_not_applicable.py` — Not applicable (N/A) values: parsing, cells, stroke, legend row, tooltip (#107)
 - `tests/test_notation_clearance.py` — The evaluation asterisk's gap in ems, in PNG pixels too (#110),
   the inner letter at the centre with band text clear of it (#105), a diamond's PGS box (#111)
 - `tests/test_pgs_dots_in_box.py` — Spread-out PGS dots kept inside their box (#89)
