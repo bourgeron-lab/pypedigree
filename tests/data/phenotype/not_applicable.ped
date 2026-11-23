@@ -1,0 +1,6 @@
+FID	IID	Father	Mother	Sex	Phenotype	b_breast_cancer	b_ovarian_cancer	b_prostate_cancer
+FAM1	I-1	0	0	1	1	1	N/A	2
+FAM1	I-2	0	0	2	2	2	1	N/A
+FAM1	II-1	I-1	I-2	2	2	2	2	N/A
+FAM1	II-2	I-1	I-2	1	1	-9	N/A	-9
+FAM1	II-3	I-1	I-2	1	1	1	N/A	1

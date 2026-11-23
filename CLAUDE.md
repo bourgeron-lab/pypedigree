@@ -63,6 +63,9 @@ src/pypedigree/
   api.py           -> PedigreeBuilder fluent API (depends on: models, config, renderer, svg_renderer)
   batch.py         -> render_families / family_file_names: one file per family (#49) (depends on:
                       models, config, carriers, phenotypes; renderer or svg_renderer inside the function)
+  canrisk.py   -> CanRisk files (#109) rewritten as pedigree text for _parse_text (depends on: errors)
+  phenopackets.py -> GA4GH Phenopackets v2 Family/Pedigree JSON read as pedigree text; Pedigree export
+                  (#108) (depends on: errors, models; parser.fam_rows inside the export)
   cli.py       -> Click CLI (depends on: parser, config; renderer and matplotlib only for PNG/PDF)
   __init__.py  -> Public re-exports (includes compute_layout_circular); render_pedigree and
                   render_family are imported lazily through a module __getattr__ (PEP 562)
@@ -344,7 +347,16 @@ Extended format adds:
   draws it with `annotate(..., textcoords="offset points")`, the SVG with
   `evaluation_mark_position(..., _PT)`), `gender_identity` (man/woman/nonbinary; `gender` means this only when
   a `sex` column is also present, otherwise it is the sex column), `consultand` (1).
-  `build_notation()` accepts the same codes (used by `PedigreeBuilder`). The inner letter
+  `build_notation()` accepts the same codes (used by `PedigreeBuilder`). #104 adds `count` (`number`;
+  2+ or "n", `Notation.count`, written inside as the inner text, `symbols.inner_letter`; `_check_count_rows`:
+  not a parent; left out of `fam_rows` exports with a warning), `asymptomatic` (`presymptomatic`;
+  `symbols.asymptomatic_line`, overshooting by `ASYMPTOMATIC_OVERSHOOT`; `PhenotypeRender.asymptomatic`:
+  `with_quadrants` draws bands under "auto", warns under "quadrants"; `warn_asymptomatic_sections`; legend
+  row "asymptomatic") and a couple's childlessness (`childless` `choice:<ID>`, `Notation.childless_partner`;
+  `parser.add_childless_unions` makes a `Union(childlessness=...)` with no children, also from
+  `PedigreeBuilder.add_union(..., childless=)`; `layout._couple_childless_edges` with
+  `symbols.couple_childless_segments` from the middle of the relationship line, outward in the circular
+  layout; no individual marker or `marker_depth` then). `tests/test_nsgc_additions.py`. The inner letter
   "P"/"D"/"S" is always at the centre (#105), on a white backing over bands, quadrants or carrier
   sections; band and quadrant text keeps clear of it through `fit_text(..., letter=, offset=)` /
   `phenotypes.clear_of_letter` (a band's text moves right of it, `FittedText.dx`; a quadrant's gets
@@ -367,11 +379,20 @@ Multi-phenotype support:
 - Inline phenotypes parsed from columns 11+ when header is present
 - Separate .pheno TSV file via `--pheno` CLI option
 - Binary phenotypes: 1=unaffected (white), 2=affected (color), 0=unknown (grey), -9=no data (grey with "NA" text: `NA_FILL`, the grey of 0, and `NA_TEXT_COLOR`; a `cr_` band with no data too; `show_na_labels=False` / `--no-na-labels` drops the text, leaving plain grey)
+- Not applicable (#107): `N/A` / `not_applicable` / `not applicable` (`parser.NOT_APPLICABLE_VALUES`) in an extra
+  column → raw None (no data) and the name in `Individual.not_applicable` (copied to `NodeLayout` and duplicates;
+  `PedigreeBuilder` takes "N/A"; `--pheno` files and `cr_` read it as no data). `band_cell` → `BandCell(not_applicable=True)`
+  (white, no text), drawn with `phenotypes.not_applicable_stroke` (clipped `/`, `NOT_APPLICABLE_STROKE`), legend row
+  `"not_applicable"` when `PhenotypeRender.not_applicable` (any band column of the scope), role `not_applicable` in
+  `legend_text`, tooltip "name: not applicable". `band_has_no_data` is False for it; `all_bands_na` needs one no-data band
+  among no-data-or-N/A ones. `tests/test_not_applicable.py`, golden `not_applicable`
 - When all bands are NA for an individual, a single centered "NA" is shown instead of repeating per band
   (`phenotypes.all_bands_na`, per band `band_has_no_data`: -9/NA, a missing category or no value at
   all; a 0 "unknown" or a category is a value. `tests/test_na_label.py`)
 - Continuous phenotypes → color gradient bands
-- PGS scale: `pgs_scale` ("minmax" default, "zscore", "percentile") decides the position on the curve:
+- PGS scale: `pgs_scale` ("zscore" default since 0.10.0, #106; "minmax", "percentile") decides the position on the curve
+  (`phenotypes.warn_pgs_scale`: on "zscore", a PGS column with a value beyond `ZSCORE_MAX_ABS`, a spread under
+  `ZSCORE_MIN_SD` or a mean beyond `ZSCORE_MAX_MEAN` warns, over `pedigree.column_scope` so every family gets one message):
   `active_pgs(node, names, scale)`, `pgs_position(z) = 0.5 + z * PGS_CURVE_SIGMA` on fixed scales,
   `pgs_tail_positions()` (±2 SD dotted lines), `pgs_value_text()` for the SVG tooltip. Curves (and the
   legend) are drawn even with no other phenotype column. `tests/test_pgs_scale.py`
@@ -506,7 +527,7 @@ pypedigree INPUT.ped [OPTIONS]
 --no-legend              Hide the phenotype legend
 --show-phenotype-labels  Show YES/NO text inside binary phenotype bands
 --no-na-labels           Do not write "NA" in bands with no data (style `show_na_labels`)
---pgs-scale [minmax|zscore|percentile]  PGS position: min-max over the pedigree (default), z-score or percentile
+--pgs-scale [zscore|minmax|percentile]  PGS position: z-score (default), min-max over the pedigree (raw scores) or percentile
 --show-pgs-values        Write each PGS value beside its marker (style `show_pgs_values`)
 --phenotype-layout [auto|quadrants|bands]  Quadrants up to four phenotypes, bands beyond (auto, default), or one of them
 --interactive            Generate interactive SVG with tooltips and click highlighting
@@ -625,6 +646,10 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   PGS box, tooltip, legend row, PNG borders in points, warning above three
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
 - `tests/test_deceased_pgs.py` — The deceased line clear of the PGS box (#80)
+- `tests/test_nsgc_additions.py` — Several individuals in one symbol, asymptomatic carriers, a childless couple (#104)
+- `tests/test_phenopackets.py` — Phenopackets v2 Family / Pedigree read, Pedigree written (#108)
+- `tests/test_canrisk.py` — CanRisk files v1-v4 (#109): structure, target, cancers and N/A, annotations, PRS, errors
+- `tests/test_not_applicable.py` — Not applicable (N/A) values: parsing, cells, stroke, legend row, tooltip (#107)
 - `tests/test_notation_clearance.py` — The evaluation asterisk's gap in ems, in PNG pixels too (#110),
   the inner letter at the centre with band text clear of it (#105), a diamond's PGS box (#111)
 - `tests/test_pgs_dots_in_box.py` — Spread-out PGS dots kept inside their box (#89)
@@ -710,6 +735,27 @@ Native support for PLINK bioinformatics formats:
 - `parse_plink_ped(path)` — reads PLINK `.ped` files (ignores genotype columns after col 6)
 - `export_fam(pedigree, path)` — writes `.fam` format (excludes phantoms/duplicates)
 - CLI: `.fam` extension auto-detected; `--plink` flag for PLINK `.ped` files
+
+## CanRisk files
+
+`canrisk.is_canrisk` (first line `##CanRisk`) and `canrisk_to_text` (#109): `parser._parse_any`, called by
+`parse_pedigree` and `parse_pedigree_from_string`, rewrites a CanRisk file (v1-v4, several family blocks,
+columns by the names of the `##FamID` line) as header + tab text and calls `_parse_text(..., header=True)`.
+Target → `consultand` (and `proband` if affected); one `b_` column per cancer someone has, "N/A" (#107) for
+ovarian/prostate cancer of the other sex assigned at birth (an age given is kept, with a warning); `a_`
+columns in NSGC order (age, cancers, one per gene tested, pathology, ancestry); `##PRS_*` z-scores on the
+block's target as `PGS_*_cancer`. `Name` and risk-factor keys are dropped. `tests/test_canrisk.py`,
+fixtures `tests/data/format/canrisk_v*.txt`; web example "CanRisk file".
+
+## GA4GH Phenopackets v2
+
+`phenopackets.load_phenopacket` (text starting with `{`: JSON with a top-level `pedigree` or `persons`,
+else `PedigreeParseError`), `phenopacket_to_text` (persons; camelCase or snake_case; enums by name or
+Phenopackets number, `Sex` FEMALE = 1, MALE = 2; proband from `proband.subject.id`, deaths from every
+phenopacket's `vitalStatus`) and `mark_declared_consanguinity` (`consanguinousParents`: the proband's
+parents' union `is_consanguinous`, warning when the structure did not find it), all called by
+`parser._parse_any`. `export_phenopacket_pedigree` writes `{"persons": [...]}` from `parser.fam_rows`, the
+rows `export_fam` writes. HPO features and diseases are not read. `tests/test_phenopackets.py`.
 
 ## Pandas Integration
 

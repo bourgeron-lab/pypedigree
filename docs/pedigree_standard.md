@@ -48,7 +48,8 @@ Phenotype types:
 - **Conventional phenotypes**: columns named for autism (`Autism`, `ASD`, `TSA`), intellectual disability (`ID`, `DI`, `Intellectual disability`), ADHD (`ADHD`, `TDAH`) or epilepsy (`Epilepsy`, `Épilepsie`), whatever their prefix and case, are drawn blue, red, yellow and purple, and take the top-left, bottom-left, top-right and bottom-right quadrants. A color in `phenotype_colors` or a quadrant in `phenotype_quadrants` overrides them.
 - **Continuous phenotypes**: numeric values > 2 — rendered as color gradients (min→white, max→full color).
 - **Missing values**: empty, `.`, `NA`, `NaN` — treated as `-9` (no data).
-- **PGS scale**: By default a PGS value is placed between the pedigree's lowest and highest score (`pgs_scale: "minmax"`), so its position says nothing about the population. With `--pgs-scale zscore` (style `"pgs_scale": "zscore"`) the value is a z-score, e.g. ancestry-matched, placed on the drawn standard normal; with `percentile` it is a population percentile (0-100). On these fixed scales the curve's +/-2 SD tails are marked with dotted lines, values beyond the box are clipped to its edge, the legend names the scale, and the SVG tooltip gives z and percentile ("z = +1.10, 86th percentile"). PGS curves are drawn even when the pedigree has no other phenotype column.
+- **Not applicable**: `N/A`, `not_applicable` or `not applicable` (case-insensitive) in a binary, gradient, binned or categorical column says the phenotype cannot apply to that individual (ovarian cancer for someone assigned male at birth, prostate cancer for someone assigned female at birth, an adult-onset measure for a child). `NA` keeps meaning no data. The band or quadrant stays white, crossed by a thin grey diagonal (lower left to upper right), unlike white (unaffected), grey (unknown) and grey with "NA" (no data), and readable in greyscale; the legend has a "Not applicable" row (wording through `legend_text`, role `not_applicable`) and the SVG tooltip reads "ovarian cancer: not applicable". It is not data: it does not count in a gradient's range or make a column categorical. A symbol whose bands are all no data or not applicable gets one centred "NA" when at least one is no data, none when all are not applicable. Read in the pedigree file, a DataFrame and `PedigreeBuilder` (`phenotypes={"OC": "N/A"}`); a separate `--pheno` file and `cr_` carrier columns read it as no data.
+- **PGS scale**: By default (since 0.10.0) a PGS value is a z-score, e.g. standardised in an ancestry-matched reference population as CanRisk, the PGS Catalog's calculator or a pTDT analysis give it, placed on the drawn standard normal (`pgs_scale: "zscore"`). If a PGS column does not look like z-scores (a value beyond ±5; or, with at least 5 values, a standard deviation under 0.05, as raw PLINK scores have; or, with at least 20 values, a mean beyond ±2), a warning suggests `--pgs-scale minmax` (style `"pgs_scale": "minmax"`), which places each value between the pedigree's lowest and highest score, for raw scores: that position says nothing about the population. With `percentile` the value is a population percentile (0-100). On the fixed scales the curve's +/-2 SD tails are marked with dotted lines, values beyond the box are clipped to its edge, the legend names the scale, and the SVG tooltip gives z and percentile ("z = +1.10, 86th percentile"). PGS curves are drawn even when the pedigree has no other phenotype column.
 - **PGS columns**: any column whose name starts with `PGS` (case-insensitive) is treated as a PGS column -- e.g. `PGS`, `PGS_autism`, `PGS_IQ`. Multiple PGS values are displayed on a single gaussian curve with distinct colored markers. Marker colors are controlled by the `pgs_colors` style option. Markers whose values are too close to tell apart have their dots set side by side; `show_pgs_values` (`--show-pgs-values`) writes each value beside its marker. With several PGS columns and no `pgs_colors` entry, each gets its own color: a score named after a known phenotype (`PGS_autism`, `PGS_ADHD`, `PGS_ID`, `PGS_epilepsy`) takes that phenotype's color, the one its column has in the figure if there is one; the others take the first color unlike the other scores and the phenotype bands, starting from `#e74c3c`. A single PGS column keeps `#e74c3c`. `pgs_colors` entries always win. When PGS columns are present, `couple_gap` and `sibling_gap` auto-increase to accommodate the curve. The curve goes left of the symbol, or right of it for the right-hand partner of a couple, off the line between partners.
 - **pTDT deviations** (#52): a column whose name starts with `pTDT` (case-insensitive, e.g. `pTDT_autism`) holds each child's polygenic transmission deviation, (PGS_child − PGS_mid-parent) / SD(PGS_mid-parent) (Weiner et al. 2017), N(0, 1) without over-transmission. It is drawn with the PGS curve, always on the z scale whatever `pgs_scale` (±2 SD marked), captioned "pTDT" under the curve; the legend has its own row, "pTDT deviation, (child − mid-parent) / SD, ±2 SD marked:" then its key, and the SVG tooltip reads "pTDT = +2.12" (no percentile). An individual's curve shows one kind: its pTDT deviations if it has any, otherwise its PGS, so the parents' PGS and the children's pTDT share a figure; an individual with both draws a `PedigreeDataWarning`. `pTDT_autism` may take the color `PGS_autism` has. pypedigree does not compute the deviations: give them in the file.
 - **SVG hooks**: A `css_class` column (classes separated by spaces or commas) and `data_` columns (`data_qc` → `data-qc`, `_` becoming `-`) do not draw anything: they add classes and `data-*` attributes to the individual's node in the interactive SVG, for the host page's stylesheet and scripts (`.node.flagged`, `[data-qc="high"]`). Empty, `.` or `NA` leave them out; `0` and `-9` are kept as values. Class names must be CSS identifiers, and `node` and `dimmed` are used by the SVG itself; `data-id`, `data-parents`, `data-children`, `data-siblings`, `data-x`, `data-y` and `data-size` are written by pypedigree. Any other name raises `PedigreeParseError` with the line.
@@ -144,6 +145,65 @@ nothing to note, and any other value is an error naming the line.
 
 Gestational age, karyotype, the reason for infertility and similar details go in
 `a_` annotation columns.
+
+## CanRisk files
+
+pypedigree reads the pedigree files of the CanRisk tool (BOADICEA model; formats 1 to 4, current
+since CanRisk 4.0), recognised by their first line, `##CanRisk 4.0` (or `2.0`, `3`, ...), from the
+CLI, `parse_pedigree()`, `parse_pedigree_from_string()` and the web app. A file may hold several
+families, each with its own `##CanRisk` header block. Columns are read by the names of the
+`##FamID ...` line, so every version is read by the same code (v1 has no `BARD1`, v2 and v3 no
+`HOXB13`).
+
+| CanRisk | pypedigree |
+|---|---|
+| `FamID`, `IndivID`, `FathID`, `MothID` (`0` unknown) | family, ID, father, mother |
+| `Name` | left out: in CanRisk it is often a real name or a role |
+| `Target` (1: the person whose risk is computed) | the consultand; an affected target is also the proband (one arrow, with "P") |
+| `Sex` (M/F) | sex (assigned at birth) |
+| `MZtwin` (a code shared by identical twins) | monozygotic twins |
+| `Dead`, `Yob` | deceased, year of birth |
+| `Age` (`0` unknown) | an annotation, "45y", or "d. 61y" for someone deceased |
+| `BC1`, `BC2`, `OC`, `PRO`, `PAN` (`0`, an age, or `AU` for an unknown age) | one binary column per cancer someone in the file has: `breast cancer` (BC1 or BC2), `ovarian cancer`, `prostate cancer`, `pancreatic cancer`; the ages as an annotation ("BC 40, BC2 52", "OC 44", "PrC 61", "PaC 66", "BC ?") |
+| `BRCA1` … `BRIP1` (`type:result`) | one annotation line per gene tested, as NSGC writes a result: "BRCA1 +", "BRCA2 −"; untested genes write nothing |
+| `HOXB13` (v4: `T:HET`, `T:HOM`, `T:N`) | "HOXB13 + (het)", "HOXB13 + (hom)", "HOXB13 −" |
+| `ER:PR:HER2:CK14:CK56` | for people with breast cancer, the markers given: "ER+ PR+ HER2−" |
+| `Ashkn` | "Ashkenazi Jewish" for `1` |
+| `##PRS_BC`, `##PRS_OC`, `##PRS_PC` (`alpha=…, zscore=…`) | the target's z-score in a `PGS_breast_cancer`, `PGS_ovarian_cancer` or `PGS_prostate_cancer` column, drawn on the z-score scale (the default) |
+| other header keys (menarche, parity, BMI, ...) | ignored: risk factors, not pedigree data |
+
+Annotation lines follow NSGC order: age, cancers, gene tests, pathology, Ashkenazi. Ovarian cancer
+does not apply to people assigned male at birth, nor prostate cancer to people assigned female at
+birth: those cells are "not applicable" (white, crossed). An age given for one (which CanRisk
+should not produce) is kept as affected, with a warning. A value CanRisk does not allow raises
+`PedigreeParseError` naming the line. CanRisk files are read, not written.
+
+## GA4GH Phenopackets v2
+
+A GA4GH Phenopackets v2 (ISO 4454:2022) JSON file is read by the CLI, `parse_pedigree()`,
+`parse_pedigree_from_string()` and the web app: a whole `Family` (`proband`, `relatives`,
+`pedigree`) or a bare `Pedigree` (`{"persons": [...]}`), recognised by a top-level `pedigree` or
+`persons` key. Any other JSON raises `PedigreeParseError`.
+
+| Phenopackets v2 | pypedigree |
+|---|---|
+| `pedigree.persons[].familyId`, `individualId`, `paternalId`, `maternalId` | family, ID, father, mother; `"0"`, `""` or a missing field is an unknown parent |
+| `sex`: `MALE`, `FEMALE`, `UNKNOWN_SEX`, `OTHER_SEX` | sex 1, 2, 0, 0 |
+| `affectedStatus`: `AFFECTED`, `UNAFFECTED`, `MISSING` | phenotype 2, 1, 0 |
+| `proband.subject.id` | proband |
+| `subject.vitalStatus.status` `DECEASED`, on any phenopacket | deceased |
+| `consanguinousParents: true` | the proband's parents drawn with a double line; when the pedigree holds none of their common ancestors, with a warning |
+
+proto3 JSON is read as protobuf writes it: camelCase or snake_case names (`individualId` /
+`individual_id`), fields at their default value left out (no `sex`: `UNKNOWN_SEX`; no
+`affectedStatus`: `MISSING`), and enums as names or numbers. Numbers follow the Phenopackets
+schema, not PED: `Sex` is `FEMALE = 1`, `MALE = 2`. Phenotypic features (HPO terms), diseases and
+`gender` are not drawn.
+
+`export_phenopacket_pedigree(pedigree, path)` writes a `Pedigree` message from the PED fields,
+without phantom parents or duplicates, as `export_fam` does, with `UNKNOWN_SEX` and `MISSING`
+written out. A whole `Family` is not written: it needs phenopackets with clinical data and metadata
+pypedigree does not hold.
 
 ## Diagram representation
 
@@ -357,10 +417,36 @@ evaluation's result, when given, is written below the symbol, after the other
 notes; the 2022 revision dropped the "E" notation of 2008 (E+, E-), so the
 result is written as given.
 
-Not covered: several individuals in one symbol ("n"), the asymptomatic-carrier
-vertical line, and childlessness of a couple
-(drawn from the relationship line in the NSGC figures; here the marker hangs
-from one individual).
+**Several individuals in one symbol** (#104): a `count` column (alias `number`)
+holds their number, 2 or more, or `n` when it is unknown, written inside the
+symbol as "P" is (white on a filled symbol, on a white patch over bands). The
+symbol follows `sex`, so a group of mixed sexes is a diamond. Such a row stands
+for several people: it cannot be a parent (`PedigreeParseError`), its tooltip
+says "5 individuals", and `export_fam` and `export_phenopacket_pedigree` leave it
+out with a warning.
+
+![Several individuals](imgs/several_individuals.png)
+
+**Asymptomatic or presymptomatic carrier** (#104): an `asymptomatic` column
+(alias `presymptomatic`; `1`, `yes`, `true`) draws a vertical line through the
+middle of the symbol, past its top and bottom so it is not taken for the line
+between quadrants, in the outline color, with a legend row. Since that line
+runs where quadrants meet, a figure with an asymptomatic carrier is drawn with
+bands under `phenotype_layout` "auto"; "quadrants" keeps them, with a warning.
+An asymptomatic carrier with NSGC 2022 carrier sections draws a warning too.
+
+![Asymptomatic carrier](imgs/asymptomatic_carrier.png)
+
+**Childlessness of a couple** (#104): `childless` names the partner,
+`choice:<ID>` or `infertility:<ID>`, on either partner's row (or both). This
+makes a union with no children, placed and joined like any couple, and the
+marker's stem leaves the middle of their relationship line, where a descent line
+would start, ending in one or two bars. A bare `choice` / `infertility` keeps the
+marker under the individual. A couple that has children in the file keeps them,
+with a warning. `PedigreeBuilder.add_union(..., childless="infertility")` does
+the same.
+
+![Childless couple](imgs/childless_couple.png)
 
 ## Families with only the parents
 

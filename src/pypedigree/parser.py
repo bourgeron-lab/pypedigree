@@ -12,7 +12,7 @@ import numbers
 import re
 import warnings
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, TypeVar
 if TYPE_CHECKING:
     import pandas as pd
 
+from pypedigree.canrisk import canrisk_to_text, is_canrisk
 from pypedigree.errors import (
     PedigreeDataWarning,
     PedigreeError,
@@ -43,6 +44,11 @@ from pypedigree.models import (
     TwinInfo,
     TwinType,
     Union,
+)
+from pypedigree.phenopackets import (
+    load_phenopacket,
+    mark_declared_consanguinity,
+    phenopacket_to_text,
 )
 
 # Known header tokens (case-insensitive) for auto-detection
@@ -121,6 +127,10 @@ _COLUMN_ROLES: dict[str, str] = {
     "gender_identity": "gender_identity",
     "identity": "gender_identity",
     "consultand": "consultand",
+    "count": "count",
+    "number": "count",
+    "asymptomatic": "asymptomatic",
+    "presymptomatic": "asymptomatic",
     "evaluated": "evaluated",
     "documented_evaluation": "evaluated",
     "evaluation": "evaluated",
@@ -135,6 +145,8 @@ _NOTATION_ROLES = (
     "gender_identity",
     "consultand",
     "evaluated",
+    "count",
+    "asymptomatic",
 )
 
 # Standard structural columns (order matters for the fixed-position fallback)
@@ -348,6 +360,15 @@ _TRUE_VALUES = frozenset({"1", "yes", "y", "true"})
 # For extra phenotype columns (11+), "0" is a valid value (binary = unaffected)
 _PHENO_MISSING_VALUES = frozenset({"-9", "nan", "na", ".", ""})
 
+# "Not applicable" in an extra phenotype column (#107), case-insensitive:
+# the phenotype cannot apply to this individual. "NA" keeps meaning no data.
+NOT_APPLICABLE_VALUES = frozenset({"n/a", "not_applicable", "not applicable"})
+
+
+def _is_not_applicable(value: str) -> bool:
+    """Whether a phenotype cell reads "not applicable" (`NOT_APPLICABLE_VALUES`)."""
+    return value.strip().lower() in NOT_APPLICABLE_VALUES
+
 
 def _is_missing(value: str) -> bool:
     """Check if a value represents missing data."""
@@ -485,6 +506,7 @@ def _parse_individual(
     # The phenotype_names list excludes the carrier column, so we iterate
     # over all columns from index 10+ and skip the carrier column index.
     extra_phenotypes_raw: dict[str, float | None] = {}
+    not_applicable: set[str] = set()
     is_carrier = False
     is_obligate_carrier = False
     if len(fields) > 10:
@@ -506,6 +528,9 @@ def _parse_individual(
                 val_raw = fields[col_idx].strip()
                 if _is_pheno_missing(val_raw):
                     extra_phenotypes_raw[name] = None
+                elif _is_not_applicable(val_raw):
+                    extra_phenotypes_raw[name] = None
+                    not_applicable.add(name)
                 else:
                     try:
                         extra_phenotypes_raw[name] = float(val_raw)
@@ -526,6 +551,7 @@ def _parse_individual(
         is_carrier=is_carrier,
         is_obligate_carrier=is_obligate_carrier,
         extra_phenotypes_raw=extra_phenotypes_raw,
+        not_applicable=not_applicable,
     )
 
 
@@ -601,13 +627,16 @@ def _parse_individual_mapped(
     # Extra phenotypes from named columns
     extra_phenotypes_raw: dict[str, float | None] = {}
     extra_phenotypes_categorical: dict[str, str | None] = {}
+    not_applicable: set[str] = set()
     for col_idx, name in col_map.extra_phenotype_cols:
         val_raw = _get(col_idx)
         mode = col_map.phenotype_display_modes.get(name, PhenotypeDisplayMode.AUTO)
-        if not val_raw or _is_pheno_missing(val_raw):
+        if not val_raw or _is_pheno_missing(val_raw) or _is_not_applicable(val_raw):
             extra_phenotypes_raw[name] = None
             if mode == PhenotypeDisplayMode.CATEGORICAL:
                 extra_phenotypes_categorical[name] = None
+            if val_raw and _is_not_applicable(val_raw):
+                not_applicable.add(name)
         elif mode == PhenotypeDisplayMode.CATEGORICAL:
             # Categorical: store string value, also try numeric for raw
             extra_phenotypes_categorical[name] = val_raw.strip()
@@ -664,6 +693,7 @@ def _parse_individual_mapped(
         is_obligate_carrier=is_obligate_carrier,
         extra_phenotypes_raw=extra_phenotypes_raw,
         extra_phenotypes_categorical=extra_phenotypes_categorical,
+        not_applicable=not_applicable,
         annotations=annotations,
         notation=notation,
         css_classes=css_classes,
@@ -825,6 +855,34 @@ def _notation_value(
     return value
 
 
+def _split_childless(value: object) -> tuple[object, str | None]:
+    """A ``childless`` value and the partner of ``choice:<ID>`` /
+    ``infertility:<ID>`` (a couple's childlessness, #104)."""
+    if isinstance(value, str) and ":" in value:
+        code, partner = value.split(":", 1)
+        return code, partner.strip() or None
+    return value, None
+
+
+def _count(value: object, where: str) -> str | None:
+    """Several individuals in one symbol (#104): a number of 2 or more, or "n"."""
+    if value is None or value is False:
+        return None
+    text = str(value).strip()
+    if _is_missing(text):
+        return None
+    if text.lower() == "n":
+        return "n"
+    if text.isdigit() and int(text) >= 2:
+        return str(int(text))
+    raise PedigreeParseError(f"{where}count must be 2 or more, or n; got {value!r}")
+
+
+def _yes(value: object) -> bool:
+    """A yes in a flag column or keyword: True, 1, yes, y, true."""
+    return value is True or (isinstance(value, str) and value.strip().lower() in _TRUE_VALUES)
+
+
 def _coerce_notation(value: _E | str | None, role: str, codes: dict[str, _E]) -> _E | None:
     """An enum value given as such, or as one of the column's codes."""
     if value is None or isinstance(value, Enum):
@@ -872,27 +930,36 @@ def build_notation(
     gender: Gender | str | None = None,
     consultand: bool = False,
     evaluated: bool | str = False,
+    count: int | str | None = None,
+    asymptomatic: bool | str = False,
 ) -> Notation:
     """Build a Notation from enum values or the codes of the ``.ped`` columns.
 
     Accepts the same codes as the ``pregnancy``, ``adopted``, ``childless``,
     ``art`` and ``gender_identity`` columns (case-insensitive). ``evaluated``
     is True for a documented evaluation (an asterisk), or the evaluation's
-    result as text, written below the symbol.
+    result as text, written below the symbol. ``childless`` may name a
+    partner, ``"choice:<ID>"``, for a couple without children; ``count``
+    is the number of individuals the symbol stands for (2 or more, or "n");
+    ``asymptomatic`` marks an asymptomatic or presymptomatic carrier (#104).
 
     Raises:
         PedigreeParseError: If a value is not one of the accepted codes.
     """
     is_evaluated, evaluation = _evaluation(evaluated)
+    childless_code, partner = _split_childless(childless)
     return Notation(
         pregnancy=_coerce_notation(pregnancy, "pregnancy", _PREGNANCY_CODES),
         adoption=_coerce_notation(adopted, "adopted", _ADOPTION_CODES),
-        childlessness=_coerce_notation(childless, "childless", _CHILDLESS_CODES),
+        childlessness=_coerce_notation(childless_code, "childless", _CHILDLESS_CODES),  # type: ignore[arg-type]
         reproductive_role=_coerce_notation(art, "art", _ART_CODES),
         gender=_coerce_notation(gender, "gender_identity", _GENDER_CODES),
         is_consultand=consultand,
         is_evaluated=is_evaluated,
         evaluation=evaluation,
+        count=_count(count, ""),
+        is_asymptomatic=_yes(asymptomatic) if isinstance(asymptomatic, str) else bool(asymptomatic),
+        childless_partner=partner,
     )
 
 
@@ -906,15 +973,21 @@ def _parse_notation(raw: dict[str, str], line_num: int) -> Notation:
         PedigreeParseError: If a value is not one of the codes of its column.
     """
     is_evaluated, evaluation = _evaluation(raw.get("evaluated"))
+    childless, partner = _split_childless(raw.get("childless", ""))
     return Notation(
         pregnancy=_notation_value(raw, "pregnancy", _PREGNANCY_CODES, line_num),
         adoption=_notation_value(raw, "adopted", _ADOPTION_CODES, line_num),
-        childlessness=_notation_value(raw, "childless", _CHILDLESS_CODES, line_num),
+        childlessness=_notation_value(
+            {"childless": str(childless)}, "childless", _CHILDLESS_CODES, line_num
+        ),
         reproductive_role=_notation_value(raw, "art", _ART_CODES, line_num),
         gender=_notation_value(raw, "gender_identity", _GENDER_CODES, line_num),
         is_consultand=raw.get("consultand", "").strip() == "1",
         is_evaluated=is_evaluated,
         evaluation=evaluation,
+        count=_count(raw.get("count"), f"Line {line_num}: "),
+        is_asymptomatic=_yes(raw.get("asymptomatic", "")),
+        childless_partner=partner,
     )
 
 
@@ -995,6 +1068,59 @@ def _resolve_twin_relationships(family: Family) -> None:
             has_reciprocal = any(t.sibling_id == ind.sample_id for t in sibling.twin_info)
             if not has_reciprocal:
                 sibling.twin_info.append(TwinInfo(twin_type=ti.twin_type, sibling_id=ind.sample_id))
+
+
+def add_childless_unions(family: Family) -> None:
+    """Add the unions of couples declared without children (#104).
+
+    ``childless`` ``choice:<ID>`` or ``infertility:<ID>`` on either partner's
+    row (or both) makes a union with no children, drawn as any couple, whose
+    marker hangs from the middle of the relationship line. A couple that has
+    children after all keeps them, with a warning.
+
+    Raises:
+        PedigreeParseError: If the partner is not in the family.
+    """
+    for ind in list(family.individuals.values()):
+        partner = ind.notation.childless_partner
+        kind = ind.notation.childlessness
+        if partner is None or kind is None:
+            continue
+        if partner not in family.individuals:
+            raise PedigreeParseError(
+                f"{ind.sample_id}: childless partner {partner!r} is not in family "
+                f"{family.family_id!r}"
+            )
+        pair = frozenset((ind.sample_id, partner))
+        union = next((u for u in family.unions if frozenset(u.partner_ids) == pair), None)
+        if union is not None and union.children_ids:
+            warnings.warn(
+                f"{ind.sample_id} and {partner} are declared without children but have "
+                f"children in the file: no childlessness marker is drawn.",
+                PedigreeDataWarning,
+                stacklevel=3,
+            )
+            continue
+        if union is None:
+            first, second = sorted(
+                (ind.sample_id, partner),
+                key=lambda sid: family.individuals[sid].sex != Sex.MALE,
+            )
+            union = Union(partner_ids=(first, second))
+            family.unions.append(union)
+        union.childlessness = kind
+
+
+def _check_count_rows(family: Family) -> None:
+    """A row standing for several people (``count``, #104) cannot be a parent."""
+    groups = {sid for sid, ind in family.individuals.items() if ind.notation.count}
+    for ind in family.individuals.values():
+        for parent in (ind.father_id, ind.mother_id):
+            if parent in groups:
+                raise PedigreeParseError(
+                    f"{parent} stands for several individuals (count) and cannot be the "
+                    f"parent of {ind.sample_id}"
+                )
 
 
 def _infer_unions(family: Family) -> list[Union]:
@@ -1322,6 +1448,7 @@ def _create_duplicate_nodes(family: Family) -> None:
                 extra_phenotypes=dict(original.extra_phenotypes),
                 extra_phenotypes_raw=dict(original.extra_phenotypes_raw),
                 extra_phenotypes_categorical=dict(original.extra_phenotypes_categorical),
+                not_applicable=set(original.not_applicable),
                 duplicate_of=original_id,
                 notation=replace(original.notation, is_consultand=False),
                 css_classes=list(original.css_classes),
@@ -1396,7 +1523,7 @@ def parse_pedigree(file_path: str | Path) -> Pedigree:
     if not text:
         raise PedigreeParseError(f"Pedigree file is empty: {path}")
 
-    return _parse_text(text)
+    return _parse_any(text)
 
 
 def parse_pedigree_from_string(text: str) -> Pedigree:
@@ -1415,6 +1542,19 @@ def parse_pedigree_from_string(text: str) -> Pedigree:
     text = text.strip()
     if not text:
         raise PedigreeParseError("Pedigree text is empty")
+    return _parse_any(text)
+
+
+def _parse_any(text: str) -> Pedigree:
+    """Parse a pedigree file, or a CanRisk file (#109) or a GA4GH Phenopackets
+    v2 ``Family`` / ``Pedigree`` (#108) rewritten as one."""
+    if is_canrisk(text):
+        return _parse_text(canrisk_to_text(text), header=True)
+    packet = load_phenopacket(text)
+    if packet is not None:
+        pedigree = _parse_text(phenopacket_to_text(packet), header=True)
+        mark_declared_consanguinity(pedigree, packet)
+        return pedigree
     return _parse_text(text)
 
 
@@ -1628,6 +1768,9 @@ def _parse_text(
 
         # Infer unions
         family.unions = _infer_unions(family)
+        # Couples declared without children (#104), and groups that cannot be parents
+        add_childless_unions(family)
+        _check_count_rows(family)
 
         # Detect consanguinous unions (shared ancestors)
         _detect_consanguinity(family)
@@ -1936,6 +2079,42 @@ def parse_plink_ped(file_path: str | Path) -> Pedigree:
     return _parse_text(text, max_columns=6)
 
 
+def _original_parent(family: Family, parent: str | None) -> str:
+    """A parent ID as written in a file: "0" for none or a phantom, the
+    original's ID for a duplicate."""
+    if not parent or parent.startswith("_phantom_"):
+        return "0"
+    if parent.startswith("_dup_"):
+        dup = family.individuals.get(parent)
+        return dup.duplicate_of if dup and dup.duplicate_of else "0"
+    return parent
+
+
+def fam_rows(pedigree: Pedigree) -> Iterator[tuple[str, str, str, str, Individual]]:
+    """The individuals a PED export writes: family, ID, father, mother ("0"
+    when unknown) and the individual, without phantom parents or duplicates,
+    whose IDs are resolved back to the original (`export_fam`,
+    `phenopackets.export_phenopacket_pedigree`)."""
+    groups = []
+    for family in pedigree.families.values():
+        for ind in family.individuals.values():
+            if ind.is_phantom or ind.is_duplicate:
+                continue
+            if ind.notation.count:
+                groups.append(ind.sample_id)  # several people in one row (#104)
+                continue
+            father = _original_parent(family, ind.father_id)
+            mother = _original_parent(family, ind.mother_id)
+            yield ind.family_id, ind.sample_id, father, mother, ind
+    if groups:
+        warnings.warn(
+            f"{', '.join(groups)} stand(s) for several individuals (count) and are left out "
+            "of the export, which has one row per person.",
+            PedigreeDataWarning,
+            stacklevel=3,
+        )
+
+
 def export_fam(pedigree: Pedigree, file_path: str | Path) -> Path:
     """Export a Pedigree to PLINK .fam format.
 
@@ -1953,46 +2132,14 @@ def export_fam(pedigree: Pedigree, file_path: str | Path) -> Path:
         The Path of the written file.
     """
     path = Path(file_path)
-    lines: list[str] = []
-
-    for family in pedigree.families.values():
-        for ind in family.individuals.values():
-            if ind.is_phantom or ind.is_duplicate:
-                continue
-
-            fid = ind.family_id
-            iid = ind.sample_id
-            # Resolve internal IDs back to original
-            father = ind.father_id
-            if father:
-                if father.startswith("_phantom_"):
-                    father = "0"
-                elif father.startswith("_dup_"):
-                    fi = family.individuals.get(father)
-                    father = fi.duplicate_of if fi and fi.duplicate_of else "0"
-            else:
-                father = "0"
-            pat = father
-
-            mother = ind.mother_id
-            if mother:
-                if mother.startswith("_phantom_"):
-                    mother = "0"
-                elif mother.startswith("_dup_"):
-                    mi = family.individuals.get(mother)
-                    mother = mi.duplicate_of if mi and mi.duplicate_of else "0"
-            else:
-                mother = "0"
-            mat = mother
-
-            sex_map = {Sex.MALE: "1", Sex.FEMALE: "2", Sex.UNKNOWN: "0"}
-            sex = sex_map.get(ind.sex, "0")
-
-            pheno_map = {Phenotype.UNAFFECTED: "1", Phenotype.AFFECTED: "2", Phenotype.UNKNOWN: "0"}
-            pheno = pheno_map.get(ind.phenotype, "0")
-
-            lines.append(f"{fid}\t{iid}\t{pat}\t{mat}\t{sex}\t{pheno}")
-
+    sex_map = {Sex.MALE: "1", Sex.FEMALE: "2", Sex.UNKNOWN: "0"}
+    pheno_map = {Phenotype.UNAFFECTED: "1", Phenotype.AFFECTED: "2", Phenotype.UNKNOWN: "0"}
+    lines = [
+        "\t".join(
+            (fid, iid, pat, mat, sex_map.get(ind.sex, "0"), pheno_map.get(ind.phenotype, "0"))
+        )
+        for fid, iid, pat, mat, ind in fam_rows(pedigree)
+    ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return path
 

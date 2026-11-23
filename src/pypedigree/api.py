@@ -44,8 +44,11 @@ from pypedigree.models import (
     Union,
 )
 from pypedigree.parser import (
+    NOT_APPLICABLE_VALUES,
+    _check_count_rows,
     _create_phantom_parents,
     _strip_display_prefix,
+    add_childless_unions,
     build_data_attributes,
     build_notation,
     parse_css_classes,
@@ -100,6 +103,11 @@ _PHENO_MAP = {
 }
 
 
+def _not_applicable(value: object) -> bool:
+    """Whether a builder phenotype value reads "not applicable" (#107)."""
+    return isinstance(value, str) and value.strip().lower() in NOT_APPLICABLE_VALUES
+
+
 class PedigreeBuilder:
     """Fluent builder for constructing a Pedigree programmatically.
 
@@ -130,7 +138,7 @@ class PedigreeBuilder:
         carrier: bool = False,
         obligate_carrier: bool = False,
         date_of_birth: str | None = None,
-        phenotypes: dict[str, float | int] | None = None,
+        phenotypes: dict[str, float | int | str] | None = None,
         annotations: list[str] | None = None,
         pregnancy: Pregnancy | str | None = None,
         adopted: Adoption | str | None = None,
@@ -139,6 +147,8 @@ class PedigreeBuilder:
         gender: Gender | str | None = None,
         consultand: bool = False,
         evaluated: bool | str = False,
+        count: int | str | None = None,
+        asymptomatic: bool = False,
         twin_of: str | Sequence[str] | None = None,
         twin_type: TwinType | str = TwinType.UNKNOWN,
         css_class: str | Sequence[str] | None = None,
@@ -162,7 +172,8 @@ class PedigreeBuilder:
             obligate_carrier: Whether this is an obligate carrier: a sparser
                 pattern, or a central dot with the legacy notation.
             date_of_birth: Date of birth string.
-            phenotypes: Extra phenotypes as name→value dict.
+            phenotypes: Extra phenotypes as name→value dict; "N/A" (or
+                "not_applicable") for a phenotype that does not apply (#107).
             annotations: Text lines to display below the individual's ID label.
             pregnancy: "P" (ongoing pregnancy), "SAB" (miscarriage), "TOP"
                 (termination), "ECT" (ectopic) or "SB" (stillbirth), or a
@@ -179,6 +190,11 @@ class PedigreeBuilder:
             evaluated: Documented evaluation, records reviewed: True draws
                 an asterisk at the lower right of the symbol; text (e.g.
                 "WGS: negative") draws it and writes the result below.
+            count: Several individuals in one symbol (#104): their number (2
+                or more) or "n", written inside. Such an individual cannot be
+                a parent.
+            asymptomatic: An asymptomatic or presymptomatic carrier (#104):
+                a vertical line through the symbol.
             twin_of: Sample ID of this individual's twin, or a list of them
                 for triplets and more. The twins may be added before or
                 after; see also `add_twins`.
@@ -239,6 +255,8 @@ class PedigreeBuilder:
                 gender=gender,
                 consultand=consultand,
                 evaluated=evaluated,
+                count=count,
+                asymptomatic=asymptomatic,
             ),
             "css_classes": css_classes,
             "data_attributes": data_attributes,
@@ -246,7 +264,7 @@ class PedigreeBuilder:
 
         # Track phenotype names (strip prefix if present)
         if phenotypes:
-            stripped_phenos: dict[str, float | int] = {}
+            stripped_phenos: dict[str, float | int | str] = {}
             for name, val in phenotypes.items():
                 stripped_name, mode = _strip_display_prefix(name)
                 stripped_phenos[stripped_name] = val
@@ -265,6 +283,7 @@ class PedigreeBuilder:
         *,
         consanguineous: bool = False,
         broken: bool = False,
+        childless: Childlessness | str | None = None,
     ) -> PedigreeBuilder:
         """Explicitly add a union between two individuals.
 
@@ -276,6 +295,8 @@ class PedigreeBuilder:
             partner2: Sample ID of second partner.
             consanguineous: Whether this is a consanguineous union.
             broken: Whether this relationship is dissolved.
+            childless: A couple without children (#104): "choice" (one bar)
+                or "infertility" (two), hanging from their relationship line.
 
         Returns:
             Self for method chaining.
@@ -286,6 +307,7 @@ class PedigreeBuilder:
                 "partner2": partner2,
                 "consanguineous": consanguineous,
                 "broken": broken,
+                "childless": build_notation(childless=childless).childlessness,
             }
         )
         return self
@@ -391,16 +413,22 @@ class PedigreeBuilder:
             # Normalize phenotype values
             extra_pheno: dict[str, float | None] = {}
             extra_pheno_raw: dict[str, float | None] = {}
+            not_applicable: set[str] = set()
             if data["phenotypes"]:
                 # Collect all values for normalization
                 all_values: dict[str, list[float]] = {}
                 for ind_data in self._individuals.values():
                     for pname, pval in ind_data.get("phenotypes", {}).items():
-                        if pval is not None:
+                        if pval is not None and not _not_applicable(pval):
                             all_values.setdefault(pname, []).append(float(pval))
 
                 for pname, pval in data["phenotypes"].items():
-                    if pval is not None:
+                    if _not_applicable(pval):
+                        # "N/A": the phenotype does not apply (#107).
+                        extra_pheno[pname] = float("nan")
+                        extra_pheno_raw[pname] = None
+                        not_applicable.add(pname)
+                    elif pval is not None:
                         raw = float(pval)
                         extra_pheno_raw[pname] = raw
                         vals = all_values.get(pname, [raw])
@@ -428,6 +456,7 @@ class PedigreeBuilder:
                 is_obligate_carrier=data["obligate_carrier"],
                 extra_phenotypes=extra_pheno,
                 extra_phenotypes_raw=extra_pheno_raw,
+                not_applicable=not_applicable,
                 annotations={str(i): v for i, v in enumerate(data.get("annotations", []))},
                 notation=data["notation"],
                 css_classes=list(data["css_classes"]),
@@ -483,8 +512,12 @@ class PedigreeBuilder:
                                 children_ids=[],
                                 is_consanguinous=u_data["consanguineous"],
                                 is_broken=u_data["broken"],
+                                childlessness=u_data["childless"],
                             )
                         )
+            # Couples declared childless on an individual (#104)
+            add_childless_unions(fam)
+            _check_count_rows(fam)
 
         return Pedigree(
             families=families,

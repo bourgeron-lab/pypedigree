@@ -72,6 +72,9 @@ from pypedigree.phenotypes import (
     LEG_X0,
     NA_FILL,
     NA_TEXT_COLOR,
+    NOT_APPLICABLE_FILL,
+    NOT_APPLICABLE_STROKE,
+    NOT_APPLICABLE_STROKE_PT,
     OUTLINE_WIDTH_SCALE,
     PGS_BOX_PAD,
     PGS_CURVE_SIGMA,
@@ -84,6 +87,7 @@ from pypedigree.phenotypes import (
     UNKNOWN_FILL,
     LegendMetrics,
     LegendRow,
+    LetterBox,
     PhenotypeRender,
     Room,
     active_pgs,
@@ -108,6 +112,8 @@ from pypedigree.phenotypes import (
     legend_rows,
     legend_sex_items,
     legend_slot_count,
+    letter_box,
+    not_applicable_stroke,
     outline_colors,
     outline_reach,
     outline_ring_offsets,
@@ -131,7 +137,9 @@ from pypedigree.phenotypes import (
     text_color_on,
     to_hex,
     validate_style_colors,
+    warn_asymptomatic_sections,
     warn_mixed_curves,
+    warn_pgs_scale,
     with_outline_rings,
     with_quadrants,
 )
@@ -189,6 +197,7 @@ def render_pedigree(
     style = resolve_style(style, pheno_names)
     pgs_cols = [n for n in pheno_names if is_curve_column(n)]
     warn_mixed_curves(pedigree.individuals(), pgs_cols)
+    warn_pgs_scale(pedigree.column_scope.individuals(), pgs_cols, style.pgs_scale)
     values_width = pgs_values_width(pedigree.individuals(), pgs_cols, style)
     # The only place the PGS spacing is applied (see `apply_pgs_spacing`).
     style = apply_pgs_spacing(style, pheno_names, values_width)
@@ -201,6 +210,7 @@ def render_pedigree(
         carrier_columns(pheno_names or [], display_modes),
         style.carrier_notation,
     )
+    warn_asymptomatic_sections(pedigree.individuals(), carriers)
     check_phenotype_layout(style)
     check_pgs_scale(style)
     check_min_font_size(style)
@@ -1043,6 +1053,19 @@ def _draw_notation(
             color=style.line_color,
             zorder=10,
         )
+    if node.notation.is_asymptomatic and not triangle:
+        # A vertical line through the symbol, past its top and bottom (#104).
+        (x1, y1), (x2, y2) = symbols.asymptomatic_line(
+            node.x, node.y, style.shape_size / 2, node.sex
+        )
+        ax.plot(
+            [x1, x2],
+            [y1, y2],
+            color=style.outline_color,
+            linewidth=style.shape_line_width,
+            solid_capstyle="butt",
+            zorder=10,
+        )
     letter = symbols.inner_letter(node.notation)
     if letter is None or triangle:
         return
@@ -1619,7 +1642,7 @@ def _draw_banded_node(
     if display_modes is None:
         display_modes = {}
     # The letter at the centre, which band text keeps clear of (#105).
-    letter = style.text_size() if symbols.inner_letter(node.notation) else None
+    letter = letter_box(node.notation, style.text_size())
     if pheno_render.quadrants:
         all_na = _draw_quadrants(
             ax, node, style, pheno_render, display_modes, carriers, clip_patch, letter
@@ -1691,7 +1714,7 @@ def _draw_bands(
     display_modes: dict[str, PhenotypeDisplayMode],
     carriers: CarrierScheme,
     clip_patch: mpatches.Patch,
-    letter: float | None = None,
+    letter: LetterBox | None = None,
 ) -> bool:
     """Fill a symbol with one horizontal band per phenotype, then per carrier source.
 
@@ -1730,6 +1753,10 @@ def _draw_bands(
         )
         band_rect.set_clip_path(clip_patch)
         ax.add_patch(band_rect)
+        if cell.not_applicable:
+            _draw_not_applicable(
+                ax, cx - half, band_top - band_height, 2 * half, band_height, clip_patch
+            )
 
         # Draw band separator line (thin grey)
         if i > 0:
@@ -1817,7 +1844,7 @@ def _draw_quadrants(
     display_modes: dict[str, PhenotypeDisplayMode],
     carriers: CarrierScheme,
     clip_patch: mpatches.Patch,
-    letter: float | None = None,
+    letter: LetterBox | None = None,
 ) -> bool:
     """Fill a symbol cut in four, one quadrant per phenotype or carrier source.
 
@@ -1863,6 +1890,8 @@ def _draw_quadrants(
         )
         rect.set_clip_path(clip_patch)
         ax.add_patch(rect)
+        if name not in carriers.keys and cell.not_applicable:
+            _draw_not_applicable(ax, x, y, w, h, clip_patch)
         if texts:
             tx, ty = quadrant_center(position, cx, cy, half)
             _fitted_text(
@@ -1880,6 +1909,22 @@ def _draw_quadrants(
                 zorder=6,
             )
     return all_na
+
+
+def _draw_not_applicable(
+    ax: Axes, x: float, y: float, w: float, h: float, clip_patch: mpatches.Patch
+) -> None:
+    """The stroke crossing a band or quadrant that does not apply (#107)."""
+    (x1, y1), (x2, y2) = not_applicable_stroke(x, y, w, h)
+    ax.plot(
+        [x1, x2],
+        [y1, y2],
+        color=NOT_APPLICABLE_STROKE,
+        linewidth=NOT_APPLICABLE_STROKE_PT,
+        zorder=5,
+        clip_path=clip_patch,
+        clip_on=True,
+    )
 
 
 def _units_per_point(axes: _AxesBase, renderer: Any) -> float | None:
@@ -1947,7 +1992,7 @@ class _FittedText(Text):
         style: PedigreeStyle,
         room: Room,
         height: float,
-        letter: float | None = None,
+        letter: LetterBox | None = None,
         offset: tuple[float, float] = (0.0, 0.0),
         **kwargs: Any,
     ) -> None:
@@ -2006,7 +2051,7 @@ def _fitted_text(
     style: PedigreeStyle,
     room: Room,
     height: float,
-    letter: float | None = None,
+    letter: LetterBox | None = None,
     offset: tuple[float, float] = (0.0, 0.0),
     **kwargs: Any,
 ) -> None:
@@ -2879,6 +2924,39 @@ def _draw_legend_outline_row(
     _legend_row_label(ax, y_center, row.label, m.icon_text_x, m, style)
 
 
+def _draw_legend_not_applicable_row(
+    ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics, style: PedigreeStyle
+) -> None:
+    """Draw the white swatch crossed by the "not applicable" stroke (#107)."""
+    _legend_swatch(ax, LEG_X0, y_center, m.sw_w, m.sw_h, NOT_APPLICABLE_FILL)
+    (x0, y0), (x1, y1) = not_applicable_stroke(LEG_X0, y_center - m.sw_h / 2, m.sw_w, m.sw_h)
+    ax.plot(
+        [x0, x1],
+        [y0, y1],
+        color=NOT_APPLICABLE_STROKE,
+        linewidth=NOT_APPLICABLE_STROKE_PT,
+        solid_capstyle="butt",
+    )
+    _legend_row_label(ax, y_center, row.label, m.icon_text_x, m, style)
+
+
+def _draw_legend_asymptomatic_row(
+    ax: Axes, y_center: float, row: LegendRow, m: LegendMetrics, style: PedigreeStyle
+) -> None:
+    """Draw a white swatch with the asymptomatic carrier's vertical line (#104)."""
+    _legend_swatch(ax, LEG_X0, y_center, m.sw_w, m.sw_h, "white", edgecolor=style.outline_color)
+    reach = m.sw_h / 2 * (1 + symbols.ASYMPTOMATIC_OVERSHOOT)
+    x = LEG_X0 + m.sw_w / 2
+    ax.plot(
+        [x, x],
+        [y_center - reach, y_center + reach],
+        color=style.outline_color,
+        linewidth=1.0,
+        solid_capstyle="butt",
+    )
+    _legend_row_label(ax, y_center, row.label, m.icon_text_x, m, style)
+
+
 def _draw_legend_pgs_row(
     ax: Axes,
     y_center: float,
@@ -3132,6 +3210,10 @@ def _draw_legend(
             _draw_legend_outline_row(ax, y_center, row, m, style)
         elif row.kind == "outline_rings":
             _draw_legend_outline_rings_row(ax, y_center, row, m, style)
+        elif row.kind == "not_applicable":
+            _draw_legend_not_applicable_row(ax, y_center, row, m, style)
+        elif row.kind == "asymptomatic":
+            _draw_legend_asymptomatic_row(ax, y_center, row, m, style)
         elif row.kind == "pgs":
             _draw_legend_pgs_row(ax, y_center, row, m, style)
         elif row.kind == "legacy_carrier":

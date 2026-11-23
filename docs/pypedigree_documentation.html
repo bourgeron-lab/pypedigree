@@ -463,6 +463,7 @@ FAM1       daughter   father  mother  2    1      0    0      0         0       
     <li><strong>Continuous</strong> (values &gt; 1): color gradient from white (min) to full color (max), with the value written in the band: &ldquo;IQ: 90&rdquo;, or &ldquo;90&rdquo; alone, or smaller, as the room allows (a circle's top and bottom bands are narrow; see <code>band_text</code>)</li>
     <li><strong>PGS column</strong>: rendered as a vertical Gaussian distribution curve</li>
     <li><strong>Missing</strong> (<code>.</code>, <code>NA</code>, <code>NaN</code>, <code>-9</code>, empty): grey band reading &ldquo;NA&rdquo; (the grey of <code>0</code>=unknown, told apart by the text); a single centred &ldquo;NA&rdquo; when every band of the symbol has no data. The text can be turned off with <code>show_na_labels</code> / <code>--no-na-labels</code></li>
+    <li><strong>Not applicable</strong> (<code>N/A</code>, <code>not_applicable</code>, case-insensitive): the phenotype cannot apply to the individual (ovarian cancer for someone assigned male at birth). The band or quadrant stays white, crossed by a thin grey diagonal, and the legend has a &ldquo;Not applicable&rdquo; row. It is not data (no part in a gradient&rsquo;s range); <code>NA</code> keeps meaning no data.</li>
     <li><strong><code>a_</code> prefix columns</strong> are annotation columns (text below IDs, not phenotypes)</li>
     <li><strong><code>gi_</code> prefix</strong> for gradient inverted (color&rarr;white, for metrics where low = bad)</li>
     <li><strong><code>cr_</code> prefix</strong> for carrier status of one gene or condition (0/1/2), drawn as a patterned section, see <a href="#carriers">Carrier Notation</a></li>
@@ -517,7 +518,7 @@ child      2         105   62</code></pre>
     <tr><td><code>--no-legend</code></td><td>Hide phenotype legend</td><td>Off</td></tr>
     <tr><td><code>--show-phenotype-labels</code></td><td>Show YES/NO text inside binary phenotype bands (hidden by default)</td><td>Off</td></tr>
     <tr><td><code>--phenotype-layout</code></td><td><code>auto</code> (quadrants up to four phenotypes, bands beyond), <code>quadrants</code> (the symbol cut in four, one quadrant per phenotype, up to four) or <code>bands</code> (horizontal bands)</td><td>auto</td></tr>
-    <tr><td><code>--pgs-scale</code></td><td>PGS position: <code>minmax</code> over the pedigree, <code>zscore</code> or <code>percentile</code> (fixed scales mark &plusmn;2 SD)</td><td>minmax</td></tr>
+    <tr><td><code>--pgs-scale</code></td><td>PGS position: <code>zscore</code>, <code>minmax</code> over the pedigree (raw scores) or <code>percentile</code> (fixed scales mark &plusmn;2 SD); a warning when a PGS column drawn as z-scores does not look like them</td><td>zscore</td></tr>
     <tr><td><code>--show-pgs-values</code></td><td>Write each PGS value beside its marker (style <code>show_pgs_values</code>)</td><td>Off</td></tr>
     <tr><td><code>--no-na-labels</code></td><td>Do not write &ldquo;NA&rdquo; in bands with no data (they stay grey, like unknown)</td><td>Off</td></tr>
     <tr><td><code>--plink</code></td><td>Treat input as PLINK .ped file (ignore genotype columns after column 6)</td><td>Off</td></tr>
@@ -1152,10 +1153,12 @@ fig = builder.render(output=<span class="string">"carriers.png"</span>)</code></
   <tbody>
     <tr><td><code>pregnancy</code> (<code>pregnancy_outcome</code>, <code>outcome</code>)</td><td><code>P</code> ongoing, <code>SAB</code> miscarriage, <code>TOP</code> termination, <code>ECT</code> ectopic, <code>SB</code> stillbirth</td><td><code>P</code>: &ldquo;P&rdquo; inside the symbol. <code>SAB</code>, <code>TOP</code>, <code>ECT</code>: a triangle, filled when affected, struck through for a termination, &ldquo;ECT&rdquo; below. <code>SB</code>: the symbol struck through, &ldquo;SB&rdquo; below</td></tr>
     <tr><td><code>adopted</code> (<code>adoption</code>)</td><td><code>in</code> / <code>1</code> (parents given are adoptive), <code>out</code> / <code>2</code> (they are biological)</td><td>Brackets around the symbol; the line to adoptive parents is dashed</td></tr>
-    <tr><td><code>childless</code> (<code>childlessness</code>, <code>infertility</code>)</td><td><code>choice</code> / <code>1</code>, <code>infertility</code> / <code>2</code></td><td>A line below the symbol ending in one bar (no children by choice or reason unknown), or two (infertility)</td></tr>
+    <tr><td><code>childless</code> (<code>childlessness</code>, <code>infertility</code>)</td><td><code>choice</code> / <code>1</code>, <code>infertility</code> / <code>2</code></td><td>A line below the symbol ending in one bar (no children by choice or reason unknown), or two (infertility); <code>choice:&lt;ID&gt;</code> or <code>infertility:&lt;ID&gt;</code> for a couple without children, the marker hanging from the middle of their relationship line</td></tr>
     <tr><td><code>art</code> (<code>assisted_reproduction</code>)</td><td><code>D</code> gamete donor, <code>S</code> surrogate (<code>GC</code> accepted)</td><td>&ldquo;D&rdquo; or &ldquo;S&rdquo; inside the symbol</td></tr>
     <tr><td><code>gender_identity</code> (<code>identity</code>)</td><td><code>man</code>, <code>woman</code>, <code>nonbinary</code> (also <code>M</code>/<code>F</code>/<code>NB</code>, <code>1</code>/<code>2</code>/<code>3</code>)</td><td>The symbol follows the gender identity (square, circle, diamond); <code>sex</code> becomes the sex assigned at birth, written below as AMAB or AFAB when the two differ</td></tr>
     <tr><td><code>consultand</code></td><td><code>1</code></td><td>An arrow without &ldquo;P&rdquo;</td></tr>
+    <tr><td><code>count</code> (<code>number</code>)</td><td>2 or more, or <code>n</code></td><td>Several individuals in one symbol: the number written inside (cannot be a parent)</td></tr>
+    <tr><td><code>asymptomatic</code> (<code>presymptomatic</code>)</td><td><code>1</code></td><td>Asymptomatic or presymptomatic carrier: a vertical line through the symbol, past its top and bottom, with a legend row; with <code>phenotype_layout</code> &ldquo;auto&rdquo; the figure is drawn with bands, not quadrants</td></tr>
     <tr><td><code>evaluated</code></td><td><code>1</code>, or a result (<code>WGS: negative</code>)</td><td>Documented evaluation, records reviewed: an asterisk at the lower right of the symbol (Bennett et al. 2022, Fig. 2); a result is written below, without the &ldquo;E&rdquo; the 2022 revision dropped</td></tr>
   </tbody>
 </table>
@@ -1294,13 +1297,13 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>phenotype_quadrants</code></td><td>dict</td><td>{}</td><td>Column name &rarr; <code>"top-left"</code>, <code>"top-right"</code>, <code>"bottom-left"</code> or <code>"bottom-right"</code>; other columns take their conventional or the next free quadrant</td></tr>
     <tr><td><code>show_na_labels</code></td><td>bool</td><td>True</td><td>Write &ldquo;NA&rdquo; in bands with no data; when false they stay grey with no text, like an &ldquo;unknown&rdquo; band</td></tr>
     <tr><td><code>band_text</code></td><td>str</td><td>"auto"</td><td>Text in bands and quadrants. <code>"auto"</code>: &ldquo;name: value&rdquo;, or the value alone, or the value smaller (down to <code>min_font_size</code>, or half <code>font_size</code>), whichever fits the symbol at that height; else none. <code>"name_value"</code>: always &ldquo;name: value&rdquo; (before 0.7.0). <code>"value"</code>: the value alone. <code>"none"</code>: no value</td></tr>
-    <tr><td><code>pgs_scale</code></td><td>str</td><td>"minmax"</td><td><code>"minmax"</code>, <code>"zscore"</code> or <code>"percentile"</code>: how a PGS value is placed on its curve</td></tr>
+    <tr><td><code>pgs_scale</code></td><td>str</td><td>"zscore"</td><td><code>"zscore"</code> (default since 0.10.0), <code>"minmax"</code> (raw scores) or <code>"percentile"</code>: how a PGS value is placed on its curve</td></tr>
     <tr><td><code>phenotype_labels</code></td><td>dict</td><td>{}</td><td>Name shown for a column, e.g. <code>{"SRS": "SRS T-score"}</code>: legend, quadrant key, band text, tooltips. Others show their name with underscores as spaces</td></tr>
     <tr><td><code>legend</code></td><td>str</td><td>"auto"</td><td><code>"compact"</code>: with quadrants, one shared Affected / Unaffected / Unknown row for the binary columns of the key; <code>"full"</code>: one row per column; <code>"auto"</code>: compact with quadrants, full with bands; <code>"minimal"</code>: compact, no title, no sex symbols, spacing 0.7 (unless set), a one-symbol key whose binary columns are read from a caption under it</td></tr>
     <tr><td><code>legend_title</code></td><td>str | None</td><td>"Legend"</td><td>The legend&rsquo;s title; <code>null</code> or <code>""</code> for none</td></tr>
     <tr><td><code>legend_sex_symbols</code></td><td>bool</td><td>True</td><td>The &ldquo;= Male / = Female&rdquo; row; <code>false</code> drops it</td></tr>
     <tr><td><code>legend_max_width</code></td><td>float | str | None</td><td>None</td><td>Widest the legend may be, in cm (<code>8.5</code>) or with a unit (<code>"85mm"</code>, <code>"3.3in"</code>); the PGS row grows up to it before wrapping. Unset: the PGS row wraps where the widest other row ends, its score key on the lines below the caption</td></tr>
-    <tr><td><code>legend_text</code></td><td>dict</td><td>{}</td><td>The legend&rsquo;s fixed wording by role (<code>key_note</code>, <code>shared_binary</code>, <code>affected</code>, <code>unaffected</code>, <code>unknown</code>, <code>pgs</code>, <code>ptdt</code>, <code>male</code>, <code>female</code>, <code>low</code>, <code>high</code>), e.g. for British spelling or another language</td></tr>
+    <tr><td><code>legend_text</code></td><td>dict</td><td>{}</td><td>The legend&rsquo;s fixed wording by role (<code>key_note</code>, <code>shared_binary</code>, <code>affected</code>, <code>unaffected</code>, <code>unknown</code>, <code>pgs</code>, <code>ptdt</code>, <code>male</code>, <code>female</code>, <code>low</code>, <code>high</code>, <code>not_applicable</code>), e.g. for British spelling or another language</td></tr>
     <tr><td><code>legend_bar_width</code></td><td>str</td><td>"equal"</td><td><code>"equal"</code>: every gradient and binned bar as wide as the widest; <code>"own"</code>: each its own width</td></tr>
     <tr><td><code>legend_spacing</code></td><td>float</td><td>1.0</td><td>Factor on the legend&rsquo;s row height and gaps, 0.6 to 3 (e.g. 0.7 for print); the figure is as much shorter</td></tr>
     <tr><td><code>show_pgs_values</code></td><td>bool</td><td>False</td><td>Write each PGS value beside its marker, in its color, left of the curve (&ldquo;+2.1&rdquo;, the percentile, or the value); the layout makes room</td></tr>
@@ -1346,6 +1349,29 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
 
 <h3>Auto-Scaling</h3>
 <p>For large pedigrees, the figure size is automatically scaled based on the layout bounds. The <code>fig_width</code> and <code>fig_height</code> values serve as minimums; actual dimensions grow with the number of individuals and generations. The pedigree is drawn at that scale, then the figure is fitted to the drawing: the same small margin (10 pt) on every side of the pedigree, labels and annotations included, the legend right under it, families side by side packed close, and the figure as wide as the pedigree or the legend, whichever is wider. A pedigree drawn into your own <code>ax</code> leaves your figure and axes as they are.</p>
+</section>
+
+<!-- ================================================================ -->
+<section id="canrisk">
+<h2>CanRisk Files</h2>
+
+<p>Pedigree files saved by the CanRisk tool (BOADICEA model; formats 1 to 4, first line <code>##CanRisk 4.0</code>) are read directly, from the CLI, <code>parse_pedigree()</code>, <code>parse_pedigree_from_string()</code> and the web app. A file may hold several families. Columns are read by the names of the <code>##FamID</code> line.</p>
+<ul>
+  <li><strong>Structure</strong>: family, ID, parents, sex, identical twins (<code>MZtwin</code>), deaths, year of birth. <code>Name</code> is left out (often a real name).</li>
+  <li><strong>Target</strong>: the consultand; an affected target is also the proband.</li>
+  <li><strong>Cancers</strong>: one binary column per cancer someone has (breast, ovarian, prostate, pancreatic); ovarian cancer is &ldquo;not applicable&rdquo; for people assigned male at birth, prostate cancer for people assigned female at birth.</li>
+  <li><strong>Annotations</strong>, in NSGC order: age (&ldquo;45y&rdquo;, &ldquo;d. 61y&rdquo;), cancers with their ages (&ldquo;BC 40, BC2 52&rdquo;), one line per gene tested (&ldquo;BRCA1 +&rdquo;, &ldquo;BRCA2 &minus;&rdquo;, &ldquo;HOXB13 + (het)&rdquo;), breast pathology (&ldquo;ER+ PR+ HER2&minus;&rdquo;), &ldquo;Ashkenazi Jewish&rdquo;.</li>
+  <li><strong>PRS</strong>: <code>##PRS_BC</code>, <code>##PRS_OC</code>, <code>##PRS_PC</code> give the target&rsquo;s z-score, drawn on the z-score scale.</li>
+</ul>
+<p>Other header keys (menarche, parity, BMI&hellip;) are ignored. A value CanRisk does not allow raises <code>PedigreeParseError</code> naming the line. CanRisk files are read, not written.</p>
+</section>
+
+<!-- ================================================================ -->
+<section id="phenopackets">
+<h2>GA4GH Phenopackets v2</h2>
+
+<p>A Phenopackets v2 JSON file, a whole <code>Family</code> or a bare <code>Pedigree</code> (<code>{"persons": [...]}</code>), is read by the CLI, <code>parse_pedigree()</code>, <code>parse_pedigree_from_string()</code> and the web app: family, IDs, parents, <code>sex</code> (<code>MALE</code>, <code>FEMALE</code>, <code>UNKNOWN_SEX</code>, <code>OTHER_SEX</code>), <code>affectedStatus</code> (<code>AFFECTED</code>, <code>UNAFFECTED</code>, <code>MISSING</code>), the proband (<code>proband.subject.id</code>) and deaths (<code>vitalStatus</code>). camelCase and snake_case names, fields left at their default and enum numbers (Phenopackets numbering: <code>FEMALE = 1</code>, <code>MALE = 2</code>) are accepted. With <code>consanguinousParents</code>, the proband&rsquo;s parents are drawn with a double line, with a warning when the pedigree holds none of their common ancestors. HPO features and diseases are not drawn.</p>
+<p><code>export_phenopacket_pedigree(pedigree, path)</code> writes a <code>Pedigree</code> message, without phantom parents or duplicates.</p>
 </section>
 
 <!-- ================================================================ -->

@@ -35,7 +35,7 @@
       </div>
       <div class="row">
         <label class="button" for="file">Open a file…</label>
-        <input id="file" type="file" accept=".ped,.fam,.txt,.tsv,.csv,text/plain" class="visually-hidden">
+        <input id="file" type="file" accept=".ped,.fam,.txt,.tsv,.csv,.json,text/plain,application/json" class="visually-hidden">
         <span id="file-name" class="muted"></span>
       </div>
 
@@ -61,8 +61,8 @@
 
         <label for="pgs_scale">Polygenic score position</label>
         <select id="pgs_scale" name="pgs_scale">
-          <option value="minmax">Min–max in the pedigree</option>
           <option value="zscore">Z-score</option>
+          <option value="minmax">Min–max in the pedigree (raw scores)</option>
           <option value="percentile">Percentile</option>
         </select>
 

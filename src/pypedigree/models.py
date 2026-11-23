@@ -161,6 +161,14 @@ class Notation:
             at the lower right of the symbol (Bennett et al. 2022, Fig. 2).
         evaluation: The evaluation's result, written below the symbol
             without the "E" the 2022 revision dropped (e.g. "WGS: negative").
+        count: Several individuals in one symbol (#104): their number ("5")
+            or "n" when it is unknown, written inside the symbol. Such a row
+            cannot be a parent.
+        is_asymptomatic: An asymptomatic or presymptomatic carrier (#104),
+            clinically unaffected now: a vertical line through the symbol.
+        childless_partner: With ``childlessness``, the partner the couple
+            has no children with (#104): the marker hangs from their
+            relationship line instead of from the symbol.
     """
 
     pregnancy: Pregnancy | None = None
@@ -171,6 +179,9 @@ class Notation:
     is_consultand: bool = False
     is_evaluated: bool = False
     evaluation: str | None = None
+    count: str | None = None
+    is_asymptomatic: bool = False
+    childless_partner: str | None = None
 
 
 @dataclass
@@ -233,6 +244,9 @@ class Individual:
     extra_phenotypes: dict[str, float | None] = field(default_factory=dict)
     extra_phenotypes_raw: dict[str, float | None] = field(default_factory=dict)
     extra_phenotypes_categorical: dict[str, str | None] = field(default_factory=dict)
+    # Phenotype columns that do not apply to this individual (N/A, #107):
+    # their value is stored as no data, and they are drawn as not applicable.
+    not_applicable: set[str] = field(default_factory=set)
     annotations: dict[str, str] = field(default_factory=dict)
     notation: Notation = field(default_factory=Notation)
     is_unknown_offspring: bool = False
@@ -255,12 +269,16 @@ class Union:
         children_ids: List of sample IDs of children from this union.
         is_consanguinous: Whether the partners share ancestors.
         is_broken: Whether this is a past/dissolved relationship.
+        childlessness: A couple declared without children (#104): by choice
+            or for an unknown reason (one bar) or infertility (two), drawn
+            hanging from the relationship line.
     """
 
     partner_ids: tuple[str, str]
     children_ids: list[str] = field(default_factory=list)
     is_consanguinous: bool = False
     is_broken: bool = False
+    childlessness: Childlessness | None = None
 
 
 @dataclass
@@ -441,6 +459,7 @@ class NodeLayout:
     extra_phenotypes: dict[str, float | None] = field(default_factory=dict)
     extra_phenotypes_raw: dict[str, float | None] = field(default_factory=dict)
     extra_phenotypes_categorical: dict[str, str | None] = field(default_factory=dict)
+    not_applicable: set[str] = field(default_factory=set)  # N/A columns (#107)
     rotation: float = 0.0  # Rotation angle in radians
     # Direction of the label from the node, in radians (circular layout: radially
     # outward, away from the lines arriving from the centre). None = below.

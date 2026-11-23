@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Three NSGC notations (#104). Several individuals in one symbol: a `count` column (alias
+  `number`; 2 or more, or `n`) writes the number inside the symbol; such a row cannot be a parent
+  and is left out of `.fam` and Phenopackets exports with a warning. An asymptomatic or
+  presymptomatic carrier: an `asymptomatic` column (alias `presymptomatic`) draws a vertical line
+  through the symbol, past its top and bottom, with a legend row; as it runs where quadrants
+  meet, `phenotype_layout` "auto" then draws bands, and "quadrants" warns; with carrier sections
+  it warns too. A couple's childlessness: `childless` `choice:<ID>` or `infertility:<ID>` makes a
+  union with no children, its marker hanging from the middle of the relationship line (outward
+  in the circular layout); `PedigreeBuilder.add_union(..., childless=...)` and
+  `add_individual(..., count=, asymptomatic=)` too. Reference images `several_individuals.png`,
+  `asymptomatic_carrier.png`, `childless_couple.png`; fixture
+  `nomenclature/group_carrier_couple.ped`.
+
+- GA4GH Phenopackets v2 pedigrees (#108). A JSON `Family` or `Pedigree` is read by the CLI,
+  `parse_pedigree()`, `parse_pedigree_from_string()` and the web app: persons, sex, affected
+  status, the proband and deaths from the phenopackets; camelCase or snake_case names, fields
+  left at their default, enums by name or by the Phenopackets numbers (`FEMALE = 1`,
+  `MALE = 2`). With `consanguinousParents`, the proband's parents are drawn with a double line,
+  with a warning when the pedigree holds none of their common ancestors. New
+  `export_phenopacket_pedigree(pedigree, path)` writes a `Pedigree` message, without phantoms
+  or duplicates, as `export_fam`. HPO features are not drawn. Synthetic fixtures
+  `format/phenopacket_*.json`.
+
+- CanRisk pedigree files (formats 1 to 4, #109) are read by the CLI, `parse_pedigree()`,
+  `parse_pedigree_from_string()` and the web app, detected by their first line `##CanRisk`,
+  several families per file. The target is the consultand (and the proband when affected);
+  each cancer someone has gets a binary column (ovarian and prostate cancer "not applicable"
+  for the other sex assigned at birth); age, cancer ages, gene test results ("BRCA1 +",
+  "HOXB13 + (het)"), breast pathology and Ashkenazi ancestry are annotation lines in NSGC order;
+  the `##PRS_*` z-scores are `PGS_` columns of the target. `Name` and risk factors are left out.
+  New module `pypedigree.canrisk`; synthetic fixtures `format/canrisk_v2.txt`, `canrisk_v3.txt`,
+  `canrisk_v4.txt`; web app example "CanRisk file".
+
+- Not applicable as a value of phenotype columns (#107): `N/A`, `not_applicable` or
+  `not applicable` (case-insensitive) says a phenotype cannot apply to that individual (ovarian
+  cancer for someone assigned male at birth, an adult-onset measure for a child), where `NA`
+  keeps meaning no data. The band or quadrant stays white, crossed by a thin grey diagonal,
+  readable in greyscale; the legend gets a "Not applicable" row (`legend_text` role
+  `not_applicable`) and the SVG tooltip "ovarian cancer: not applicable". It is not data: no part
+  in a gradient's range, and a symbol whose bands are all not applicable gets no "NA". Read in
+  pedigree files, DataFrames and `PedigreeBuilder` (`phenotypes={"OC": "N/A"}`); new
+  `Individual.not_applicable` and `NodeLayout.not_applicable`, `BandCell.not_applicable`,
+  `phenotypes.not_applicable_stroke`. New fixture `phenotype/not_applicable.ped`.
+
+### Changed
+
+- PGS values are read as z-scores by default (`pgs_scale` "zscore", #106): polygenic scores are
+  almost always given standardised in a reference population (CanRisk, the PGS Catalog's
+  calculator, pTDT), and on "minmax" a family's scores were spread over the whole curve whatever
+  they were. Every figure with a PGS column and no `pgs_scale` changes: markers where the person
+  stands in the population, ±2 SD tails drawn, z and percentile in the SVG tooltip. Use
+  `pgs_scale: "minmax"` (`--pgs-scale minmax`, or the web app's "Min–max in the pedigree") for
+  raw scores. On "zscore", a PGS column that does not look like z-scores (a value beyond ±5;
+  with at least 5 values, a standard deviation under 0.05; with at least 20, a mean beyond ±2)
+  draws a `PedigreeDataWarning` suggesting "minmax", once per file (`phenotypes.warn_pgs_scale`).
+  The CLI and the web app list z-score first.
+
 ## [0.9.2] - 2026-11-23
 
 ### Fixed

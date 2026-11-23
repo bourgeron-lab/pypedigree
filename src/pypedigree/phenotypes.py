@@ -30,6 +30,7 @@ from pypedigree.config import (
     PedigreeStyle,
     curve_trait,
     is_curve_column,
+    is_pgs_column,
     is_ptdt_column,
     known_phenotype,
 )
@@ -66,6 +67,12 @@ NA_FILL = UNKNOWN_FILL
 FALLBACK_COLOR = "#999999"  # column without a phenotype_colors entry
 SEPARATOR_COLOR = "#cccccc"  # thin line between bands
 NA_TEXT_COLOR = "#555555"  # "NA" written on NA_FILL (contrast 5:1)
+# "Not applicable" (#107): the band or quadrant stays white, crossed by a
+# thin grey diagonal, lower left to upper right; readable in greyscale, and
+# unlike white (unaffected), grey (unknown) and grey with "NA" (no data).
+NOT_APPLICABLE_FILL = "white"
+NOT_APPLICABLE_STROKE = "#7f7f7f"
+NOT_APPLICABLE_STROKE_PT = 0.8
 DARK_TEXT = "#333333"  # band text on a light background
 GRADIENT_STEPS = 20  # swatches making up a legend gradient bar
 
@@ -363,12 +370,19 @@ class PhenotypeRender:
             drawn families has, one per ``o_`` column they are affected in
             (`with_outline_rings`, #46). Above one, every symbol is spaced
             and labelled for that many.
+        not_applicable: Whether some individual has a band column that does
+            not apply to them (N/A, #107), which the legend explains.
+        asymptomatic: Whether some individual is an asymptomatic or
+            presymptomatic carrier (#104): a vertical line through the symbol,
+            which the legend explains and which quadrants would hide.
     """
 
     effective_modes: dict[str, str] = field(default_factory=dict)
     categorical_colors: dict[str, dict[str, str]] = field(default_factory=dict)
     quadrants: dict[str, str] = field(default_factory=dict)
     outline_rings: int = 0
+    not_applicable: bool = False
+    asymptomatic: bool = False
 
     def effective(self, name: str) -> str:
         """Effective display mode of a column ("binary" if unknown)."""
@@ -504,7 +518,19 @@ def resolve_phenotype_render(
         if effective == "categorical":
             categorical_colors[name] = assign_categorical_colors(name, individuals, style)
 
-    return PhenotypeRender(effective_modes, categorical_colors)
+    band_kinds = ("binary", "gradient", "categorical")
+    not_applicable = any(
+        effective_modes.get(name) in band_kinds
+        for ind in individuals
+        for name in ind.not_applicable
+    )
+    asymptomatic = any(ind.notation.is_asymptomatic for ind in individuals)
+    return PhenotypeRender(
+        effective_modes,
+        categorical_colors,
+        not_applicable=not_applicable,
+        asymptomatic=asymptomatic,
+    )
 
 
 # --- Names shown (#56) --------------------------------------------------------
@@ -603,6 +629,7 @@ class _HasPhenotypes(Protocol):
     extra_phenotypes: dict[str, float | None]
     extra_phenotypes_raw: dict[str, float | None]
     extra_phenotypes_categorical: dict[str, str | None]
+    not_applicable: set[str]
 
 
 @dataclass(frozen=True)
@@ -619,12 +646,15 @@ class BandCell:
             "NA" at all and ``text`` is None.
         short: The value alone, for a gradient band whose ``text`` is
             "name: value"; None when ``text`` is already as short (#55).
+        not_applicable: Whether the column does not apply to the individual
+            (N/A, #107): white, no text, crossed by `not_applicable_stroke`.
     """
 
     color: Color
     text: str | None
     is_na: bool
     short: str | None = None
+    not_applicable: bool = False
 
     @property
     def text_color(self) -> str:
@@ -642,6 +672,8 @@ def band_cell(
     display_modes: Mapping[str, PhenotypeDisplayMode],
 ) -> BandCell:
     """Color and text of one phenotype band of one individual."""
+    if name in node.not_applicable:
+        return BandCell(NOT_APPLICABLE_FILL, None, False, not_applicable=True)
     color_hex = style.phenotype_colors.get(name, FALLBACK_COLOR)
     norm_val = node.extra_phenotypes.get(name)
     raw_val = node.extra_phenotypes_raw.get(name)
@@ -723,6 +755,8 @@ def band_has_no_data(node: _HasPhenotypes, name: str) -> bool:
     missing); an individual a separate phenotype file does not list has no
     entry.
     """
+    if name in node.not_applicable:
+        return False  # "not applicable" is said, not missing (#107)
     if name not in node.extra_phenotypes:
         return True
     value = node.extra_phenotypes[name]
@@ -737,9 +771,27 @@ def all_bands_na(node: _HasPhenotypes, band_names: Sequence[str]) -> bool:
     """Whether a symbol has no data in any of its bands (`band_has_no_data`).
 
     Then a single centred "NA" is written instead of one per band. A symbol
-    with a 0 ("unknown") or a category in one of them does not qualify.
+    with a 0 ("unknown") or a category in one of them does not qualify. A
+    band that does not apply (N/A, #107) is no data either, but keeps its
+    stroke; a symbol whose bands are all N/A gets no "NA".
     """
-    return all(band_has_no_data(node, n) for n in band_names)
+    missing = [band_has_no_data(node, n) for n in band_names]
+    applicable = [n not in node.not_applicable for n in band_names]
+    return any(missing) and all(m or not a for m, a in zip(missing, applicable, strict=True))
+
+
+def not_applicable_stroke(
+    x: float, y: float, w: float, h: float, up: float = 1.0
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """The diagonal crossing a band or quadrant that does not apply (#107).
+
+    From the lower left to the upper right of the box (``x``, ``y``, ``w``,
+    ``h``: ``y`` its lower edge with the y axis up, its upper edge with it
+    down, ``up`` -1); the renderers clip it to the symbol.
+    """
+    if up > 0:
+        return (x, y), (x + w, y + h)
+    return (x, y + h), (x + w, y)
 
 
 # --- Quadrants ----------------------------------------------------------------
@@ -845,7 +897,40 @@ def with_quadrants(
     """
     if not band_names:
         return replace(render, quadrants={})
+    if render.asymptomatic and style.phenotype_layout != "bands":
+        # The asymptomatic carrier's line runs where the quadrants meet (#104):
+        # "auto" draws bands instead; "quadrants" keeps them, with a warning.
+        if style.phenotype_layout == "auto":
+            return replace(render, quadrants={})
+        warnings.warn(
+            "Some individuals are asymptomatic carriers: their vertical line runs along the "
+            "line between quadrants. Use phenotype_layout 'bands' (or 'auto') to tell them apart.",
+            PedigreeStyleWarning,
+            stacklevel=2,
+        )
     return replace(render, quadrants=assign_quadrants([*band_names, *carriers.keys], style))
+
+
+def warn_asymptomatic_sections(individuals: Iterable[Any], carriers: CarrierScheme) -> None:
+    """Warn when an asymptomatic carrier's line crosses carrier sections (#104).
+
+    The NSGC 2022 carrier sections also split a symbol vertically; the line
+    overshoots the symbol so it can still be told apart, but the reader
+    should know.
+    """
+    both = [
+        ind.sample_id
+        for ind in individuals
+        if ind.notation.is_asymptomatic and not carriers.legacy and carriers.marks(ind)
+    ]
+    if both:
+        shown = ", ".join(both[:5]) + (", ..." if len(both) > 5 else "")
+        warnings.warn(
+            f"{len(both)} asymptomatic carrier(s) ({shown}) also have carrier sections: the "
+            "vertical line is drawn across them.",
+            PedigreeDataWarning,
+            stacklevel=2,
+        )
 
 
 def quadrant_box(
@@ -885,7 +970,7 @@ def quadrant_cell(
     alone ("103"), without its column name, which the legend key gives.
     """
     cell = band_cell(node, name, style, render, display_modes)
-    if cell.is_na or render.effective(name) != "gradient":
+    if cell.is_na or cell.not_applicable or render.effective(name) != "gradient":
         return cell
     raw = node.extra_phenotypes_raw.get(name)
     return BandCell(cell.color, None if raw is None else f"{raw:g}", False)
@@ -973,7 +1058,7 @@ def fit_text(
     room: Room,
     height: float,
     *,
-    letter: float | None = None,
+    letter: float | LetterBox | None = None,
     offset: tuple[float, float] = (0.0, 0.0),
 ) -> FittedText | None:
     """The text and size a band or quadrant shows, so that it fits (#55).
@@ -1035,11 +1120,26 @@ def fit_text(
     return FittedText(text, low, place(low * pt * _FIT_HEIGHT_EM)[1])
 
 
+@dataclass(frozen=True)
+class LetterBox:
+    """The text at a symbol's centre that band text keeps clear of (#105):
+    its font size in points, and how many characters it has ("P", "12")."""
+
+    size: float
+    chars: int = 1
+
+
+def letter_box(notation: Any, size: float) -> LetterBox | None:
+    """The box of a symbol's inner text (`symbols.inner_letter`), or None."""
+    text = symbols.inner_letter(notation)
+    return LetterBox(size, len(text)) if text else None
+
+
 def clear_of_letter(
     width: float,
     h: float,
     offset: tuple[float, float],
-    letter: float | None,
+    letter: float | LetterBox | None,
     pt: float,
 ) -> tuple[float, float]:
     """Room for a band's or quadrant's text, kept clear of the inner letter (#105).
@@ -1063,10 +1163,12 @@ def clear_of_letter(
     """
     if letter is None:
         return width, 0.0
+    box = letter if isinstance(letter, LetterBox) else LetterBox(letter)
     ox, oy = offset
-    half_w = symbols.LETTER_CLEAR_HALF_W_EM * letter * pt
-    half_h = symbols.LETTER_CLEAR_HALF_H_EM * letter * pt
-    gap = symbols.LETTER_CLEAR_GAP_EM * letter * pt
+    em = box.size * pt
+    half_w = (symbols.LETTER_CLEAR_HALF_W_EM + symbols.LETTER_CLEAR_CHAR_EM * (box.chars - 1)) * em
+    half_h = symbols.LETTER_CLEAR_HALF_H_EM * em
+    gap = symbols.LETTER_CLEAR_GAP_EM * em
     if abs(oy) >= h / 2 + half_h + gap:
         return width, 0.0
     if abs(ox) < 1e-9:
@@ -1337,6 +1439,61 @@ def warn_mixed_curves(individuals: Iterable[_HasPhenotypes], names: Sequence[str
         )
 
 
+# On "zscore" (the default since 0.10.0, #106), a PGS column whose values do
+# not look like z-scores draws a warning: any value beyond this, ...
+ZSCORE_MAX_ABS = 5.0
+# ... values spread over less than this standard deviation (raw scores such
+# as PLINK's, often around 1e-4; equal values say nothing), with at least
+# this many values, ...
+ZSCORE_MIN_SD = 0.05
+ZSCORE_SD_MIN_VALUES = 5
+# ... or a mean this far from 0 over at least this many values.
+ZSCORE_MAX_MEAN = 2.0
+ZSCORE_MEAN_MIN_VALUES = 20
+
+
+def warn_pgs_scale(individuals: Iterable[_HasPhenotypes], names: Sequence[str], scale: str) -> None:
+    """Warn when a PGS column drawn on "zscore" does not look like z-scores (#106).
+
+    On "zscore" a value is placed on the standard normal and clipped to the
+    curve's ends, so raw scores would all land at one end (or, if tiny, at
+    the centre) without a word. pTDT columns are always z-scores and are not
+    checked. Callers pass the whole file's individuals (`Pedigree.column_scope`),
+    so every family drawn from it gets the same message.
+    """
+    if scale != "zscore":
+        return
+    people = list(individuals)
+    odd = []
+    for name in names:
+        if not is_pgs_column(name) or is_ptdt_column(name):
+            continue
+        values = [
+            float(raw)
+            for ind in people
+            if (raw := ind.extra_phenotypes_raw.get(name)) is not None and not is_na_value(raw)
+        ]
+        if not values:
+            continue
+        mean = sum(values) / len(values)
+        sd = math.sqrt(sum((v - mean) ** 2 for v in values) / len(values))
+        largest = max(values, key=abs)
+        if abs(largest) > ZSCORE_MAX_ABS:
+            odd.append(f"{name} (a value of {largest:g})")
+        elif len(values) >= ZSCORE_SD_MIN_VALUES and 0 < sd < ZSCORE_MIN_SD:
+            odd.append(f"{name} (spread {sd:.2g})")
+        elif len(values) >= ZSCORE_MEAN_MIN_VALUES and abs(mean) > ZSCORE_MAX_MEAN:
+            odd.append(f"{name} (mean {mean:.2f})")
+    if odd:
+        warnings.warn(
+            f"PGS column(s) {', '.join(odd)} do not look like z-scores, but are drawn on the "
+            "z-score scale (pgs_scale 'zscore', the default). For raw scores, use pgs_scale "
+            "'minmax' (--pgs-scale minmax).",
+            PedigreeDataWarning,
+            stacklevel=2,
+        )
+
+
 def _active_curves(
     node: _HasPhenotypes, pgs_names: Sequence[str], scale: str
 ) -> list[tuple[str, float]]:
@@ -1586,6 +1743,8 @@ LEGEND_TEXT_DEFAULTS: dict[str, str] = {
     "female": "Female",
     "low": "Low",
     "high": "High",
+    "not_applicable": "Not applicable",
+    "asymptomatic": "Asymptomatic or presymptomatic carrier",
 }
 
 
@@ -2428,6 +2587,13 @@ def legend_rows(
                 color=style.phenotype_colors.get(name, FALLBACK_COLOR),
             )
         )
+    if render.not_applicable:
+        # A white swatch crossed by the N/A stroke (#107).
+        rows.append(LegendRow("not_applicable", legend_text(style, "not_applicable")))
+    if render.asymptomatic:
+        # A white swatch with the vertical line (#104).
+        rows.append(LegendRow("asymptomatic", legend_text(style, "asymptomatic")))
+
     outline_names = render.outline_names(names)
     if render.outline_rings > 1 and len(outline_names) > 1:
         # Some individual has several borders: say how to read them (#46).

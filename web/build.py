@@ -76,6 +76,11 @@ EXAMPLES: list[dict[str, object]] = [
         "title": "Large pedigree with loops",
         "description": "81 people over five generations, with two loops.",
     },
+    {
+        "file": "format/canrisk_v4.txt",
+        "title": "CanRisk file",
+        "description": "Two families from the CanRisk tool: cancers, gene tests and PRS.",
+    },
 ]
 
 

@@ -25,7 +25,7 @@ from pypedigree.svg_renderer import render_interactive_svg, render_svg
 #: values the page may send.
 STYLE_CHOICES: dict[str, tuple[str, ...]] = {
     "phenotype_layout": ("auto", "quadrants", "bands"),
-    "pgs_scale": ("minmax", "zscore", "percentile"),
+    "pgs_scale": ("zscore", "minmax", "percentile"),
     "carrier_notation": ("nsgc2022", "legacy"),
 }
 #: Prefix of every id in the interactive SVG, so it cannot clash with the page.

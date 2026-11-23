@@ -102,7 +102,7 @@ class TestCLIOptions:
         svg = out.read_text(encoding="utf-8")
         assert "solo" not in svg
         assert "#386eb2" in svg  # the autism band
-        assert "PGS distribution:" in svg  # a comment in matplotlib's SVG
+        assert "PGS distribution" in svg  # a comment in matplotlib's SVG
         if interactive:
             assert svg.count('class="pgs"') == 3
 

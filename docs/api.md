@@ -6,6 +6,20 @@
 
 Parse a pedigree from a file. Auto-detects separator (tab, comma, space) and header rows. When a header is present, columns are matched by name (not position), so phenotype columns can appear directly after Sex without needing the full 10-column format. The file is read as UTF-8 whatever the system's default encoding (cp1252 on most Windows systems); a byte order mark is ignored, and a file that is not UTF-8 raises `PedigreeParseError`. `parse_fam_file`, `parse_plink_ped`, `--pheno` and `--annotations` files are read the same way, and `export_fam` writes UTF-8 with `\n` line endings.
 
+A CanRisk file (first line `##CanRisk <version>`, formats 1 to 4, #109) is read too, by `parse_pedigree` and `parse_pedigree_from_string`: `pypedigree.canrisk.canrisk_to_text(text)` rewrites it as a pedigree file with a header (cancers as binary columns, "not applicable" for ovarian and prostate cancer of the other sex assigned at birth, ages, gene tests and pathology as annotations, the target as consultand, the `##PRS_*` z-scores as `PGS_` columns) and `pypedigree.canrisk.is_canrisk(text)` detects it. See `docs/pedigree_standard.md`, "CanRisk files".
+
+A GA4GH Phenopackets v2 JSON `Family` or `Pedigree` (#108) is read the same way (`pypedigree.phenopackets`): persons, sex and affected status (camelCase or snake_case, enums by name or by the Phenopackets numbers), the proband, deaths, and `consanguinousParents` (a double line, with a warning when the structure does not show it). See `docs/pedigree_standard.md`, "GA4GH Phenopackets v2".
+
+### `export_phenopacket_pedigree(pedigree, file_path)`
+
+Write a Phenopackets v2 `Pedigree` message (`{"persons": [...]}`, camelCase, enums by name, `UNKNOWN_SEX` and `MISSING` written out) without phantom parents or duplicates, as `export_fam` does. Returns the `Path` written.
+
+```python
+from pypedigree import export_phenopacket_pedigree, parse_pedigree
+
+export_phenopacket_pedigree(parse_pedigree("family.ped"), "pedigree.json")
+```
+
 ```python
 from pypedigree import parse_pedigree
 
@@ -315,14 +329,16 @@ Add an individual to the pedigree.
 | `carrier` | `bool` | `False` | Carrier: patterned section (NSGC 2022 notation) or half-filled shape (legacy) |
 | `obligate_carrier` | `bool` | `False` | Obligate carrier: sparser pattern (NSGC 2022) or center dot (legacy) |
 | `date_of_birth` | `str \| None` | `None` | Date of birth |
-| `phenotypes` | `dict \| None` | `None` | Extra phenotypes as `{name: value}` |
+| `phenotypes` | `dict \| None` | `None` | Extra phenotypes as `{name: value}`; `"N/A"` for a phenotype that does not apply (#107) |
 | `annotations` | `list[str] \| None` | `None` | Annotation lines displayed below the ID label (italic grey text) |
 | `pregnancy` | `str \| Pregnancy \| None` | `None` | `"P"` ongoing pregnancy, `"SAB"` miscarriage, `"TOP"` termination, `"ECT"` ectopic, `"SB"` stillbirth |
 | `adopted` | `str \| Adoption \| None` | `None` | `"in"` (`father`/`mother` are the adoptive parents; dashed line) or `"out"` (they are the biological parents); brackets around the symbol |
-| `childless` | `str \| Childlessness \| None` | `None` | `"choice"` (one bar) or `"infertility"` (two bars) below the symbol |
+| `childless` | `str \| Childlessness \| None` | `None` | `"choice"` (one bar) or `"infertility"` (two bars) below the symbol; `"choice:<ID>"` for a couple without children, the marker hanging from their line (#104) |
 | `art` | `str \| ReproductiveRole \| None` | `None` | `"D"` gamete donor or `"S"` surrogate, written inside the symbol |
 | `gender` | `str \| Gender \| None` | `None` | Gender identity `"man"`, `"woman"`, `"nonbinary"`: the symbol follows it and `sex` is the sex assigned at birth (AMAB/AFAB below when they differ) |
 | `consultand` | `bool` | `False` | Arrow without "P" |
+| `count` | `int \| str \| None` | `None` | Several individuals in one symbol (2 or more, or `"n"`), written inside; cannot be a parent (#104) |
+| `asymptomatic` | `bool` | `False` | Asymptomatic or presymptomatic carrier: a vertical line through the symbol (#104) |
 | `evaluated` | `bool \| str` | `False` | Documented evaluation: `True` draws an asterisk at the lower right; text (e.g. `"WGS: negative"`) is the result, written below |
 | `twin_of` | `str \| list[str] \| None` | `None` | Sample ID of this individual's twin (a list for triplets and more); the twin may be added before or after |
 | `css_class` | `str \| list[str] \| None` | `None` | Extra classes on the individual's node in the interactive SVG (`"flagged"`, several separated by spaces, or a list) |
@@ -357,6 +373,7 @@ Explicitly add a union. Only needed for childless couples or consanguineous/brok
 | `partner2` | `str` | required | Second partner's sample_id |
 | `consanguineous` | `bool` | `False` | Double-line (shared ancestors) |
 | `broken` | `bool` | `False` | Broken-line (dissolved) |
+| `childless` | `str \| Childlessness \| None` | `None` | A couple without children: `"choice"` (one bar) or `"infertility"` (two), hanging from their relationship line (#104) |
 
 ### `set_style(style)` / `build()` / `render(output=None, ...)` / `render_interactive_svg(output=None, ...)` / `render_svg(output=None, ...)`
 
@@ -586,6 +603,7 @@ Represents one person in the pedigree.
 | `duplicate_of` | `str \| None` | Original sample_id if duplicate |
 | `extra_phenotypes` | `dict[str, float \| None]` | Normalized phenotype values [0, 1] |
 | `extra_phenotypes_raw` | `dict[str, float \| None]` | Original raw phenotype values |
+| `not_applicable` | `set[str]` | Phenotype columns that do not apply to the individual (`N/A` cells, #107); their value is stored as no data and drawn white, crossed |
 | `annotations` | `dict[str, str]` | Annotation key-value pairs (displayed as italic grey text below ID label) |
 | `notation` | `Notation` | Pregnancy, adoption, childlessness, assisted reproduction, gender identity and consultand (see below) |
 
@@ -605,6 +623,9 @@ to note". How each is drawn is decided in `pypedigree.symbols`.
 | `is_consultand` | `bool` | Arrow without "P" |
 | `is_evaluated` | `bool` | Documented evaluation, records reviewed: an asterisk at the lower right of the symbol |
 | `evaluation` | `str \| None` | The evaluation's result, written below the symbol (no "E" prefix, as in the 2022 revision) |
+| `count` | `str \| None` | Several individuals in one symbol: their number, or `"n"` (#104) |
+| `is_asymptomatic` | `bool` | Asymptomatic or presymptomatic carrier: a vertical line through the symbol (#104) |
+| `childless_partner` | `str \| None` | With `childlessness`, the partner of a couple without children (#104) |
 
 ### `Union`
 
@@ -616,6 +637,7 @@ Represents a mating pair and their children.
 | `children_ids` | `list[str]` | Children of this union |
 | `is_consanguinous` | `bool` | Auto-detected shared ancestry |
 | `is_broken` | `bool` | Separated/divorced (API-only) |
+| `childlessness` | `Childlessness \| None` | A couple declared without children: the marker hangs from their relationship line (#104) |
 
 ### `Family`
 
@@ -646,7 +668,7 @@ Top-level container for multiple families.
 
 | Type | Key Fields | Description |
 |------|------------|-------------|
-| `NodeLayout` | `individual_id, x, y, sex, phenotype, is_deceased, is_proband, is_phantom, is_duplicate, is_carrier, is_obligate_carrier, label, extra_phenotypes, extra_phenotypes_raw, annotations, pgs_side, notation, notes, marker_depth, is_unknown_offspring` | Position and attributes of one node. `is_unknown_offspring` marks the placeholder child of a couple alone in its family: drawn as a "?", with no symbol, label or tooltip. `sex` is the shape drawn (from the gender identity when given); `is_deceased` includes stillbirths. `annotations: list[str]` contains annotation lines to display below the ID label, after `notes` ("SB", "ECT", "AMAB", "AFAB"). `marker_depth` is the room a childlessness marker takes below the symbol; the label moves down by it. `pgs_side: str` indicates PGS curve placement ("left" or "right"). |
+| `NodeLayout` | `individual_id, x, y, sex, phenotype, is_deceased, is_proband, is_phantom, is_duplicate, is_carrier, is_obligate_carrier, label, extra_phenotypes, extra_phenotypes_raw, not_applicable, annotations, pgs_side, notation, notes, marker_depth, is_unknown_offspring` | Position and attributes of one node. `is_unknown_offspring` marks the placeholder child of a couple alone in its family: drawn as a "?", with no symbol, label or tooltip. `sex` is the shape drawn (from the gender identity when given); `is_deceased` includes stillbirths. `annotations: list[str]` contains annotation lines to display below the ID label, after `notes` ("SB", "ECT", "AMAB", "AFAB"). `marker_depth` is the room a childlessness marker takes below the symbol; the label moves down by it. `pgs_side: str` indicates PGS curve placement ("left" or "right"). |
 | `EdgeLayout` | `start, end, edge_type, line_style, waypoints` | A connection line segment (waypoints for polyline/curved edges) |
 | `TwinConnector` | `convergence_point, child_positions, twin_type` | V-lines for twin groups |
 | `DuplicateArc` | `from_pos, to_pos` | Dotted arc between duplicate nodes |
@@ -695,13 +717,13 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `phenotype_quadrants` | `{}` | Column name → `"top-left"`, `"top-right"`, `"bottom-left"` or `"bottom-right"`, for the quadrant layout. Unlisted columns take their conventional quadrant (autism top left, ADHD top right, intellectual disability bottom left, epilepsy bottom right) or the next free one in column order. Two columns in one quadrant raise `PedigreeError` |
 | `show_na_labels` | `True` | Write "NA" in bands with no data (`-9`, `NA`, empty). When `False` they stay grey with no text, so they look like an "unknown" (`0`) band |
 | `band_text` | `"auto"` | Text in bands and quadrants. `"auto"`: "name: value", or the value alone, or the value smaller (down to `min_font_size`, or half `font_size`), whichever fits; else none. `"name_value"`: always "name: value" (before 0.7.0). `"value"`: the value alone. `"none"`: no value ("NA" still follows `show_na_labels`) |
-| `pgs_scale` | `"minmax"` | Position of a PGS value on its curve: `"minmax"` (between the pedigree's lowest and highest score), `"zscore"` (a z-score on the drawn standard normal, clipped at about ±2.8 SD) or `"percentile"` (a population percentile, 0-100). On the fixed scales the ±2 SD tails are marked and the SVG tooltip gives z and percentile. Any other value raises `PedigreeError` |
+| `pgs_scale` | `"zscore"` | Position of a PGS value on its curve: `"zscore"` (a z-score on the drawn standard normal, clipped at about ±2.8 SD; the default since 0.10.0), `"minmax"` (between the pedigree's lowest and highest score, for raw scores) or `"percentile"` (a population percentile, 0-100). On the fixed scales the ±2 SD tails are marked and the SVG tooltip gives z and percentile. On `"zscore"`, a PGS column whose values do not look like z-scores draws a `PedigreeDataWarning` suggesting `"minmax"`. Any other value raises `PedigreeError` |
 | `phenotype_labels` | `{}` | Name shown for a column (after its prefix), e.g. `{"SRS": "SRS T-score", "PGS_IQ": "IQ"}`: legend, quadrant key, band text, SVG tooltips, carrier rows. Others show their name with underscores as spaces; a PGS column in the legend's key, without "PGS_". Other style options keep using the column names |
 | `legend` | `"auto"` | `"compact"`: with the quadrant layout, the binary columns of the key share one Affected / Unaffected / Unknown row (the key gives their colors). `"full"`: one row per column. `"auto"`: compact with quadrants, full with bands. `"minimal"` (journal figures): compact, with no title, no sex symbols and `legend_spacing` 0.7 unless those are set, a frame that hugs its content (no minimum width), a quadrant key of one symbol, and the key's binary columns read from a caption under it ("Colored: affected · white: unaffected · grey: unknown") instead of a row of swatches |
 | `legend_title` | `"Legend"` | The legend's title; `None` or `""` for none |
 | `legend_sex_symbols` | `True` | The "□ = Male ○ = Female" row; `False` drops it |
 | `legend_max_width` | `None` | Widest the legend may be: a number in centimetres (`8.5`) or text with its unit (`"85mm"`, `"8.5cm"`, `"3.3in"`). The PGS row may grow up to it before wrapping (never wrapping before the widest other row ends, since the others do not wrap). `None`: the PGS row wraps where the widest other row ends: the caption on its first line, the score key on the lines below, broken between scores |
-| `legend_text` | `{}` | The legend's fixed wording, by role: `key_note`, `shared_binary`, `affected`, `unaffected`, `unknown`, `pgs`, `ptdt`, `male`, `female`, `low`, `high` (e.g. `{"key_note": "Coloured: affected · white: unaffected · grey: unknown"}` for British spelling, or another language). `pgs` and `ptdt` replace the whole caption before the scores' key; a longer `male` moves the female symbol along. The defaults follow the docs' spelling ("color", "grey"). An unknown role raises `PedigreeError` with a suggested spelling. The title is `legend_title` |
+| `legend_text` | `{}` | The legend's fixed wording, by role: `key_note`, `shared_binary`, `affected`, `unaffected`, `unknown`, `pgs`, `ptdt`, `male`, `female`, `low`, `high`, `not_applicable` (e.g. `{"key_note": "Coloured: affected · white: unaffected · grey: unknown"}` for British spelling, or another language). `pgs` and `ptdt` replace the whole caption before the scores' key; a longer `male` moves the female symbol along. The defaults follow the docs' spelling ("color", "grey"). An unknown role raises `PedigreeError` with a suggested spelling. The title is `legend_title` |
 | `legend_bar_width` | `"equal"` | With more than one gradient or binned row, `"equal"` draws every bar as wide as the widest (a gradient stretched, its end captions moving with its ends; a binned bar's steps sharing it equally, never narrower than they need); `"own"` keeps each bar at its own width, as before. The legend keeps its width. Anything else raises `PedigreeError` |
 | `legend_spacing` | `1.0` | Factor on the legend's row height and gaps (header, captions, padding), 0.6 to 3, e.g. 0.7 for print. A row never gets shorter than its swatch and the captions under it. The figure is as much shorter as the legend |
 | `show_pgs_values` | `False` | Write each PGS value beside its marker, in its color, left of the curve: "+2.1" / "−0.4" on `"zscore"`, the rounded percentile on `"percentile"`, three significant digits on `"minmax"`. Close values are spread apart; the layout widens the gaps by the widest value. CLI: `--show-pgs-values` |

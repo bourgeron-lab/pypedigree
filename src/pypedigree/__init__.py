@@ -62,6 +62,7 @@ from pypedigree.parser import (
     parse_phenotype_file,
     parse_plink_ped,
 )
+from pypedigree.phenopackets import export_phenopacket_pedigree
 from pypedigree.svg_renderer import render_interactive_svg, render_svg
 
 if TYPE_CHECKING:
@@ -128,6 +129,7 @@ __all__ = [
     "parse_fam_file",
     "parse_plink_ped",
     "export_fam",
+    "export_phenopacket_pedigree",
     "build_notation",
     # Layout
     "compute_layout",

@@ -1,0 +1,32 @@
+{
+  "pedigree": {
+    "persons": [
+      {
+        "family_id": "FAM1",
+        "individual_id": "a",
+        "sex": 2,
+        "affected_status": 1
+      },
+      {
+        "family_id": "FAM1",
+        "individual_id": "b",
+        "sex": 1,
+        "affected_status": 2
+      },
+      {
+        "family_id": "FAM1",
+        "individual_id": "c",
+        "paternal_id": "a",
+        "maternal_id": "b"
+      }
+    ]
+  },
+  "proband": {
+    "subject": {
+      "id": "c",
+      "vital_status": {
+        "status": 2
+      }
+    }
+  }
+}

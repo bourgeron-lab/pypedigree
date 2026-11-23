@@ -176,6 +176,16 @@ def main() -> None:
     sibship("dizygotic_twins", ["male", "female"], "DZ")
     sibship("unknown_zygocity_twins", ["male", "male"], "TW")
     sibship("trizygotic_twins", ["male", "male", "female"], "DZ")
+    # Notation added in #104.
+    single("several_individuals", sex="unknown", phenotype="unaffected", count=5)
+    single("asymptomatic_carrier", sex="female", phenotype="unaffected", asymptomatic=True)
+    _save(
+        PedigreeBuilder()
+        .add_individual("F", sex="male", phenotype="unaffected")
+        .add_individual("M", sex="female", phenotype="unaffected")
+        .add_union("F", "M", childless="infertility"),
+        "childless_couple",
+    )
     diagram()
 
 

@@ -80,16 +80,24 @@
         <code>b_</code> affected or not (2 affected, 1 unaffected, 0 unknown), <code>g_</code> shaded from white to
         colour, <code>gi_</code> the reverse, <code>c_</code> one colour per category,
         <code>o_</code> a coloured outline (one per <code>o_</code> column an individual is affected in, inner first). Without a prefix, the column’s values decide. Missing
-        values (<code>-9</code>, <code>NA</code>, empty) are drawn grey with “NA”.</li>
+        values (<code>-9</code>, <code>NA</code>, empty) are drawn grey with “NA”;
+        <code>N/A</code> (or <code>not_applicable</code>) marks a phenotype that cannot apply to that
+        person, drawn white and crossed.</li>
       <li><strong>Polygenic scores</strong>: columns whose name starts with <code>PGS</code>.</li>
       <li><strong>Carriers</strong>: a <code>carrier</code> column, or one <code>cr_</code>
         column per gene (<code>cr_CFTR</code>): 1 carrier, 2 obligate carrier (as declared; it is
         not inferred).</li>
       <li><strong>Annotations</strong>: <code>a_</code> columns, written below the ID.</li>
       <li><strong>Standard notation</strong>: <code>pregnancy</code>, <code>adopted</code>,
-        <code>childless</code>, <code>art</code>, <code>gender_identity</code>,
-        <code>evaluated</code>.</li>
+        <code>childless</code> (<code>choice:&lt;ID&gt;</code> for a couple), <code>art</code>,
+        <code>gender_identity</code>, <code>evaluated</code>, <code>count</code> (several
+        individuals in one symbol), <code>asymptomatic</code>.</li>
     </ul>
+    <p>A file saved by the CanRisk tool (first line <code>##CanRisk 4.0</code>) is read as it
+      is: cancers, gene test results, ages and polygenic risk scores are drawn (see the
+      “CanRisk file” example). So is a GA4GH Phenopackets v2 <code>Family</code> or
+      <code>Pedigree</code> (<code>.json</code>): persons, sex, affected status, proband and
+      deaths.</p>
     <p>A parent named in a column but with no line of their own is drawn with a dashed outline,
       and a warning says so. The full description, with every code, is in the
       <a href="docs/#file-format">documentation</a>.</p>
@@ -112,10 +120,17 @@
         donor, a surrogate</td></tr>
       <tr><td>Asterisk beside the lower right</td><td>Documented evaluation, records
         reviewed</td></tr>
+      <tr><td>A number or “n” inside a symbol</td><td>Several individuals (siblings) drawn as
+        one</td></tr>
+      <tr><td>Vertical line through a symbol</td><td>Asymptomatic or presymptomatic carrier</td></tr>
+      <tr><td>Short line ending in one or two bars</td><td>No children: by choice (one bar) or
+        infertility (two); under a couple's line for the couple</td></tr>
+      <tr><td>White band or quadrant crossed by a thin diagonal</td><td>The phenotype does not
+        apply to that person (<code>N/A</code>)</td></tr>
       <tr><td>Hatched symbol or section</td><td>Carrier; wider hatching: obligate carrier
         (NSGC 2022). Each gene has its own pattern in the legend</td></tr>
       <tr><td>Bell curve beside a symbol</td><td>Polygenic score: the mark shows where the
-        individual stands, by default from the lowest to the highest score in the pedigree
+        individual stands in the population, read as a z-score; dotted lines mark ±2 SD
         (<em>Polygenic score position</em> changes this)</td></tr>
       <tr><td>Same individual twice, joined by a dotted arc</td><td>In a pedigree with loops
         (for example two marriages between the same two families), someone is drawn a second
@@ -133,8 +148,8 @@
       <li><strong>Phenotypes</strong>: quadrants up to four phenotypes and bands beyond (the
         default), quadrants only, or horizontal bands. Autism, ADHD, intellectual disability and
         epilepsy take their conventional quadrant and colour.</li>
-      <li><strong>Polygenic score position</strong>: min–max within the pedigree, z-score or
-        percentile.</li>
+      <li><strong>Polygenic score position</strong>: z-score (the default), min–max within the
+        pedigree for raw scores, or percentile.</li>
       <li><strong>Carrier notation</strong>: the NSGC 2022 patterns, or the earlier half-filled
         symbol and centre dot.</li>
       <li><strong>Polygenic score values</strong>: write each score's value beside its
