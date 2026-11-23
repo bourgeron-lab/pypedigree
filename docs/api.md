@@ -271,6 +271,8 @@ layout = compute_layout(family, style=PedigreeStyle())
 
 ### `compute_layout_circular(family, style=None)`
 
+**Experimental.** The structure (rings, order, duplicates) is stable, but how it is drawn (ring spacing, labels, lines between rings) may change in a 1.x release; the hierarchical layout is the reference.
+
 Compute a circular/radial layout. Founders sit at the centre and each later generation on its own concentric ring, in the left-to-right order of the hierarchical layout wrapped around the circle (counter-clockwise, centred at the bottom). It therefore inherits that layout's guarantees: siblings stay together, sibship arcs of different couples never overlap, partners sit side by side, and tangled loops are drawn with duplicated individuals. A small family occupies only the arc it needs; a large one the whole circle.
 
 ```python

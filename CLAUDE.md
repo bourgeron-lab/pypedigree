@@ -599,7 +599,7 @@ pypedigree INPUT.ped [OPTIONS]
 --plink                  Parse as PLINK format (ignore genotype columns after col 6)
 ```
 
-Circular layout: `compute_layout_circular` reuses `_place_hierarchically` and
+Circular layout (experimental from 1.0.0: drawing may change in 1.x): `compute_layout_circular` reuses `_place_hierarchically` and
 wraps its x order around the circle (`_circular_positions`), so it inherits the
 hierarchical guarantees (no interleaved sibships, loops broken with duplicates).
 Shapes stay upright; `NodeLayout.label_angle` is the direction of the ID label,
@@ -611,7 +611,8 @@ may be resized after `render_pedigree`). Each label tries `_RADIAL_LABEL_TURNS`
 text touches no line, patch outline or text of the axes, nor an earlier label
 (`_label_obstacles`, `_box_hits`); otherwise the least touching one. Notes and
 annotations follow it in points. `TestRadialLabels`. Twin connectors hang from the sibship arc, and
-duplicate arcs are emitted as in the hierarchical layout. The renderer still
+duplicate arcs are emitted as in the hierarchical layout. A lone founder couple at the centre is `couple_gap` apart, and PGS box
+sides are decided by page x, not angle (#151). The renderer still
 supports `NodeLayout.rotation` for API callers: rotated labels sit below the
 rotated outline, band text is never upside down, and the proband marker stays
 upright.

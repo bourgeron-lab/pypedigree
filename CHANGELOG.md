@@ -50,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The circular layout (`--circular`, `compute_layout_circular`) is documented as experimental: its
+  structure is stable, but how it is drawn may change in a 1.x release (#151).
 - Under `phenotype_layout` "auto" (the default), a single phenotype column with no carrier column
   fills the whole symbol, as NSGC draws one condition, instead of one quadrant: an affected
   individual looked three quarters unaffected (#108). Every figure with one column changes; ask for
@@ -129,6 +131,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with rounded corners; lines of a row whose spans overlap run at different heights. It touches no
   other symbol. The circular layout keeps its curves. `DuplicateArc.waypoints`; golden
   `multiple_partners_complex` changes.
+- Circular layout: the lone founder couple at the centre was 1.12 units apart whatever room it needed,
+  and which partner drew their PGS box on the right was decided by angle, which runs right to left at
+  the top of the circle: the centre couple's boxes lay on their symbols, in every fixture with PGS
+  curves (#151). The couple is now `couple_gap` apart and box sides follow the page. Golden
+  `circular_test_all` changes.
 - A long line of text under one partner of a couple crossed the couple's descent line (#130): the
   couple was spaced for the sum of the two partners' labels (#41), so they did not meet, but the
   descent line starts in the middle, and since #120 a CanRisk panel's gene line ("BRCA1, BRCA2,

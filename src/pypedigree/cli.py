@@ -195,7 +195,8 @@ def _reported_warnings() -> Iterator[None]:
 @click.option(
     "--circular",
     is_flag=True,
-    help="Use circular (radial) layout with founders at the centre.",
+    help="Use circular (radial) layout with founders at the centre (experimental: "
+    "how it looks may change in a 1.x release).",
 )
 @click.option(
     "--ptdt",
