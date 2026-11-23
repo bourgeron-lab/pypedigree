@@ -116,6 +116,8 @@ from pypedigree.phenotypes import (
     pgs_box_left,
     pgs_caption_above,
     pgs_caption_offset,
+    pgs_curve_base,
+    pgs_curve_x,
     pgs_marker_values,
     pgs_row_layout,
     pgs_tail_positions,
@@ -2100,13 +2102,14 @@ def _draw_pgs_ridge(
     density = np.exp(-0.5 * ((y_vals - 0.5) / PGS_CURVE_SIGMA) ** 2)
     density = density / density.max()
 
-    plot_x = box_left + density * box_width * 0.8 + box_width * 0.1
+    # Peak to the left of a baseline near the right edge (#126).
+    plot_x = pgs_curve_x(box_left, box_width, density)
     plot_y = box_bottom + y_vals * box_height
 
     ax.plot(plot_x, plot_y, color="#aaaaaa", linewidth=0.6, zorder=4)
     ax.fill_betweenx(
         plot_y,
-        box_left + box_width * 0.1,
+        pgs_curve_base(box_left, box_width),
         plot_x,
         alpha=0.08,
         color="#999999",

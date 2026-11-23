@@ -708,7 +708,9 @@ def _parse_individual_mapped(
 _CSS_CLASS_RE = re.compile(r"^-?[_a-zA-Z][_a-zA-Z0-9-]*$")
 _DATA_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 # data-* attributes pypedigree writes itself on every node.
-RESERVED_DATA_ATTRIBUTES = frozenset({"id", "parents", "children", "siblings", "x", "y", "size"})
+RESERVED_DATA_ATTRIBUTES = frozenset(
+    {"id", "parents", "children", "siblings", "x", "y", "size", "number"}
+)
 # Classes the SVG uses itself: every node is "node", and the click
 # highlighting adds and removes "dimmed", which would erase a host's own.
 RESERVED_CSS_CLASSES = frozenset({"node", "dimmed"})
@@ -1583,13 +1585,17 @@ def _read_text(path: Path) -> str:
         ) from exc
 
 
-def parse_pedigree(file_path: str | Path) -> Pedigree:
+def parse_pedigree(file_path: str | Path, *, canrisk_names: bool = False) -> Pedigree:
     """Parse a pedigree from a file.
 
-    Auto-detects separator (tab, comma, whitespace) and header presence.
+    Auto-detects separator (tab, comma, whitespace) and header presence; a
+    CanRisk file or a GA4GH Phenopackets JSON is read too.
 
     Args:
         file_path: Path to the pedigree file.
+        canrisk_names: For a CanRisk file, label individuals with its ``Name``
+            column instead of ``IndivID`` where given and unique (#120);
+            ignored for other files.
 
     Returns:
         A Pedigree object containing all parsed families.
@@ -1607,14 +1613,16 @@ def parse_pedigree(file_path: str | Path) -> Pedigree:
     if not text:
         raise PedigreeParseError(f"Pedigree file is empty: {path}")
 
-    return _parse_any(text)
+    return _parse_any(text, canrisk_names=canrisk_names)
 
 
-def parse_pedigree_from_string(text: str) -> Pedigree:
+def parse_pedigree_from_string(text: str, *, canrisk_names: bool = False) -> Pedigree:
     """Parse a pedigree from a string.
 
     Args:
         text: The pedigree data as a string.
+        canrisk_names: As for `parse_pedigree`: a CanRisk file's ``Name`` as
+            labels (#120).
 
     Returns:
         A Pedigree object.
@@ -1626,14 +1634,14 @@ def parse_pedigree_from_string(text: str) -> Pedigree:
     text = text.strip()
     if not text:
         raise PedigreeParseError("Pedigree text is empty")
-    return _parse_any(text)
+    return _parse_any(text, canrisk_names=canrisk_names)
 
 
-def _parse_any(text: str) -> Pedigree:
+def _parse_any(text: str, *, canrisk_names: bool = False) -> Pedigree:
     """Parse a pedigree file, or a CanRisk file (#109) or a GA4GH Phenopackets
     v2 ``Family`` / ``Pedigree`` (#108) rewritten as one."""
     if is_canrisk(text):
-        return _parse_text(canrisk_to_text(text), header=True)
+        return _parse_text(canrisk_to_text(text, names=canrisk_names), header=True)
     packet = load_phenopacket(text)
     if packet is not None:
         pedigree = _parse_text(phenopacket_to_text(packet), header=True)

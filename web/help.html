@@ -94,8 +94,9 @@
         individuals in one symbol), <code>asymptomatic</code>.</li>
     </ul>
     <p>A file saved by the CanRisk tool (first line <code>##CanRisk 4.0</code>) is read as it
-      is: cancers, gene test results, ages and polygenic risk scores are drawn (see the
-      “CanRisk file” example). So is a GA4GH Phenopackets v2 <code>Family</code> or
+      is: cancers, gene test results (grouped by result and test type), ages and polygenic
+      risk scores are drawn (see the “CanRisk file” example). Its <code>Name</code> column,
+      often a real name, is not used. So is a GA4GH Phenopackets v2 <code>Family</code> or
       <code>Pedigree</code> (<code>.json</code>): persons, sex, affected status, proband and
       deaths.</p>
     <p>A parent named in a column but with no line of their own is drawn with a dashed outline,
@@ -128,8 +129,9 @@
       <tr><td>Hatched symbol or section</td><td>Carrier; wider hatching: obligate carrier
         (NSGC 2022). Each gene has its own pattern in the legend</td></tr>
       <tr><td>Bell curve beside a symbol</td><td>Polygenic score: the mark shows where the
-        individual stands in the population, read as a z-score; dotted lines mark ±2 SD
-        (<em>Polygenic score position</em> changes this)</td></tr>
+        individual stands in the population, read as a z-score, higher up for a higher score;
+        dotted lines mark ±2 SD (<em>Polygenic score position</em> changes this). Turned a
+        quarter turn clockwise, the curve is the usual bell, positive values on the right</td></tr>
       <tr><td>Same individual twice, joined by a dotted arc</td><td>In a pedigree with loops
         (for example two marriages between the same two families), someone is drawn a second
         time next to their partner, so that no lines cross. It is one person</td></tr>
@@ -150,6 +152,9 @@
         pedigree for raw scores, or percentile.</li>
       <li><strong>Carrier notation</strong>: the NSGC 2022 patterns, or the earlier half-filled
         symbol and centre dot.</li>
+      <li><strong>Labels</strong>: the identifiers of the file, or the NSGC numbers taken from
+        the drawing, generation in Roman numerals and position from the left (I-1, II-3), or
+        both, the identifier under the number. The tooltip always gives the identifier.</li>
       <li><strong>Polygenic score values</strong>: write each score's value beside its
         marker (a z-score such as +2.1, a percentile, or the value itself), in its colour.</li>
       <li><strong>Smallest text</strong>: no text smaller than this, in points at the drawing's

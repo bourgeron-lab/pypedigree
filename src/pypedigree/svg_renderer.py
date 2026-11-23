@@ -118,6 +118,8 @@ from pypedigree.phenotypes import (
     pgs_caption_above,
     pgs_caption_offset,
     pgs_curve,
+    pgs_curve_base,
+    pgs_curve_x,
     pgs_marker_values,
     pgs_row_layout,
     pgs_tail_positions,
@@ -805,6 +807,8 @@ def _tooltip(
 ) -> str:
     """Text of a node's tooltip, lines separated by " | "."""
     lines = [f"ID: {node.individual_id}"]
+    if node.number:
+        lines.append(f"Number: {node.number}")  # NSGC numbering (#125)
     sex = ind.sex if ind is not None else node.sex
     lines.append(f"Sex: {({Sex.MALE: 'Male', Sex.FEMALE: 'Female'}).get(sex, 'Unknown')}")
     notation = node.notation
@@ -902,10 +906,11 @@ def _svg_node(
     extra = "".join(
         f' data-{name}="{html.escape(value)}"' for name, value in node.data_attributes.items()
     )
+    number = f' data-number="{html.escape(node.number)}"' if node.number else ""
     parts = [
         f'<g class="{html.escape(classes)}" data-id="{html.escape(node.individual_id)}" '
         f'data-x="{node.x + 0.0:.3f}" data-y="{node.y + 0.0:.3f}" '
-        f'data-size="{style.shape_size:.3f}"{extra} '
+        f'data-size="{style.shape_size:.3f}"{extra}{number} '
         f'data-parents="{html.escape(",".join(adj.get("parents", [])))}" '
         f'data-children="{html.escape(",".join(adj.get("children", [])))}" '
         f'data-siblings="{html.escape(",".join(adj.get("siblings", [])))}">'
@@ -1328,8 +1333,9 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
     bottom = node.y + half
     thin = 0.5 * _PT
 
-    curve = [(left + d * box_w * 0.8 + box_w * 0.1, bottom - t * box_h) for t, d in pgs_curve(50)]
-    base_x = left + box_w * 0.1
+    # Peak to the left of a baseline near the right edge (#126).
+    curve = [(pgs_curve_x(left, box_w, d), bottom - t * box_h) for t, d in pgs_curve(50)]
+    base_x = pgs_curve_base(left, box_w)
     pts = " ".join(f"{x:.3f},{y:.3f}" for x, y in curve)
     area = f"{base_x:.3f},{bottom:.3f} {pts} {base_x:.3f},{bottom - box_h:.3f}"
     out = [

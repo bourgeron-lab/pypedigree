@@ -2,7 +2,7 @@
 
 ## Parsing
 
-### `parse_pedigree(file_path)`
+### `parse_pedigree(file_path, *, canrisk_names=False)`
 
 Parse a pedigree from a file. Auto-detects separator (tab, comma, space) and header rows. When a header is present, columns are matched by name (not position), so phenotype columns can appear directly after Sex without needing the full 10-column format. The file is read as UTF-8 whatever the system's default encoding (cp1252 on most Windows systems); a byte order mark is ignored, and a file that is not UTF-8 raises `PedigreeParseError`. `parse_fam_file`, `parse_plink_ped`, `--pheno` and `--annotations` files are read the same way, and `export_fam` writes UTF-8 with `\n` line endings.
 
@@ -26,7 +26,7 @@ from pypedigree import parse_pedigree
 ped = parse_pedigree("family.ped")
 ```
 
-**Args**: `file_path` — Path to the pedigree file (str or Path).
+**Args**: `file_path` — Path to the pedigree file (str or Path). `canrisk_names` — for a CanRisk file, label individuals with its `Name` column instead of `IndivID`, where given and unique in the family (#120); ignored for other files.
 
 **Returns**: `Pedigree` object containing all families.
 
@@ -34,7 +34,7 @@ ped = parse_pedigree("family.ped")
 
 ---
 
-### `parse_pedigree_from_string(text)`
+### `parse_pedigree_from_string(text, *, canrisk_names=False)`
 
 Parse a pedigree from a string (same format as file contents).
 
@@ -45,7 +45,7 @@ text = "FAM1\tfather\t0\t0\t1\t1\nFAM1\tmother\t0\t0\t2\t1\nFAM1\tchild\tfather\
 ped = parse_pedigree_from_string(text)
 ```
 
-**Args**: `text` — Pedigree data as a string.
+**Args**: `text` — Pedigree data as a string. `canrisk_names` — as for `parse_pedigree`.
 
 **Returns**: `Pedigree` object.
 
@@ -736,6 +736,7 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `gradient_bin_labels` | `{}` | Names of the steps of `gradient_bins`: column → one name per step, from the lowest up (`len(cut-offs) + 1` entries, whatever direction a `gi_` column's color runs), e.g. `{"SRS": [None, "mild", "moderate", "severe"]}`; `None` or `""` leaves a step unnamed. The legend writes each name under its step's limits (the row takes a second caption line) and the SVG tooltip gives it with the step ("SRS: 81 (≥ 76, severe)"). A column without `gradient_bins`, or a wrong number of names, raises `PedigreeError` |
 | `gradient_diverging` | `{}` | Tricolor diverging gradient config, e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}` |
 | `zero_pad_ids` | `0` | Zero-pad sample IDs to this width in labels (0 = no padding) |
+| `labels` | `"id"` | What labels a symbol (#125): `"id"` its sample ID, `"generation"` its NSGC number from the drawing (generation in Roman numerals from the top, position from the left: "II-3"; a duplicate has its original's), `"both"` the number with the ID right under it. `NodeLayout.number`; SVG tooltip "Number: II-3" and `data-number`. Another value raises `PedigreeError` |
 | `dpi` | `150` | Output resolution |
 | `fig_width` | `10.0` | Width in inches a small pedigree is drawn to fill (sets its scale; the figure is then fitted to the drawing) |
 | `fig_height` | `8.0` | Height in inches a small pedigree is drawn to fill (sets its scale; the figure is then fitted to the drawing) |

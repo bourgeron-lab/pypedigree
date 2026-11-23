@@ -441,6 +441,8 @@ class NodeLayout:
             with no symbol and no label.
         css_classes: Extra classes on the SVG node (see ``Individual``).
         data_attributes: Extra ``data-*`` attributes on the SVG node.
+        number: The NSGC number ("II-3") with ``labels`` "generation" or
+            "both" (#125), else None.
     """
 
     individual_id: str
@@ -472,6 +474,7 @@ class NodeLayout:
     is_unknown_offspring: bool = False
     css_classes: list[str] = field(default_factory=list)
     data_attributes: dict[str, str] = field(default_factory=dict)
+    number: str | None = None
 
 
 @dataclass

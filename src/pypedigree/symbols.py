@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import math
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 
 from pypedigree.models import (
     Childlessness,
@@ -798,3 +798,50 @@ def evaluation_mark_position(
 def text_lines_below(ind: Individual) -> int:
     """Lines of text below the label: notes, then annotations."""
     return len(notes(ind)) + sum(1 for v in ind.annotations.values() if v)
+
+
+# --- NSGC numbering (#125) ------------------------------------------------------
+
+LABEL_MODES = ("id", "generation", "both")
+
+_ROMAN = (
+    (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"), (90, "XC"),
+    (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I"),
+)  # fmt: skip
+
+
+def roman(n: int) -> str:
+    """``n`` (1 or more) in Roman numerals: 1 → "I", 4 → "IV", 12 → "XII"."""
+    if n < 1:
+        raise ValueError(f"No Roman numeral for {n}")
+    out = []
+    for value, letters in _ROMAN:
+        count, n = divmod(n, value)
+        out.append(letters * count)
+    return "".join(out)
+
+
+def generation_numbers(
+    levels: Mapping[str, int], xs: Mapping[str, float], numbered: Iterable[str]
+) -> dict[str, str]:
+    """NSGC numbers (#125): generation in Roman numerals, ranked from the top
+    among the levels that hold someone numbered, then the position from the
+    left within it ("II-3").
+
+    Args:
+        levels: Each node's generation (0 at the top).
+        xs: Each node's horizontal position.
+        numbered: The nodes to number, in any order.
+
+    Returns:
+        Node ID → number.
+    """
+    by_level: dict[int, list[str]] = {}
+    for sid in numbered:
+        by_level.setdefault(levels.get(sid, 0), []).append(sid)
+    numbers = {}
+    for rank, level in enumerate(sorted(by_level), start=1):
+        row = sorted(by_level[level], key=lambda sid: xs.get(sid, 0.0))
+        for position, sid in enumerate(row, start=1):
+            numbers[sid] = f"{roman(rank)}-{position}"
+    return numbers

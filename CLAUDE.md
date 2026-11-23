@@ -367,6 +367,15 @@ Extended format adds:
   less room).
 - Columns 11+: extra phenotypes (requires header row with column names)
 
+NSGC numbering (#125): `PedigreeStyle.labels` "id" (default), "generation", "both" (`symbols.LABEL_MODES`,
+`layout.check_labels` raises `PedigreeError`). `layout._numbered` runs after `_build_nodes` (both layouts): every
+labelled, non-duplicate node gets `symbols.generation_numbers(generations, x_positions, ...)` (Roman rank of the
+level among levels holding someone numbered, then rank by x), a duplicate its original's; `NodeLayout.label` and
+`.number` set; with "both" the ID becomes the first of `notes` and `_room_below_labels(..., extra_lines=1)`. Placement
+still measures ID labels, and the order does not depend on their text. Circular: the hierarchical placement's
+numbers. SVG: tooltip "Number: …", `data-number` (reserved: `RESERVED_DATA_ATTRIBUTES`). Web app select "labels".
+`tests/test_nsgc_numbering.py`.
+
 Smart header-based column mapping:
 - When a header is present, columns are matched by name (not position)
 - Any column after the core 5 (FID, ID, Father, Mother, Sex) that doesn't match
@@ -435,7 +444,10 @@ Multi-phenotype support:
   second "pgs" row, `ptdt_legend_description()`; tooltip `curve_value_text` ("pTDT = +2.12").
   `_assign_pgs_colors` colors each kind apart (pTDT_autism may share PGS_autism's color). Captions keep
   "±2 SD" and the pTDT formula together with no-break spaces (`NBSP`, `TWO_SD`) when a row wraps
-- PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve. Multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) show colored markers on a single curve. Marker colors via `pgs_colors` style option; unset ones are filled by `config._assign_pgs_colors` when there are several PGS columns (#53): a known phenotype's color (its column's in the figure if any), else the first of `DEFAULT_PGS_COLOR` + palette + extras not `_alike` any other score or band. One PGS column keeps `DEFAULT_PGS_COLOR` (now in `config.py`). `couple_gap` and `sibling_gap` auto-increase when PGS present.
+- PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve, upright,
+  baseline near the box's right edge and peak to the left (`phenotypes.pgs_curve_base` / `pgs_curve_x`,
+  `PGS_CURVE_MARGIN`, `PGS_CURVE_REACH`, both renderers; #126: turned clockwise it is the legend's bell,
+  positive values on the right); markers and dots are unchanged. Multiple PGS columns (e.g. `PGS_autism`, `PGS_IQ`) show colored markers on a single curve. Marker colors via `pgs_colors` style option; unset ones are filled by `config._assign_pgs_colors` when there are several PGS columns (#53): a known phenotype's color (its column's in the figure if any), else the first of `DEFAULT_PGS_COLOR` + palette + extras not `_alike` any other score or band. One PGS column keeps `DEFAULT_PGS_COLOR` (now in `config.py`). `couple_gap` and `sibling_gap` auto-increase when PGS present.
 - Colors from `phenotype_colors` in style JSON, or auto-assigned from palette
   (`config.resolve_style`): by position among all columns, lookalikes of known
   phenotypes skipped; when any color is fixed (known phenotype or user's), a
@@ -532,6 +544,8 @@ pypedigree INPUT.ped [OPTIONS]
 --carrier-notation [nsgc2022|legacy]  Carrier notation (default: nsgc2022)
 --min-font-size PT       Smallest size of any text, in points (style `min_font_size`)
 --no-labels              Hide sample ID labels
+--labels [id|generation|both]  Sample IDs (default), NSGC numbers from the drawing (I-1, II-3), or both (style `labels`)
+--canrisk-names          For a CanRisk file: its Name column as labels, where given and unique
 --no-legend              Hide the phenotype legend
 --show-phenotype-labels  Show YES/NO text inside binary phenotype bands
 --no-na-labels           Do not write "NA" in bands with no data (style `show_na_labels`)
@@ -655,6 +669,9 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
 - `tests/test_deceased_pgs.py` — The deceased line clear of the PGS box (#80)
 - `tests/test_nsgc_additions.py` — Several individuals in one symbol, asymptomatic carriers, a childless couple (#104)
+- `tests/test_nsgc_numbering.py` — NSGC numbers from the drawing (#125): Roman numerals, order, duplicates, phantoms,
+  "both", circular, SVG, CLI
+- `tests/test_pgs_curve_side.py` — The PGS / pTDT curve's peak to the left, baseline on the right (#126)
 - `tests/test_phenopackets.py` — Phenopackets v2 Family / Pedigree read, Pedigree written (#108)
 - `tests/test_canrisk.py` — CanRisk files v1-v4 (#109): structure, target, cancers and N/A, annotations, PRS, errors
 - `tests/test_not_applicable.py` — Not applicable (N/A) values: parsing, cells, drawn as unaffected, tooltip,
@@ -757,7 +774,11 @@ block's target as `PGS_*_cancer`. `Name` and risk-factor keys are dropped. `test
 fixtures `tests/data/format/canrisk_v*.txt`; web example "CanRisk file". As the CanRisk services (bws) read a file
 (#119): rows split on any whitespace; without a `##FamID` line, columns by position (`_DEFAULT_COLUMNS`: 28 / 27 / 26
 fields for formats 4, 2-3, 1); header lines belong to the family after them, so a block's PRS goes to that family's
-target, with a warning when other families of the block have one (`_give_prs`).
+target, with a warning when other families of the block have one (`_give_prs`). Gene tests (#120): `_gene_lines`
+groups genes by (result, detail, test type), positives first, `GENES_PER_LINE` a line, with the type (`_TEST_TYPES`:
+S "search", T "direct test"), into `a_gene_tests_<n>` columns. `canrisk_to_text(text, names=True)`
+(`parse_pedigree(..., canrisk_names=True)`, `--canrisk-names`): `_use_names` replaces `IndivID` (and parents'
+references) by `Name` where given and unique in the family, else keeps it with a warning.
 
 ## GA4GH Phenopackets v2
 
