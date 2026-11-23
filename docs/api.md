@@ -702,7 +702,6 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `line_color` | `"black"` | Connection line color |
 | `line_width` | `1.0` | Connection line width |
 | `double_line_gap` | `0.06` | Gap between double lines (consanguinity) |
-| `broken_gap_size` | `0.15` | Deprecated, no effect: the separation marks of a broken relationship are sized with the symbols (#141). To be removed in 1.0 |
 | `carrier_notation` | `"nsgc2022"` | `"nsgc2022"`: the symbol is divided into patterned sections, one per carrier result, defined in the legend (Bennett et al., J Genet Couns 2022). `"legacy"`: half-filled shape for carriers, center dot for obligate carriers. Any other value raises `PedigreeError` |
 | `carrier_dot_radius` | `0.08` | Radius of the obligate carrier center dot (legacy notation) |
 | `font_size` | `8.0` | Label font size, in points. The legend panel is sized from it (text, swatches and row height), so raise it to keep a figure legible once scaled down for print |
@@ -713,7 +712,6 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `generation_gap` | `2.0` | Vertical distance between generations |
 | `sibling_gap` | `1.5` | Horizontal distance between siblings (more where long labels need it) |
 | `couple_gap` | `1.5` | Horizontal distance between partners (more where long labels need it) |
-| `min_node_distance` | `1.2` | Deprecated, no effect: `sibling_gap` and `couple_gap` set the spacing. To be removed in 1.0 |
 | `radial_gap` | `2.5` | Distance between concentric rings in circular layout |
 | `base_radius` | `3.0` | Radius of the innermost ring in circular layout |
 | `phenotype_colors` | `{}` | Map of phenotype name to hex color (e.g. `{"IQ": "#3498db"}`) |

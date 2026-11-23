@@ -105,7 +105,8 @@ class TestLargePedigreeNoOverlap:
 
     @staticmethod
     def _check_no_overlap(layout, style: PedigreeStyle) -> None:
-        """Assert no two nodes in the same generation are closer than min_node_distance."""
+        """Assert no two nodes in the same generation are closer than the smaller gap."""
+        closest = min(style.sibling_gap, style.couple_gap)
         # Group nodes by y (generation)
         by_gen: dict[float, list[tuple[str, float]]] = {}
         for n in layout.nodes:
@@ -118,9 +119,9 @@ class TestLargePedigreeNoOverlap:
                 prev_id, prev_x = sorted_nodes[i - 1]
                 curr_id, curr_x = sorted_nodes[i]
                 gap = curr_x - prev_x
-                assert gap >= style.min_node_distance - 0.01, (
+                assert gap >= closest - 0.01, (
                     f"Overlap at y={y}: {prev_id} (x={prev_x:.2f}) and "
-                    f"{curr_id} (x={curr_x:.2f}), gap={gap:.2f} < {style.min_node_distance}"
+                    f"{curr_id} (x={curr_x:.2f}), gap={gap:.2f} < {closest}"
                 )
 
     def test_deep_pedigree_no_overlap(self, style: PedigreeStyle) -> None:

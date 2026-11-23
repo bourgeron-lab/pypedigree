@@ -1284,7 +1284,6 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>line_color</code></td><td>str</td><td>"black"</td><td>Connection line color</td></tr>
     <tr><td><code>line_width</code></td><td>float</td><td>1.0</td><td>Connection line width</td></tr>
     <tr><td><code>double_line_gap</code></td><td>float</td><td>0.06</td><td>Gap between consanguinity double lines</td></tr>
-    <tr><td><code>broken_gap_size</code></td><td>float</td><td>0.15</td><td>Deprecated, no effect: the separation marks of a broken relationship are sized with the symbols. To be removed in 1.0</td></tr>
     <tr><td><code>font_size</code></td><td>float</td><td>8.0</td><td>Label and text font size, in points. The legend panel is sized from it (text, swatches and row height), so raise it to keep a figure legible once scaled down for print</td></tr>
     <tr><td><code>min_font_size</code></td><td>float | None</td><td>None</td><td>Smallest size of any text, in points (e.g. 6, a common journal rule). Notes, annotations, band and quadrant text, &ldquo;NA&rdquo;, &ldquo;PGS&rdquo; captions and the legend, drawn at fractions of <code>font_size</code>, are raised to it; the layout and the legend make room. <code>PedigreeStyle.text_size(scale)</code> gives the size of any text</td></tr>
     <tr><td><code>text_scale</code></td><td>float</td><td>1.0</td><td>How many times larger text and marks sized in points (labels, markers, the evaluation asterisk, PGS boxes and values) are, relative to the symbols, than by default. Set it when you draw a pedigree into axes of your own, smaller than pypedigree's own figures, so the layout keeps room for them: 2.0 for a drawing half as large. The SVG draws text and lines at that scale</td></tr>
@@ -1293,7 +1292,6 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>generation_gap</code></td><td>float</td><td>2.0</td><td>Vertical spacing between generations</td></tr>
     <tr><td><code>sibling_gap</code></td><td>float</td><td>1.5</td><td>Horizontal spacing between siblings (more where long labels need it)</td></tr>
     <tr><td><code>couple_gap</code></td><td>float</td><td>1.5</td><td>Horizontal spacing between partners (more where long labels need it)</td></tr>
-    <tr><td><code>min_node_distance</code></td><td>float</td><td>1.2</td><td>Deprecated, no effect: <code>sibling_gap</code> and <code>couple_gap</code> set the spacing. To be removed in 1.0</td></tr>
     <tr><td><code>phenotype_colors</code></td><td>dict</td><td>{}</td><td>Phenotype name &rarr; hex color mapping</td></tr>
     <tr><td><code>dpi</code></td><td>int</td><td>150</td><td>Output resolution</td></tr>
     <tr><td><code>fig_width</code></td><td>float</td><td>10.0</td><td>Width a small pedigree is drawn to fill (inches); the figure is then fitted to the drawing</td></tr>

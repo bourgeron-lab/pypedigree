@@ -102,6 +102,14 @@ def known_phenotype(name: str) -> str | None:
     return None
 
 
+# Style options removed in 1.0.0, which had no effect before: a style file
+# that still sets one loads with a warning saying so, not "unknown option".
+REMOVED_STYLE_OPTIONS = {
+    "min_node_distance": "the layout never used it; sibling_gap and couple_gap set the spacing.",
+    "broken_gap_size": "the separation marks are sized with the symbols (#141).",
+}
+
+
 @dataclass
 class PedigreeStyle:
     """Visual style configuration for pedigree diagrams.
@@ -120,9 +128,6 @@ class PedigreeStyle:
     line_color: str = "black"
     line_width: float = 1.0
     double_line_gap: float = 0.06
-    # No effect since the separation marks are sized with the symbols (#141);
-    # kept so existing styles still load; to be removed in 1.0.
-    broken_gap_size: float = 0.15
 
     # Text parameters
     font_size: float = 8.0
@@ -147,9 +152,6 @@ class PedigreeStyle:
     generation_gap: float = 2.0
     sibling_gap: float = 1.5
     couple_gap: float = 1.5
-    # Not used by the layout: `sibling_gap` and `couple_gap` set the spacing.
-    # Kept so existing styles still load; to be removed in 1.0.
-    min_node_distance: float = 1.2
 
     # Carrier notation: "nsgc2022" divides the symbol into patterned sections
     # (Bennett et al. 2022); "legacy" draws the `carrier` column as a
@@ -336,6 +338,14 @@ class PedigreeStyle:
         unknown = [k for k in d if k not in valid_keys]
         if unknown and warn_unknown:
             for key in unknown:
+                if key in REMOVED_STYLE_OPTIONS:
+                    warnings.warn(
+                        f"Style option {key!r} was removed in 1.0.0 and is ignored: "
+                        f"{REMOVED_STYLE_OPTIONS[key]}",
+                        PedigreeStyleWarning,
+                        stacklevel=2,
+                    )
+                    continue
                 close = get_close_matches(str(key), valid_keys, n=1)
                 hint = f"; did you mean {close[0]!r}?" if close else ""
                 warnings.warn(

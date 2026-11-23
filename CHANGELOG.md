@@ -82,10 +82,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the gap between the partners and read as a double line, a consanguineous couple. Golden
   `group_carrier_couple` and `docs/imgs/childless_couple.png` change.
 
-### Deprecated
+### Removed
 
-- `PedigreeStyle.broken_gap_size` has no effect (#141): the separation marks are sized with the
-  symbols. It still loads, and goes with `min_node_distance` in 1.0.
+- `PedigreeStyle.min_node_distance` and `broken_gap_size`, which had no effect (the layout never used
+  the first; the separation marks are sized with the symbols since #141). A style file that still
+  sets one loads, with a `PedigreeStyleWarning` saying it was removed; `PedigreeStyle(min_node_distance=...)`
+  raises `TypeError`. `config.REMOVED_STYLE_OPTIONS`.
 
 ### Fixed
 

@@ -294,7 +294,7 @@ class TestEndToEnd:
         for i, (x1, y1) in enumerate(positions):
             for x2, y2 in positions[i + 1 :]:
                 if y1 == y2:
-                    assert abs(x1 - x2) >= style.min_node_distance * 0.9
+                    assert abs(x1 - x2) >= min(style.sibling_gap, style.couple_gap) * 0.9
 
     def test_large_multi_union_pedigree_render(self, style, tmp_path):
         """Full render of the large multi-union pedigree to PNG and interactive SVG."""
