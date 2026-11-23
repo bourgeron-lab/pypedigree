@@ -113,6 +113,15 @@ def _reported_warnings() -> Iterator[None]:
     help="Smallest size of any text, in points (e.g. 6 for journals): notes, "
     "annotations, band text, PGS captions and the legend are raised to it.",
 )
+@click.option(
+    "--text-scale",
+    type=click.FloatRange(min=0, min_open=True),
+    default=None,
+    metavar="X",
+    help="Text and marks this many times larger, relative to the symbols, than by "
+    "default (style text_scale): the layout keeps room for them and the drawing is "
+    "smaller around them.",
+)
 @click.option("--no-labels", is_flag=True, help="Hide sample ID labels.")
 @click.option(
     "--labels",
@@ -224,6 +233,7 @@ def main(
     outline_color: str | None,
     carrier_notation: str | None,
     min_font_size: float | None,
+    text_scale: float | None,
     no_labels: bool,
     label_mode: str | None,
     no_legend: bool,
@@ -264,6 +274,8 @@ def main(
                 style.carrier_notation = carrier_notation
             if min_font_size is not None:
                 style.min_font_size = min_font_size
+            if text_scale is not None:
+                style.text_scale = text_scale
             if show_phenotype_labels:
                 style.show_phenotype_labels = True
             if no_na_labels:

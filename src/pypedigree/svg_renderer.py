@@ -39,6 +39,7 @@ from pypedigree.config import (
     PedigreeStyle,
     apply_outline_spacing,
     apply_pgs_spacing,
+    check_text_scale,
     is_curve_column,
     resolve_style,
 )
@@ -264,6 +265,7 @@ def _render(
     check_phenotype_layout(style)
     check_pgs_scale(style)
     check_min_font_size(style)
+    check_text_scale(style)
     check_band_text(style)
     check_legend(style)
     check_gradient_bins(style)
@@ -310,7 +312,7 @@ def _render(
             layout = _map_layout(layout, shift)
             x0, x1 = x0 + dx, x1 + dx
         if titled:
-            title_fs = (style.text_size() + 2) * _PT
+            title_fs = (style.text_size() + 2) * symbols.units_per_point(style.text_scale)
             parts.append(
                 _svg_text(
                     (x0 + x1) / 2,
@@ -345,9 +347,9 @@ def _render(
     return _write(_wrap_svg("\n".join(parts), bounds, style, wrap), output)
 
 
-# Layout units per typographic point: font sizes and line widths, given in
-# points in PedigreeStyle, are scaled by this in the SVG.
-_PT = symbols.UNITS_PER_POINT
+# Font sizes and line widths, given in points in PedigreeStyle, are scaled
+# to layout units by `symbols.units_per_point(style.text_scale)` (#145):
+# `symbols.UNITS_PER_POINT` at the default `text_scale`.
 
 _Extent = tuple[float, float, float, float]  # x0, y0, x1, y1 (y down)
 
@@ -429,6 +431,7 @@ def _flip_vertical(layout: FamilyLayout) -> FamilyLayout:
 
 def _family_extent(layout: FamilyLayout, ctx: _SvgContext) -> _Extent:
     """Bounding box of everything drawn for one family."""
+    pt = symbols.units_per_point(ctx.style.text_scale)  # layout units per point (#145)
     style = ctx.style
     half = style.shape_size / 2
     ring = outline_reach(ctx.render.outline_rings, style)  # several o_ borders (#46)
@@ -459,7 +462,7 @@ def _family_extent(layout: FamilyLayout, ctx: _SvgContext) -> _Extent:
             + half
             + style.label_offset
             + n.marker_depth
-            + style.text_size() * _PT * 1.2
+            + style.text_size() * pt * 1.2
             + (_label_line_offsets(n, style) or [0.0])[-1]
             for n in layout.nodes
         )
@@ -530,6 +533,7 @@ def _render_family_svg(
             (sample ids may repeat across families, and need not be valid
             XML ids).
     """
+    pt = symbols.units_per_point(ctx.style.text_scale)  # layout units per point (#145)
     parts: list[str] = []
     style = ctx.style
 
@@ -550,7 +554,7 @@ def _render_family_svg(
                     qx,
                     qy,
                     symbols.UNKNOWN_OFFSPRING_TEXT,
-                    style.text_size(symbols.UNKNOWN_OFFSPRING_FONT_SCALE) * _PT,
+                    style.text_size(symbols.UNKNOWN_OFFSPRING_FONT_SCALE) * pt,
                     style,
                     color=style.outline_color,
                     baseline="hanging",
@@ -899,6 +903,7 @@ def _svg_node(
     with bands (and its PGS curve) when the figure has any, otherwise with
     its affection status and carrier sections.
     """
+    pt = symbols.units_per_point(ctx.style.text_scale)  # layout units per point (#145)
     style = ctx.style
     half = style.shape_size / 2
     # data-x/data-y: the symbol's centre and data-size its size, in the
@@ -934,7 +939,7 @@ def _svg_node(
         parts.append(_svg_legacy_carrier(node, ctx, uid))
     parts.append(_svg_notation(node, ctx, banded and bool(ctx.band_names)))
 
-    sw = style.shape_line_width * _PT
+    sw = style.shape_line_width * pt
     ring = _node_ring(node, ctx) if banded else 0.0  # around several o_ borders (#46)
     if node.is_deceased and not triangle:
         o = (half + ring) * symbols.DECEASED_OVERSHOOT + ring
@@ -949,7 +954,7 @@ def _svg_node(
             tip_x, tip_y = symbols.triangle_points(node.x, node.y, half, up=-1.0)[1]
         else:
             tip_x, tip_y = node.x - half - ring, node.y + half + ring
-        size = style.text_size() * _PT
+        size = style.text_size() * pt
         ax, ay = symbols.marker_points(tip_x, tip_y, size, up=-1.0)
         if node.is_proband:
             parts.append(
@@ -989,9 +994,10 @@ def _svg_pregnancy_loss(node: NodeLayout, style: PedigreeStyle, fill: str) -> st
     Mirrors `renderer._draw_pregnancy_loss`: filled as decided by
     ``phenotypes.pregnancy_loss_fill``, struck through for a termination.
     """
+    pt = symbols.units_per_point(style.text_scale)  # layout units per point (#145)
     half = style.shape_size / 2
     points = symbols.triangle_points(node.x, node.y, half, up=-1.0)
-    sw = style.shape_line_width * _PT
+    sw = style.shape_line_width * pt
     out = [
         f'<polygon class="shape" points="{" ".join(f"{x:.3f},{y:.3f}" for x, y in points)}" '
         f'fill="{html.escape(fill)}" stroke="{html.escape(style.outline_color)}" '
@@ -1002,7 +1008,7 @@ def _svg_pregnancy_loss(node: NodeLayout, style: PedigreeStyle, fill: str) -> st
         out.append(
             f'<line class="termination" x1="{x1:.3f}" y1="{y1:.3f}" x2="{x2:.3f}" '
             f'y2="{y2:.3f}" stroke="{html.escape(style.outline_color)}" '
-            f'stroke-width="{style.line_width * _PT:.3f}"/>'
+            f'stroke-width="{style.line_width * pt:.3f}"/>'
         )
     return "\n".join(out)
 
@@ -1012,6 +1018,7 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
 
     Mirrors `renderer._draw_notation`.
     """
+    pt = symbols.units_per_point(ctx.style.text_scale)  # layout units per point (#145)
     style, carriers = ctx.style, ctx.carriers
     half = style.shape_size / 2
     ring = _node_ring(node, ctx) if banded else 0.0
@@ -1026,7 +1033,7 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
             out.append(
                 f'<polyline class="adoption-bracket" points="{pts}" fill="none" '
                 f'stroke="{html.escape(style.line_color)}" '
-                f'stroke-width="{style.line_width * _PT:.3f}"/>'
+                f'stroke-width="{style.line_width * pt:.3f}"/>'
             )
     if node.notation.is_evaluated:
         mark_pt = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
@@ -1041,12 +1048,12 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
             node.sex,
             mark_pt,
             width,
-            _PT,
+            pt,
             triangle,
             up=-1.0,
             bracket_width=brackets,
         )
-        size = mark_pt * _PT
+        size = mark_pt * pt
         out.append(
             _svg_text(
                 ex,
@@ -1069,7 +1076,7 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
         out.append(
             f'<line class="asymptomatic" x1="{x1:.3f}" y1="{y1:.3f}" x2="{x2:.3f}" '
             f'y2="{y2:.3f}" stroke="{html.escape(style.outline_color)}" '
-            f'stroke-width="{style.shape_line_width * _PT:.3f}"/>'
+            f'stroke-width="{style.shape_line_width * pt:.3f}"/>'
         )
     letter = symbols.inner_letter(node.notation)
     if letter is not None and not triangle:
@@ -1081,7 +1088,7 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
             or (carriers.legacy and (node.is_carrier or node.is_obligate_carrier))
         )
         color = style.line_color
-        size = style.text_size() * _PT
+        size = style.text_size() * pt
         if divided:
             # Wider for a number of two digits or more (#104).
             half_w = size * (0.55 + symbols.LETTER_CLEAR_CHAR_EM * (len(letter) - 1))
@@ -1103,6 +1110,7 @@ def _svg_plain_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
     With the NSGC 2022 notation, someone with carrier results gets a symbol
     divided into vertical sections (see pypedigree.carriers).
     """
+    pt = symbols.units_per_point(ctx.style.text_scale)  # layout units per point (#145)
     style, carriers = ctx.style, ctx.carriers
     half = style.shape_size / 2
     legacy_carrier = carriers.legacy and (node.is_carrier or node.is_obligate_carrier)
@@ -1116,7 +1124,7 @@ def _svg_plain_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
     fill = style.fill_color if affected and not sections else "white"
 
     stroke = style.outline_color
-    sw = style.shape_line_width * _PT
+    sw = style.shape_line_width * pt
     dash = 'stroke-dasharray="0.1 0.05"' if node.is_phantom or node.is_inferred else ""
     out = [
         f'{_svg_shape_outline(node, half, cls="shape")} fill="{html.escape(fill)}" '
@@ -1133,6 +1141,7 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
     Mirrors `renderer._draw_banded_node`, from the same `band_cell`
     decisions.
     """
+    pt = symbols.units_per_point(ctx.style.text_scale)  # layout units per point (#145)
     style, carriers = ctx.style, ctx.carriers
     half = style.shape_size / 2
     cx, cy = node.x, node.y
@@ -1143,7 +1152,7 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
     left, width = cx - half * 1.5, half * 3
     clip = f"bands-{uid}"
     clip_attr = f'clip-path="url(#{clip})"'
-    sep = f'stroke="{SEPARATOR_COLOR}" stroke-width="{0.5 * _PT:.3f}" {clip_attr}'
+    sep = f'stroke="{SEPARATOR_COLOR}" stroke-width="{0.5 * pt:.3f}" {clip_attr}'
     band_fs = style.text_size(symbols.BAND_TEXT_SCALE)
 
     # The letter at the centre, which band text keeps clear of (#105).
@@ -1156,7 +1165,7 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
             texts,
             size,
             style,
-            _PT,
+            pt,
             room,
             band_h if n_bands else 2 * half,
             letter=letter,
@@ -1165,7 +1174,7 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
         if fit is None:
             return None
         x = cx + fit.dx
-        return _svg_text(x, yc, fit.text, fit.size * _PT, style, color=color, weight="bold")
+        return _svg_text(x, yc, fit.text, fit.size * pt, style, color=color, weight="bold")
 
     def separator(y: float) -> str:
         return f'<line x1="{left:.3f}" y1="{y:.3f}" x2="{left + width:.3f}" y2="{y:.3f}" {sep}/>'
@@ -1220,13 +1229,13 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
             ("NA",),
             style.text_size(symbols.NA_TEXT_SCALE),
             style,
-            _PT,
+            pt,
             band_room(node.sex, half, 0.0),
             2 * half,
             letter=letter,
         )
         if na is not None:
-            size = na.size * _PT
+            size = na.size * pt
             na_x = cx + na.dx
             out.append(
                 _svg_text(na_x, cy, na.text, size, style, color=NA_TEXT_COLOR, weight="bold")
@@ -1234,7 +1243,7 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
 
     borders = outline_colors(node, ctx.outline_names, style)
     border = borders[0] if borders else None
-    sw = style.shape_line_width * _PT * (OUTLINE_WIDTH_SCALE if border else 1.0)
+    sw = style.shape_line_width * pt * (OUTLINE_WIDTH_SCALE if border else 1.0)
     dash = 'stroke-dasharray="0.1 0.05"' if node.is_phantom or node.is_inferred else ""
     out.append(
         f'{_svg_shape_outline(node, half, cls="shape")} fill="none" '
@@ -1243,7 +1252,7 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
     # The other borders around it, outwards, in column order (#46).
     offsets = outline_ring_offsets(len(borders), style)
     for color, offset in zip(borders[1:], offsets, strict=True):
-        grown = symbols.grown_half(node.sex, half, offset * _PT)
+        grown = symbols.grown_half(node.sex, half, offset * pt)
         out.append(
             f'{_svg_shape_outline(node, grown, cls="outline-ring")} fill="none" '
             f'stroke="{html.escape(color)}" stroke-width="{sw:.3f}" {dash}/>'
@@ -1265,6 +1274,7 @@ def _svg_quadrants(node: NodeLayout, ctx: _SvgContext, clip_attr: str) -> tuple[
     Returns:
         The elements, and whether every quadrant has no data.
     """
+    pt = symbols.units_per_point(ctx.style.text_scale)  # layout units per point (#145)
     style, carriers = ctx.style, ctx.carriers
     half = style.shape_size / 2
     cx, cy = node.x, node.y
@@ -1297,9 +1307,9 @@ def _svg_quadrants(node: NodeLayout, ctx: _SvgContext, clip_attr: str) -> tuple[
                 texts, color = cell_texts(cell, style.band_text), cell.text_color
         room = quadrant_room(node.sex, half, position)
         tx, ty = quadrant_center(position, cx, cy, half, up=-1.0)
-        fit = fit_text(texts, fs, style, _PT, room, half, letter=letter, offset=(tx - cx, ty - cy))
+        fit = fit_text(texts, fs, style, pt, room, half, letter=letter, offset=(tx - cx, ty - cy))
         if fit is not None:
-            size = fit.size * _PT
+            size = fit.size * pt
             out.append(_svg_text(tx, ty, fit.text, size, style, color=color, weight="bold"))
     return out, all_na
 
@@ -1335,6 +1345,7 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
     Mirrors `renderer._draw_pgs_ridge`: the curve runs bottom to top, with
     each score's position on [0, 1] marked by a dashed line and a dot.
     """
+    pt = symbols.units_per_point(ctx.style.text_scale)  # layout units per point (#145)
     style = ctx.style
     active = active_pgs(node, ctx.pgs_names, style.pgs_scale)
     if not active:
@@ -1344,7 +1355,7 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
     # Clear of several o_ borders (#46); right of a right-hand partner (#78).
     left = pgs_box_left(node, style, _node_ring(node, ctx))
     bottom = node.y + half
-    thin = 0.5 * _PT
+    thin = 0.5 * pt
 
     # Peak to the left of a baseline near the right edge (#126).
     curve = [(pgs_curve_x(left, box_w, d), bottom - t * box_h) for t, d in pgs_curve(50)]
@@ -1357,7 +1368,7 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
         f'rx="0.02" fill="white" fill-opacity="0.5" stroke="{SEPARATOR_COLOR}" '
         f'stroke-width="{thin:.3f}"/>',
         f'<polygon points="{area}" fill="{FALLBACK_COLOR}" fill-opacity="0.08"/>',
-        f'<polyline points="{pts}" fill="none" stroke="#aaaaaa" stroke-width="{0.6 * _PT:.3f}"/>',
+        f'<polyline points="{pts}" fill="none" stroke="#aaaaaa" stroke-width="{0.6 * pt:.3f}"/>',
     ]
     for tail in pgs_tail_positions(style.pgs_scale):
         ty = bottom - tail * box_h
@@ -1369,28 +1380,28 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
     ys = [bottom - value * box_h for _name, value in active]
     # Dots closer than their diameter side by side, so none hides another (#54).
     # Within the box, so no dot reaches the symbol (#89).
-    offsets = spread_dots(ys, PGS_DOT_PT * _PT, box_w)
+    offsets = spread_dots(ys, PGS_DOT_PT * pt, box_w)
     for (name, _value), y, dx in zip(active, ys, offsets, strict=True):
         color = html.escape(style.pgs_colors.get(name, DEFAULT_PGS_COLOR))
         out.append(
             f'<line x1="{left:.3f}" y1="{y:.3f}" x2="{left + box_w:.3f}" y2="{y:.3f}" '
-            f'stroke="{color}" stroke-width="{_PT:.3f}" stroke-dasharray="0.06 0.03"/>'
+            f'stroke="{color}" stroke-width="{pt:.3f}" stroke-dasharray="0.06 0.03"/>'
         )
         cx = left + box_w / 2 + dx
         out.append(
-            f'<circle cx="{cx:.3f}" cy="{y:.3f}" r="{PGS_DOT_PT / 2 * _PT:.3f}" fill="{color}"/>'
+            f'<circle cx="{cx:.3f}" cy="{y:.3f}" r="{PGS_DOT_PT / 2 * pt:.3f}" fill="{color}"/>'
         )
     if style.show_pgs_values:
         out.extend(_svg_pgs_values(node, active, ys, left, bottom - box_h, bottom, style))
     above = pgs_caption_above(node)
     caption_size = style.text_size(symbols.PGS_CAPTION_SCALE)
-    gap = pgs_caption_offset(half, caption_size, _PT)
+    gap = pgs_caption_offset(half, caption_size, pt)
     out.append(
         _svg_text(
             left + box_w / 2,
             bottom - box_h - gap if above else bottom + gap,
             curve_caption(active),
-            caption_size * _PT,
+            caption_size * pt,
             style,
             baseline="auto" if above else "hanging",
             color="#666666",
@@ -1410,13 +1421,14 @@ def _svg_pgs_values(
     style: PedigreeStyle,
 ) -> list[str]:
     """Each PGS value left of the curve's box, at its marker's height (#54)."""
+    pt = symbols.units_per_point(style.text_scale)  # layout units per point (#145)
     texts = pgs_marker_values(node, [name for name, _ in active], style.pgs_scale)
     size = style.text_size(symbols.PGS_CAPTION_SCALE)
-    step = PGS_VALUE_LINE_EM * size * _PT
+    step = PGS_VALUE_LINE_EM * size * pt
     placed = spread_labels(ys, step, top + step / 2, bottom - step / 2)
     box_w = style.shape_size / 2 * symbols.PGS_BOX_WIDTH
     # The far side of the box from the symbol (#78).
-    x, side = pgs_values_x(node, left, box_w, PGS_VALUE_GAP_EM * size * _PT)
+    x, side = pgs_values_x(node, left, box_w, PGS_VALUE_GAP_EM * size * pt)
     anchor = "start" if side == "left" else "end"
     out = []
     for (name, _value), y in zip(active, placed, strict=True):
@@ -1427,12 +1439,12 @@ def _svg_pgs_values(
                     x,
                     y,
                     texts[name],
-                    size * _PT,
+                    size * pt,
                     style,
                     anchor=anchor,
                     color=color,
                     cls="pgs-value",
-                    halo=PGS_VALUE_HALO_PT * _PT,
+                    halo=PGS_VALUE_HALO_PT * pt,
                 )
             )
     return out
@@ -1440,20 +1452,22 @@ def _svg_pgs_values(
 
 def _label_line_offsets(node: NodeLayout, style: PedigreeStyle) -> list[float]:
     """Where each note and annotation starts below the label's top (#66)."""
+    pt = symbols.units_per_point(style.text_scale)  # layout units per point (#145)
     small = style.text_size(symbols.SMALL_TEXT_SCALE)
     lines = len(node.notes) + len(node.annotations)
-    return symbols.below_label_offsets(style.text_size(), [small] * lines, _PT)
+    return symbols.below_label_offsets(style.text_size(), [small] * lines, pt)
 
 
 def _svg_labels(node: NodeLayout, style: PedigreeStyle) -> str:
     """The ID label under a symbol, its notes ("SB", "AMAB"...), then its annotations."""
+    pt = symbols.units_per_point(style.text_scale)  # layout units per point (#145)
     y = node.y + style.shape_size / 2 + style.label_offset + node.marker_depth
     out = [
         _svg_text(
             node.x,
             y,
             node.label,
-            style.text_size() * _PT,
+            style.text_size() * pt,
             style,
             baseline="hanging",
             color=style.line_color,
@@ -1469,7 +1483,7 @@ def _svg_labels(node: NodeLayout, style: PedigreeStyle) -> str:
                 node.x,
                 y + offset,
                 text,
-                style.text_size(symbols.SMALL_TEXT_SCALE) * _PT,
+                style.text_size(symbols.SMALL_TEXT_SCALE) * pt,
                 style,
                 baseline="hanging",
                 color=color,
@@ -1554,11 +1568,12 @@ def _svg_legend(
     Returns:
         The SVG group and its bounding box.
     """
+    pt = symbols.units_per_point(style.text_scale)  # layout units per point (#145)
     binary_headers = any(r.kind in ("binary", "binary_shared") for r in rows)
     rows, m = legend_layout(rows, style)
-    ux = LEG_UNIT_X_EM * m.font * _PT
-    uy = LEG_UNIT_Y_EM * m.font * _PT
-    fs = m.fs * _PT
+    ux = LEG_UNIT_X_EM * m.font * pt
+    uy = LEG_UNIT_Y_EM * m.font * pt
+    fs = m.fs * pt
     body: list[str] = []
     right = legend_min_right(style)  # rightmost content, in legend units (#79)
 
@@ -1586,7 +1601,7 @@ def _svg_legend(
         width_pt: float = 0.5,
     ) -> None:
         stroke_attr = (
-            f'stroke="{html.escape(stroke)}" stroke-width="{width_pt * _PT:.3f}"'
+            f'stroke="{html.escape(stroke)}" stroke-width="{width_pt * pt:.3f}"'
             if stroke != "none"
             else 'stroke="none"'
         )
@@ -1597,7 +1612,7 @@ def _svg_legend(
 
     def caption(u: float, v: float, s: str, anchor: str = "start", **kw: Any) -> None:
         kw.setdefault("color", LEG_CAPTION_COLOR)
-        size = m.caption_fs(kw.pop("size_factor", 1.0)) * _PT
+        size = m.caption_fs(kw.pop("size_factor", 1.0)) * pt
         text(u, v, s, size, anchor, baseline="hanging", **kw)
 
     # Header: title and sex symbols, each if the style has it (#67).
@@ -1606,24 +1621,24 @@ def _svg_legend(
             LEG_X0,
             m.title_y,
             m.title,
-            m.title_fs * _PT,
+            m.title_fs * pt,
             baseline="hanging",
             weight="bold",
         )
     if m.sex_y is not None:
         v = m.sex_y
-        side = m.marker_size * _PT
+        side = m.marker_size * pt
         for u, shape, label in legend_sex_items(style, m):
             if shape == "square":
                 body.append(
                     f'<rect x="{X(u) - side / 2:.3f}" y="{Y(v) - side / 2:.3f}" '
                     f'width="{side:.3f}" height="{side:.3f}" fill="white" stroke="black" '
-                    f'stroke-width="{_PT:.3f}"/>'
+                    f'stroke-width="{pt:.3f}"/>'
                 )
             else:
                 body.append(
                     f'<circle cx="{X(u):.3f}" cy="{Y(v):.3f}" r="{side / 2:.3f}" fill="white" '
-                    f'stroke="black" stroke-width="{_PT:.3f}"/>'
+                    f'stroke="black" stroke-width="{pt:.3f}"/>'
                 )
             text(u + LEG_SEX_SYMBOL_GAP, v, label, fs)
     y_top = m.content_top
@@ -1633,7 +1648,7 @@ def _svg_legend(
     keys = [r for r in rows if r.kind in KEY_ROW_KINDS]
     for row, vc in zip(keys, legend_row_centers(keys, m, y_top), strict=True):
         if row.kind == "key_note":
-            size = m.caption_fs() * _PT
+            size = m.caption_fs() * pt
             text(LEG_X0, vc, row.label, size, baseline="central", color=LEG_CATEGORY_COLOR)
             continue
         g = quadrant_key_geometry(row, m, vc)
@@ -1660,7 +1675,7 @@ def _svg_legend(
                 if cell.pattern:
                     pid = _svg_pattern_id(cell.pattern, False)
                     body.append(f'<rect {geometry} fill="url(#{pid})"/>')
-            body.append(f'{outline} fill="none" stroke="black" stroke-width="{_PT:.3f}"/>')
+            body.append(f'{outline} fill="none" stroke="black" stroke-width="{pt:.3f}"/>')
         for u, v, label, anchor in g.labels:
             text(u, v, label, fs, anchor)
     y_top -= legend_slot_count(keys) * m.row_h
@@ -1699,7 +1714,7 @@ def _svg_legend(
                         u + steps.step_w / 2,
                         vc,
                         step_name,
-                        steps.name_size * _PT,
+                        steps.name_size * pt,
                         "middle",
                         baseline="central",
                         color=text_color_on(to_hex(rgb)),
@@ -1747,12 +1762,12 @@ def _svg_legend(
             body.append(
                 f'<line class="asymptomatic" x1="{X(u):.3f}" y1="{Y(vc - reach):.3f}" '
                 f'x2="{X(u):.3f}" y2="{Y(vc + reach):.3f}" '
-                f'stroke="{html.escape(style.outline_color)}" stroke-width="{1.0 * _PT:.3f}"/>'
+                f'stroke="{html.escape(style.outline_color)}" stroke-width="{1.0 * pt:.3f}"/>'
             )
         elif row.kind == "outline_rings":
             # Two nested borders, inner first (#46).
             inner, outer = (to_hex(c) for c in row.colors)
-            du, dv = LEG_RING_INSET_PT * _PT / ux, LEG_RING_INSET_PT * _PT / uy
+            du, dv = LEG_RING_INSET_PT * pt / ux, LEG_RING_INSET_PT * pt / uy
             swatch(LEG_X0, vc, m.sw_w, m.sw_h, "white", stroke=outer, width_pt=LEG_RING_WIDTH_PT)
             swatch(
                 LEG_X0 + du,
@@ -1774,24 +1789,24 @@ def _svg_legend(
             )
             body.append(
                 f'<polyline points="{pts}" fill="none" stroke="#aaaaaa" '
-                f'stroke-width="{0.6 * _PT:.3f}"/>'
+                f'stroke-width="{0.6 * pt:.3f}"/>'
             )
             for k, color in enumerate(row.pgs.values()):
                 u = LEG_X0 + (0.3 + k * 0.2) * 0.9
                 body.append(
                     f'<line x1="{X(u):.3f}" y1="{Y(baseline):.3f}" x2="{X(u):.3f}" '
                     f'y2="{Y(vc + m.sw_h / 2):.3f}" stroke="{html.escape(color)}" '
-                    f'stroke-width="{0.8 * _PT:.3f}" stroke-dasharray="0.04 0.02"/>'
+                    f'stroke-width="{0.8 * pt:.3f}" stroke-dasharray="0.04 0.02"/>'
                 )
         elif row.kind == "legacy_carrier":
-            big = 9 * m.scale * _PT
+            big = 9 * m.scale * pt
             body.append(
                 f'<rect x="{X(0.9) - big / 2:.3f}" y="{Y(vc) - big / 2:.3f}" width="{big:.3f}" '
-                f'height="{big:.3f}" fill="white" stroke="black" stroke-width="{_PT:.3f}"/>'
+                f'height="{big:.3f}" fill="white" stroke="black" stroke-width="{pt:.3f}"/>'
             )
             if row.obligate:
                 body.append(
-                    f'<circle cx="{X(0.9):.3f}" cy="{Y(vc):.3f}" r="{1.5 * m.scale * _PT:.3f}" '
+                    f'<circle cx="{X(0.9):.3f}" cy="{Y(vc):.3f}" r="{1.5 * m.scale * pt:.3f}" '
                     f'fill="black"/>'
                 )
             else:
@@ -1820,7 +1835,7 @@ def _svg_legend(
             body.append(
                 f'<line x1="{X(item.dash_x0):.3f}" y1="{Y(v):.3f}" x2="{X(item.dash_x1):.3f}" '
                 f'y2="{Y(v):.3f}" stroke="{html.escape(item.color)}" '
-                f'stroke-width="{_PT:.3f}" stroke-dasharray="0.06 0.03"/>'
+                f'stroke-width="{pt:.3f}" stroke-dasharray="0.06 0.03"/>'
             )
             text(item.text_x, v, item.name, fs, baseline="central")
 
@@ -1828,7 +1843,7 @@ def _svg_legend(
     border = (
         f'<rect x="{X(0.1):.3f}" y="{Y(m.total_h - 0.1):.3f}" width="{width:.3f}" '
         f'height="{(m.total_h - 0.2) * uy:.3f}" rx="{0.1 * uy:.3f}" fill="white" '
-        f'stroke="{LEG_SWATCH_EDGE}" stroke-width="{0.8 * _PT:.3f}"/>'
+        f'stroke="{LEG_SWATCH_EDGE}" stroke-width="{0.8 * pt:.3f}"/>'
     )
     svg = '<g class="legend">\n' + "\n".join([border, *body]) + "\n</g>"
     return svg, (x0, y0, X(0.1) + width, y0 + m.total_h * uy)
@@ -1836,9 +1851,10 @@ def _svg_legend(
 
 def _svg_edge(edge: EdgeLayout, style: PedigreeStyle) -> str:
     """Generate SVG line for an edge."""
+    pt = symbols.units_per_point(style.text_scale)  # layout units per point (#145)
     x1, y1 = edge.start
     x2, y2 = edge.end
-    sw = style.line_width * 0.02
+    sw = style.line_width * pt
 
     if edge.line_style == LineStyle.DOUBLE:
         gap = style.double_line_gap
@@ -1884,10 +1900,11 @@ def _svg_separation(edge: EdgeLayout, style: PedigreeStyle) -> str:
 
     Mirrors `renderer._draw_separation`, with y pointing down.
     """
+    pt = symbols.units_per_point(style.text_scale)  # layout units per point (#145)
     line, slashes = symbols.separation_marks(
         edge.start, edge.end, style.shape_size / 2, edge.has_descent, up=-1.0
     )
-    stroke = f'stroke="{html.escape(style.line_color)}" stroke-width="{style.line_width * _PT:.3f}"'
+    stroke = f'stroke="{html.escape(style.line_color)}" stroke-width="{style.line_width * pt:.3f}"'
     out = ['<g class="edge">']
     for cls, segments in (("relationship", line), ("separation-mark", slashes)):
         for (x0, y0), (x1, y1) in segments:
@@ -1901,8 +1918,9 @@ def _svg_separation(edge: EdgeLayout, style: PedigreeStyle) -> str:
 
 def _svg_twin_connector(tc: TwinConnector, style: PedigreeStyle) -> str:
     """Generate SVG for twin connector lines."""
+    pt = symbols.units_per_point(style.text_scale)  # layout units per point (#145)
     cx, cy = tc.convergence_point
-    sw = style.line_width * 0.02
+    sw = style.line_width * pt
     parts = ['<g class="edge">']
 
     for child_x, child_y in tc.child_positions:
@@ -1931,11 +1949,11 @@ def _svg_twin_connector(tc: TwinConnector, style: PedigreeStyle) -> str:
         dx, dy = symbols.twin_mark_offset(
             tc.convergence_point, tc.child_positions, mark_pt, style.line_width
         )
-        size = mark_pt * _PT
-        qy = cy + dy * _PT + symbols.TWIN_MARK_INK_MIDDLE_EM * size
+        size = mark_pt * pt
+        qy = cy + dy * pt + symbols.TWIN_MARK_INK_MIDDLE_EM * size
         parts.append(
             _svg_text(
-                cx + dx * _PT,
+                cx + dx * pt,
                 qy,
                 symbols.TWIN_MARK,
                 size,
@@ -1952,9 +1970,10 @@ def _svg_twin_connector(tc: TwinConnector, style: PedigreeStyle) -> str:
 
 def _svg_duplicate_arc(arc: DuplicateArc, style: PedigreeStyle) -> str:
     """Generate SVG for duplicate arc (dotted curve)."""
+    pt = symbols.units_per_point(style.text_scale)  # layout units per point (#145)
     x1, y1 = arc.from_pos
     x2, y2 = arc.to_pos
-    sw = style.line_width * 0.02
+    sw = style.line_width * pt
 
     # Compute control point for quadratic bezier
     mid_x = (x1 + x2) / 2

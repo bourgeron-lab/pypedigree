@@ -39,6 +39,7 @@ from pypedigree.config import (
     PedigreeStyle,
     apply_outline_spacing,
     apply_pgs_spacing,
+    check_text_scale,
     is_curve_column,
     resolve_style,
 )
@@ -216,6 +217,7 @@ def render_pedigree(
     check_phenotype_layout(style)
     check_pgs_scale(style)
     check_min_font_size(style)
+    check_text_scale(style)
     check_band_text(style)
     check_legend(style)
     check_gradient_bins(style)
@@ -295,7 +297,7 @@ def render_pedigree(
     if not circular:
         # The circular layout keeps no room for labels: they find theirs at
         # draw time (`_RadialLabels`).
-        _keep_text_scale(fig, pedigree_axes)
+        _keep_text_scale(fig, pedigree_axes, symbols.units_per_point(style.text_scale))
     _same_scale(fig, pedigree_axes)
     for ax_obj in pedigree_axes:
         _fit_view_to_content(ax_obj)
@@ -2453,11 +2455,12 @@ def _points_per_unit(ax: Axes) -> float:
     return float(abs(x1 - x0) * 72 / _root_figure(ax).dpi)
 
 
-def _keep_text_scale(fig: Figure, axes: Sequence[Axes]) -> None:
+def _keep_text_scale(fig: Figure, axes: Sequence[Axes], upp: float) -> None:
     """Enlarge the figure until no pedigree is drawn smaller than the layout's text scale.
 
     The layout keeps room for labels, markers and PGS values measured at
-    `symbols.UNITS_PER_POINT` layout units per point, the SVG's scale. A wide
+    ``upp`` layout units per point (`symbols.units_per_point` of the style:
+    `symbols.UNITS_PER_POINT`, the SVG's scale, times `text_scale`, #145). A wide
     or deep pedigree squeezed into its figure (margins, the other families of
     a row) would be drawn smaller, so text in points would take more room
     than was kept for it and overlap its neighbour. The whole figure grows by
@@ -2469,8 +2472,9 @@ def _keep_text_scale(fig: Figure, axes: Sequence[Axes]) -> None:
     Args:
         fig: A figure `render_pedigree` made, after `tight_layout`.
         axes: Its pedigree axes (hierarchical layout).
+        upp: Layout units per point the layout planned at.
     """
-    target = 1 / symbols.UNITS_PER_POINT
+    target = 1 / upp
     scale = min((_points_per_unit(ax) for ax in axes), default=target)
     if scale >= target:
         return

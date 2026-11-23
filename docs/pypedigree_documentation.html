@@ -514,6 +514,7 @@ child      2         105   62</code></pre>
     <tr><td><code>--outline-color COLOR</code></td><td>Shape outline color (e.g. <code>grey</code>, <code>#888</code>)</td><td>black</td></tr>
     <tr><td><code>--carrier-notation [nsgc2022|legacy]</code></td><td>Carrier notation: patterned sections (NSGC 2022) or half-fill and center dot</td><td>nsgc2022</td></tr>
     <tr><td><code>--min-font-size PT</code></td><td>Smallest size of any text, in points (style <code>min_font_size</code>; e.g. 6 for journals)</td><td>None</td></tr>
+    <tr><td><code>--text-scale X</code></td><td>Text and marks X times larger relative to the symbols (style <code>text_scale</code>): the layout keeps room for them</td><td>1.0</td></tr>
     <tr><td><code>--no-labels</code></td><td>Hide sample ID labels under shapes</td><td>Off</td></tr>
     <tr><td><code>--labels [id|generation|both]</code></td><td>Label with the sample ID, the NSGC number from the drawing (generation in Roman numerals, position from the left: I-1, II-3), or the number with the ID under it (style <code>labels</code>)</td><td>id</td></tr>
     <tr><td><code>--ptdt</code></td><td>Compute each child&rsquo;s pTDT deviation from its parents&rsquo; PGS columns (style <code>pgs_transmission</code>; SD from <code>ptdt_midparent_sd</code>, &radic;&frac12; by default)</td><td>Off</td></tr>
@@ -1286,6 +1287,7 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>broken_gap_size</code></td><td>float</td><td>0.15</td><td>Deprecated, no effect: the separation marks of a broken relationship are sized with the symbols. To be removed in 1.0</td></tr>
     <tr><td><code>font_size</code></td><td>float</td><td>8.0</td><td>Label and text font size, in points. The legend panel is sized from it (text, swatches and row height), so raise it to keep a figure legible once scaled down for print</td></tr>
     <tr><td><code>min_font_size</code></td><td>float | None</td><td>None</td><td>Smallest size of any text, in points (e.g. 6, a common journal rule). Notes, annotations, band and quadrant text, &ldquo;NA&rdquo;, &ldquo;PGS&rdquo; captions and the legend, drawn at fractions of <code>font_size</code>, are raised to it; the layout and the legend make room. <code>PedigreeStyle.text_size(scale)</code> gives the size of any text</td></tr>
+    <tr><td><code>text_scale</code></td><td>float</td><td>1.0</td><td>How many times larger text and marks sized in points (labels, markers, the evaluation asterisk, PGS boxes and values) are, relative to the symbols, than by default. Set it when you draw a pedigree into axes of your own, smaller than pypedigree's own figures, so the layout keeps room for them: 2.0 for a drawing half as large. The SVG draws text and lines at that scale</td></tr>
     <tr><td><code>font_family</code></td><td>str</td><td>"sans-serif"</td><td>Font family for all text</td></tr>
     <tr><td><code>label_offset</code></td><td>float</td><td>0.15</td><td>Distance below shape for label</td></tr>
     <tr><td><code>generation_gap</code></td><td>float</td><td>2.0</td><td>Vertical spacing between generations</td></tr>

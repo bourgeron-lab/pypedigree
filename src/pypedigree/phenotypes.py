@@ -1217,11 +1217,11 @@ def outline_ring_offsets(count: int, style: PedigreeStyle) -> list[float]:
 def outline_reach(count: int, style: PedigreeStyle) -> float:
     """Room the borders after the first take around a symbol, in layout units.
 
-    Converted with `symbols.UNITS_PER_POINT`, the scale of the SVG; the PNG
-    draws at that scale or larger (see `renderer._OutlineRings`).
+    Converted with `symbols.units_per_point` of the style, the scale of the
+    SVG; the PNG draws at that scale or larger (see `renderer._OutlineRings`).
     """
     offsets = outline_ring_offsets(count, style)
-    return offsets[-1] * symbols.UNITS_PER_POINT if offsets else 0.0
+    return offsets[-1] * symbols.units_per_point(style.text_scale) if offsets else 0.0
 
 
 def with_outline_rings(
@@ -1329,6 +1329,7 @@ def pgs_box_left(node: NodeLayout, style: PedigreeStyle, ring: float = 0.0) -> f
         ring=ring,
         line_width=style.shape_line_width * (OUTLINE_WIDTH_SCALE if ring else 1.0),
         bracket_width=style.line_width if node.notation.adoption is not None else None,
+        upp=symbols.units_per_point(style.text_scale),
     )
     if node.pgs_side == "right":
         return node.x + near
@@ -1594,8 +1595,9 @@ def pgs_values_width(
     if not style.show_pgs_values or not pgs_names:
         return 0.0
     size = style.text_size(symbols.PGS_CAPTION_SCALE)
+    upp = symbols.units_per_point(style.text_scale)
     widths = [
-        symbols.text_width(text, size)
+        symbols.text_width(text, size, upp=upp)
         for ind in nodes
         for text in pgs_marker_values(
             ind, [n for n, _ in active_pgs(ind, pgs_names, style.pgs_scale)], style.pgs_scale
@@ -1603,7 +1605,7 @@ def pgs_values_width(
     ]
     if not widths:
         return 0.0
-    return max(widths) + PGS_VALUE_GAP_EM * size * symbols.UNITS_PER_POINT + PGS_BOX_PAD
+    return max(widths) + PGS_VALUE_GAP_EM * size * upp + PGS_BOX_PAD
 
 
 def spread_dots(ys: Sequence[float], dot: float, width: float | None = None) -> list[float]:

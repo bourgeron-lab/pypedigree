@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Style option `text_scale` (`--text-scale`, default 1.0, #145): for a pedigree drawn into axes of
+  your own smaller than pypedigree's text scale (0.02 layout units per point), say how many times
+  larger text and marks sized in points are, relative to the symbols, so the layout keeps room for
+  them at that scale: labels, notes, the proband and consultand markers, the evaluation asterisk
+  (#143), PGS boxes and values, outer borders. The SVG draws its text and lines at that scale, and
+  `render_pedigree` draws its own figures no smaller. 1.0 changes nothing.
+  `symbols.units_per_point(text_scale)`.
 - pTDT deviations computed by pypedigree (#52, second step): style option `pgs_transmission`
   (`--ptdt`) gives each child whose two parents have a value of a `PGS_*` column its deviation,
   (PGS_child − PGS_mid-parent) / `ptdt_midparent_sd`, in a `pTDT_*` column drawn as the given ones

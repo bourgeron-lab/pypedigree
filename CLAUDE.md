@@ -177,8 +177,8 @@ src/pypedigree/
    draws (otherwise each `fill_betweenx` re-fits the view to every artist)
    and `_finalize_axes` fits the view once. In figures `render_pedigree` makes (never
    with a caller's `ax`), after `tight_layout`: `_keep_text_scale` grows the figure until
-   no hierarchical pedigree is drawn below `1 / symbols.UNITS_PER_POINT` points per unit, the
-   scale the layout measures text at, while the drawing fits `_MAX_FIG_WIDTH_IN` x
+   no hierarchical pedigree is drawn below `1 / symbols.units_per_point(style.text_scale)` points per
+   unit, the scale the layout measures text at (`UNITS_PER_POINT` times `text_scale`, #145), while the drawing fits `_MAX_FIG_WIDTH_IN` x
    `_MAX_FIG_HEIGHT_IN` (`tests/test_text_scale.py`); then `_fit_view_to_content` shrinks each
    pedigree's axes to what is drawn plus `_VIEW_PAD_PT` at the same scale (limits and
    position together; text and the draw-time artists measured, shapes and lines taken
@@ -514,6 +514,14 @@ Additional PedigreeStyle fields:
 - `gradient_diverging: dict[str, dict]` — tricolor diverging gradient config (e.g. `{"IQ": {"min": 40, "mid": 100, "max": 160, "color_low": "#e74c3c", "color_high": "#2ecc71"}}`)
 - `zero_pad_ids: int` — zero-pad IDs to this width (0 = no padding)
 - `min_font_size: float | None` — smallest size of any text in points (None = no minimum, #51)
+- `text_scale: float` — 1.0; how many times larger than by default everything sized in points is,
+  relative to the symbols, for a pedigree drawn into one's own smaller axes (#145). Every place that
+  converts points to layout units goes through `symbols.units_per_point(style.text_scale)`: the
+  layout's room for labels, markers, the asterisk, PGS boxes and values (`upp=` of `label_width`,
+  `marker_clearance`, `evaluation_mark_reach`, `pgs_box_near`, `text_width`), `outline_reach`,
+  `pgs_values_width`, the SVG's `pt` (no module constant: each function takes it from its style) and
+  `_keep_text_scale`. `config.check_text_scale` (both layouts, both renderers, `render_families`).
+  `--text-scale`. `tests/test_text_scale_option.py`
 - `band_text: str` — "auto" (fit, default), "name_value", "value" or "none" (#55)
 - `show_pgs_values: bool` — write PGS values beside their markers (#54)
 - `phenotype_labels: dict[str, str]` — names shown for columns (#56); everything shown goes through
@@ -561,6 +569,7 @@ pypedigree INPUT.ped [OPTIONS]
 --outline-color COLOR    Shape/deceased outline color (e.g. 'grey', '#888888')
 --carrier-notation [nsgc2022|legacy]  Carrier notation (default: nsgc2022)
 --min-font-size PT       Smallest size of any text, in points (style `min_font_size`)
+--text-scale X           Text and marks X times larger relative to the symbols (style `text_scale`)
 --no-labels              Hide sample ID labels
 --labels [id|generation|both]  Sample IDs (default), NSGC numbers from the drawing (I-1, II-3), or both (style `labels`)
 --canrisk-names          For a CanRisk file: its Name column as labels, where given and unique
@@ -607,7 +616,7 @@ carries `data-id`, `data-parents/children/siblings` and `data-x`, `data-y`,
 transform) for host overlays; `TestSvgNodePositions` checks them. Text is placed
 with explicit baseline offsets (`_BASELINE_SHIFT`), not `dominant-baseline`,
 which librsvg and older Inkscape ignore. Font sizes and line widths in points are
-scaled by `_PT` layout units per point. No circular layout in the SVG.
+scaled by `pt = symbols.units_per_point(style.text_scale)` layout units per point (#145). No circular layout in the SVG.
 Embedding (#4): `_wrap_svg` gives the root `class="pypedigree"` (`ROOT_CLASS`)
 and scopes every CSS rule under it; `render_svg()` is the same drawing with
 `_SvgWrap(interactive=False)` (no script, no tooltip group). `id_prefix` is

@@ -14,7 +14,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from pypedigree.carriers import check_notation
-from pypedigree.config import PedigreeStyle, resolve_style
+from pypedigree.config import PedigreeStyle, check_text_scale, resolve_style
 from pypedigree.errors import PedigreeBatchError, PedigreeDataWarning, PedigreeStyleWarning
 from pypedigree.models import Pedigree
 from pypedigree.phenotypes import (
@@ -140,6 +140,7 @@ def render_families(
     check_phenotype_layout(style)
     check_pgs_scale(style)
     check_min_font_size(style)
+    check_text_scale(style)
     check_band_text(style)
     check_legend(style)
     check_gradient_bins(style)
