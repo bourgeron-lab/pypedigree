@@ -177,7 +177,8 @@ class TestLayout:
         assert short + long > style.couple_gap
         layout = compute_layout(_family(text), style)
         xs = {n.individual_id: n.x for n in layout.nodes}
-        assert xs["m"] - xs["f"] == pytest.approx(short + long)
+        # With a child, each text also stays clear of the descent line (#130).
+        assert xs["m"] - xs["f"] == pytest.approx(max(short + long, 2 * long))
         _assert_no_overlap(layout, 8.0)
 
     def test_proband_marker_room_still_kept(self):
@@ -221,3 +222,52 @@ class TestSvgFrame:
             half = symbols.label_width(node.label, [], font_size) / 2
             assert vb_x <= node.x - half
             assert node.x + half <= vb_x + vb_w
+
+
+class TestTextClearOfTheDescentLine:
+    """#130: a long line under one partner crossed the couple's descent line."""
+
+    TEXT = (
+        "FID\tIID\tPAT\tMAT\tSEX\tPHENO\ta_genes\n"
+        "F\tfa\t0\t0\t1\t1\t0\n"
+        "F\tmo\t0\t0\t2\t2\tBRCA1, BRCA2, PALB2, ATM, CHEK2 - (search)\n"
+        "F\td1\tfa\tmo\t2\t1\t0\n"
+        "F\td2\tfa\tmo\t2\t1\t0\n"
+    )
+
+    def test_each_partners_text_stays_on_its_side(self):
+        from pypedigree import PedigreeStyle, compute_layout, parse_pedigree_from_string, symbols
+
+        style = PedigreeStyle()
+        family = parse_pedigree_from_string(self.TEXT).families["F"]
+        nodes = {n.individual_id: n for n in compute_layout(family, style).nodes}
+        mid = (nodes["fa"].x + nodes["mo"].x) / 2  # where the descent line starts
+        for sid in ("fa", "mo"):
+            node = nodes[sid]
+            width = symbols.label_width(
+                node.label,
+                node.notes + node.annotations,
+                style.text_size(),
+                style.text_size(symbols.SMALL_TEXT_SCALE),
+            )
+            assert abs(node.x - mid) > width / 2, sid
+
+    def test_childless_couple_keeps_the_sum(self):
+        """With no descent line (a couple without children), the labels only need not meet (#41)."""
+        from pypedigree import PedigreeStyle, compute_layout, parse_pedigree_from_string
+
+        rows = self.TEXT.splitlines()[:3]
+        text = rows[0] + "\tchildless\n" + rows[1] + "\tchoice:mo\n" + rows[2] + "\t0\n"
+        with_children = {
+            n.individual_id: n.x
+            for n in compute_layout(
+                parse_pedigree_from_string(self.TEXT).families["F"], PedigreeStyle()
+            ).nodes
+        }
+        alone = {
+            n.individual_id: n.x
+            for n in compute_layout(
+                parse_pedigree_from_string(text).families["F"], PedigreeStyle()
+            ).nodes
+        }
+        assert alone["mo"] - alone["fa"] < with_children["mo"] - with_children["fa"]

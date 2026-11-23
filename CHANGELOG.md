@@ -75,6 +75,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A long line of text under one partner of a couple crossed the couple's descent line (#130): the
+  couple was spaced for the sum of the two partners' labels (#41), so they did not meet, but the
+  descent line starts in the middle, and since #120 a CanRisk panel's gene line ("BRCA1, BRCA2,
+  PALB2, ATM, CHEK2 − (search)") reached past it. A couple with children is now at least twice the
+  larger reach wide; a couple without children keeps the sum. Figures change only where a
+  partner's text reaches past half the couple gap.
 - Raw PGS were drawn as z-scores without a warning in small families (#117): the checks of #106
   needed 5 values (spread) or 20 (mean), more than a clinical pedigree has genotyped. Every value
   within ±0.05 (raw PLINK sums, from 2 values not all 0) now warns, and the mean check runs from
