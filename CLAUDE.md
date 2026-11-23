@@ -113,8 +113,10 @@ src/pypedigree/
    level with the labels. A PGS box goes on `NodeLayout.pgs_side` (#78): "right" for the right-hand
    partner of a couple with no partner on their right (`layout._pgs_right_side`), so no box sits on a
    partner line; `phenotypes.pgs_box_left` / `pgs_values_x` place box and values (far side) for both
-   renderers, `symbols.pgs_box_near` clears the evaluation asterisk and, for a struck-through symbol, the deceased
-   line's end (`DECEASED_OVERSHOOT` + `PGS_DECEASED_MARGIN`, #80; the placer counts the extra, `_pgs_extra`), and the placer keeps
+   renderers, `symbols.pgs_box_near` measures from the shape's reach (a diamond's tip, grown round outer borders, #111),
+   clears the evaluation asterisk and, for a struck-through symbol, the deceased
+   line's end (`DECEASED_OVERSHOOT` + `PGS_DECEASED_MARGIN`, #80; the placer counts the extra over a
+   square's box, `_pgs_extra`), and the placer keeps
    `style.pgs_box_room` (set by `apply_pgs_spacing`) right of such nodes (`_add(..., pgs_right)`). `_HierarchicalPlacer.marker_room` gives each of them
    the distance their left neighbour needs (`symbols.marker_clearance`, for the
    longest label of the generation, text converted with
@@ -337,9 +339,16 @@ Extended format adds:
   case-insensitive, unknown code -> `PedigreeParseError` with the line):
   `pregnancy` (P/SAB/TOP/ECT/SB), `adopted` (in/out), `childless` (choice/infertility),
   `art` (D/S), `evaluated` (1/yes/true, or a result text written below; asterisk at the
-  lower right, `symbols.evaluation_mark_position`), `gender_identity` (man/woman/nonbinary; `gender` means this only when
+  lower right, `symbols.evaluation_mark_placement`: a point on the outline and an offset in points to
+  the ink's middle, half the stroke + the ink's half-extent + `EVALUATION_MARK_GAP_EM`, #110; the PNG
+  draws it with `annotate(..., textcoords="offset points")`, the SVG with
+  `evaluation_mark_position(..., _PT)`), `gender_identity` (man/woman/nonbinary; `gender` means this only when
   a `sex` column is also present, otherwise it is the sex column), `consultand` (1).
-  `build_notation()` accepts the same codes (used by `PedigreeBuilder`).
+  `build_notation()` accepts the same codes (used by `PedigreeBuilder`). The inner letter
+  "P"/"D"/"S" is always at the centre (#105), on a white backing over bands, quadrants or carrier
+  sections; band and quadrant text keeps clear of it through `fit_text(..., letter=, offset=)` /
+  `phenotypes.clear_of_letter` (a band's text moves right of it, `FittedText.dx`; a quadrant's gets
+  less room).
 - Columns 11+: extra phenotypes (requires header row with column names)
 
 Smart header-based column mapping:
@@ -616,6 +625,8 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   PGS box, tooltip, legend row, PNG borders in points, warning above three
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
 - `tests/test_deceased_pgs.py` — The deceased line clear of the PGS box (#80)
+- `tests/test_notation_clearance.py` — The evaluation asterisk's gap in ems, in PNG pixels too (#110),
+  the inner letter at the centre with band text clear of it (#105), a diamond's PGS box (#111)
 - `tests/test_pgs_dots_in_box.py` — Spread-out PGS dots kept inside their box (#89)
 - `tests/test_pgs_side.py` — The right-hand partner's PGS box on their right, off the partner line (#78)
 - `tests/test_proband_marker.py` — The proband's "P" clear of the label on its left: room kept by

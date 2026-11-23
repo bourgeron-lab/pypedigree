@@ -381,8 +381,8 @@ class _HierarchicalPlacer:
 
     def _pgs_extra(self, sid: str, side: str) -> float:
         """How much further out than usual the PGS box of ``sid`` is drawn on
-        ``side``: past the evaluation asterisk (#78) or a deceased line's end
-        (#80)."""
+        ``side``: past a diamond's tip (#111), the evaluation asterisk (#78)
+        or a deceased line's end (#80)."""
         style = self.style
         ind = self.family.individuals[sid]
         half = style.shape_size / 2
@@ -395,8 +395,10 @@ class _HierarchicalPlacer:
             size,
             side,
             struck=symbols.is_struck_through(ind),
+            line_width=style.shape_line_width,
         )
-        return near - symbols.pgs_box_near(half, sex, False, size, side)
+        # Measured from a square's box: a diamond reaches further (#111).
+        return near - symbols.pgs_box_near(half, Sex.MALE, False, size, side)
 
     def _line(self, sid: str) -> frozenset[str]:
         """``sid`` and all their descendants."""

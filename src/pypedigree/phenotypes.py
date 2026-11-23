@@ -904,10 +904,13 @@ _FIT_HEIGHT_EM = 0.8  # height of a line of digits and capitals, in ems
 
 @dataclass(frozen=True)
 class FittedText:
-    """The text a band or quadrant shows, and its size in points."""
+    """The text a band or quadrant shows, its size in points, and how far
+    right of the place asked for it goes (layout units), to keep clear of
+    the symbol's letter (#105)."""
 
     text: str
     size: float
+    dx: float = 0.0
 
 
 # Width available to a centred line of text of a given height (both in
@@ -969,6 +972,9 @@ def fit_text(
     pt: float,
     room: Room,
     height: float,
+    *,
+    letter: float | None = None,
+    offset: tuple[float, float] = (0.0, 0.0),
 ) -> FittedText | None:
     """The text and size a band or quadrant shows, so that it fits (#55).
 
@@ -987,14 +993,25 @@ def fit_text(
         room: Width available for a text of a given height (`band_room`,
             `quadrant_room`), in layout units.
         height: Height of the band or quadrant, in layout units.
+        letter: The font size of the letter written at the symbol's centre
+            ("P", "D", "S"), in points, if it has one (#105). A text that
+            would run into it goes right of it (a band's, centred) or gets
+            less room (a quadrant's).
+        offset: Where the text is centred, from the symbol's centre, in
+            layout units (only needed with ``letter``).
 
     Returns:
         The text and its size, or None when nothing is written.
     """
     if not texts:
         return None
+
+    def place(h: float) -> tuple[float, float]:
+        """Room for a text ``h`` high, and how far right it moves."""
+        return clear_of_letter(room(h), h, offset, letter, pt)
+
     if style.band_text != "auto":
-        return FittedText(texts[0], size)
+        return FittedText(texts[0], size, place(size * pt * _FIT_HEIGHT_EM)[1])
     if style.min_font_size is not None:
         floor = min(size, style.min_font_size)
     else:
@@ -1003,11 +1020,11 @@ def fit_text(
     def fits(text: str, s: float) -> bool:
         h = s * pt * _FIT_HEIGHT_EM
         width = symbols.text_width(text, s, bold=True) / symbols.UNITS_PER_POINT
-        return h <= height and (width + 2 * _FIT_PAD_EM * s) * pt <= room(h)
+        return h <= height and (width + 2 * _FIT_PAD_EM * s) * pt <= place(h)[0]
 
     for text in texts:
         if fits(text, size):
-            return FittedText(text, size)
+            return FittedText(text, size, place(size * pt * _FIT_HEIGHT_EM)[1])
     text = texts[-1]
     if not fits(text, floor):
         return None
@@ -1015,7 +1032,47 @@ def fit_text(
     for _ in range(20):
         mid = (low + high) / 2
         low, high = (mid, high) if fits(text, mid) else (low, mid)
-    return FittedText(text, low)
+    return FittedText(text, low, place(low * pt * _FIT_HEIGHT_EM)[1])
+
+
+def clear_of_letter(
+    width: float,
+    h: float,
+    offset: tuple[float, float],
+    letter: float | None,
+    pt: float,
+) -> tuple[float, float]:
+    """Room for a band's or quadrant's text, kept clear of the inner letter (#105).
+
+    The letter ("P", "D", "S") is at the symbol's centre with its backing,
+    `symbols.LETTER_CLEAR_HALF_W_EM` by `LETTER_CLEAR_HALF_H_EM` ems of its
+    font. A text whose line reaches that height goes, if centred on the
+    symbol (a band), right of the letter, centred in what is left of the
+    band; if centred off the axis (a quadrant), it keeps its place with
+    less room.
+
+    Args:
+        width: Room the text has without the letter, centred on ``offset``.
+        h: The text's height, in layout units.
+        offset: The text's centre from the symbol's centre.
+        letter: The letter's font size in points, or None without a letter.
+        pt: Layout units per point at the drawing's scale.
+
+    Returns:
+        The room, and how far right of ``offset`` the text goes.
+    """
+    if letter is None:
+        return width, 0.0
+    ox, oy = offset
+    half_w = symbols.LETTER_CLEAR_HALF_W_EM * letter * pt
+    half_h = symbols.LETTER_CLEAR_HALF_H_EM * letter * pt
+    gap = symbols.LETTER_CLEAR_GAP_EM * letter * pt
+    if abs(oy) >= h / 2 + half_h + gap:
+        return width, 0.0
+    if abs(ox) < 1e-9:
+        side = max(0.0, width / 2 - half_w - gap)
+        return side, half_w + gap + side / 2
+    return max(0.0, min(width, 2 * (abs(ox) - half_w - gap))), 0.0
 
 
 #: Width of a colored border (``o_`` column), in multiples of the shape's line width.
@@ -1167,13 +1224,15 @@ def pgs_box_left(node: NodeLayout, style: PedigreeStyle, ring: float = 0.0) -> f
     """
     half = style.shape_size / 2
     mark = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
-    near = ring + symbols.pgs_box_near(
+    near = symbols.pgs_box_near(
         half,
         node.sex,
         node.notation.is_evaluated,
         mark,
         node.pgs_side,
         struck=node.is_deceased,
+        ring=ring,
+        line_width=style.shape_line_width * (OUTLINE_WIDTH_SCALE if ring else 1.0),
     )
     if node.pgs_side == "right":
         return node.x + near

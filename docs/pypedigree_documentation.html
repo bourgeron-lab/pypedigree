@@ -1165,7 +1165,7 @@ fig = builder.render(output=<span class="string">"carriers.png"</span>)</code></
   A column named <code>gender</code> is the sex column, as before, unless the header also has a <code>sex</code> column: then it is the gender identity.
 </div>
 
-<p>Gestational age, karyotype or the reason for infertility go in <code>a_</code> annotation columns. Notes (&ldquo;SB&rdquo;, &ldquo;ECT&rdquo;, &ldquo;AMAB&rdquo;) are written under the ID label, before annotations. A pregnancy-loss triangle has no room for phenotype bands: in a figure with bands it takes the color of the individual's first band. On a symbol with bands, which carry text of their own, the letter &ldquo;P&rdquo;, &ldquo;D&rdquo; or &ldquo;S&rdquo; moves beside the upper-right corner.</p>
+<p>Gestational age, karyotype or the reason for infertility go in <code>a_</code> annotation columns. Notes (&ldquo;SB&rdquo;, &ldquo;ECT&rdquo;, &ldquo;AMAB&rdquo;) are written under the ID label, before annotations. A pregnancy-loss triangle has no room for phenotype bands: in a figure with bands it takes the color of the individual's first band. The letter &ldquo;P&rdquo;, &ldquo;D&rdquo; or &ldquo;S&rdquo; stays at the centre of the symbol, on a white patch over bands or quadrants; a band&rsquo;s text that would run into it moves to its right. The documented-evaluation asterisk keeps a gap of 0.3 of its size from the outline, whatever the scale.</p>
 
 <h3>Programmatic API</h3>
 <pre><code>builder.add_individual(<span class="string">"c1"</span>, father=<span class="string">"f"</span>, mother=<span class="string">"m"</span>, pregnancy=<span class="string">"SAB"</span>, annotations=[<span class="string">"8 wk"</span>])

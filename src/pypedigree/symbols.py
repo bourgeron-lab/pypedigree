@@ -70,11 +70,19 @@ TEXT_LINE_STEP = 0.25
 TEXT_LINE_HEIGHT_EM = 1.17
 TEXT_LINE_GAP_EM = 0.3
 
-# Documented evaluation: an asterisk this far outside the symbol's lower
-# right, at this size relative to the style's font size.
+# Documented evaluation: an asterisk beside the symbol's lower right, at this
+# size relative to the style's font size. Its gap is in ems of the asterisk's
+# own font, from the outside of the outline's stroke to the glyph's ink
+# (#110): in layout units, to the glyph's centre, the asterisk ate the gap and
+# touched circles, the more so the smaller the pedigree was drawn. The ink of
+# "*" in DejaVu Sans Bold, in ems: half its width and height, and its middle
+# above the baseline (it is centred on its advance).
 EVALUATION_MARK = "*"
-EVALUATION_MARK_GAP = 0.08
 EVALUATION_MARK_FONT_SCALE = 1.3
+EVALUATION_MARK_GAP_EM = 0.3
+EVALUATION_MARK_INK_HALF_W_EM = 0.242
+EVALUATION_MARK_INK_HALF_H_EM = 0.232
+EVALUATION_MARK_INK_MIDDLE_EM = 0.51
 
 # The "?" standing for an unknown child, relative to the style's font size.
 UNKNOWN_OFFSPRING_TEXT = "?"
@@ -400,22 +408,14 @@ def inner_letter(notation: Notation) -> str | None:
     return None
 
 
-def letter_position(
-    x: float, y: float, half: float, sex: Sex, outside: bool, up: float = 1.0
-) -> tuple[float, float]:
-    """Where the inner letter goes: the centre, or beside the upper right.
-
-    A symbol divided into phenotype bands has text of its own in the
-    middle, so the letter moves outside, next to its upper-right corner;
-    the renderer anchors it there by its lower-left corner.
-    """
-    if not outside:
-        return (x, y)
-    return (x + shape_half_width(sex, half) + LETTER_OFFSET, y + up * half * 0.55)
-
-
-# Gap between a symbol and a letter written beside it.
-LETTER_OFFSET = 0.04
+# The inner letter ("P", "D", "S") is written at the centre of the symbol,
+# as NSGC draws it, whatever the phenotype columns (#105). On a symbol divided
+# into bands, quadrants or carrier sections it has a white backing; band or
+# quadrant text keeps this far from the letter's middle, in ems of the
+# letter's font (half the backing's width and height, and a gap).
+LETTER_CLEAR_HALF_W_EM = 0.55
+LETTER_CLEAR_HALF_H_EM = 0.75
+LETTER_CLEAR_GAP_EM = 0.15
 
 
 def triangle_points(x: float, y: float, half: float, up: float = 1.0) -> list[tuple[float, float]]:
@@ -628,10 +628,14 @@ def pgs_box_near(
     side: str,
     *,
     struck: bool = False,
+    ring: float = 0.0,
+    line_width: float = 0.0,
 ) -> float:
     """From a symbol's centre to the near edge of its PGS box, in layout units.
 
-    The gap is `PGS_BOX_GAP` half-sizes beyond the symbol. Beside a
+    The gap is `PGS_BOX_GAP` half-sizes beyond the shape's reach on that
+    side: a diamond reaches `DIAMOND_SCALE` half-sizes (#111), and outer
+    borders (``ring``, #46) grow the shape with `grown_half`. Beside a
     struck-through (deceased) symbol, the box also clears the line's end,
     `DECEASED_OVERSHOOT` past the corner, by `PGS_DECEASED_MARGIN` (#80). A
     box on the right also clears the documented-evaluation asterisk at the
@@ -644,38 +648,94 @@ def pgs_box_near(
         mark_size: The asterisk's font size, in points.
         side: "left" or "right" (`NodeLayout.pgs_side`).
         struck: Whether the symbol is struck through (deceased).
+        ring: Room the borders after the first take, in layout units.
+        line_width: Width of the outermost outline, in points.
     """
-    near = half * (1 + PGS_BOX_GAP)
+    grown = grown_half(sex, half, ring) if ring else half
+    near = shape_half_width(sex, grown) + half * PGS_BOX_GAP
     if struck:
-        near = max(near, half * (1 + DECEASED_OVERSHOOT + PGS_DECEASED_MARGIN))
+        near = max(near, ring + half * (1 + DECEASED_OVERSHOOT + PGS_DECEASED_MARGIN))
     if side == "right" and evaluated:
-        mark_x, _ = evaluation_mark_position(0.0, 0.0, half, sex)
-        mark_right = mark_x + text_width(EVALUATION_MARK, mark_size, bold=True) / 2
+        mark_x, _ = evaluation_mark_position(
+            0.0, 0.0, grown, sex, mark_size, line_width, UNITS_PER_POINT
+        )
+        mark_right = mark_x + EVALUATION_MARK_INK_HALF_W_EM * mark_size * UNITS_PER_POINT
         near = max(near, mark_right + half * PGS_BOX_GAP)
     return near
 
 
-def evaluation_mark_position(
-    x: float, y: float, half: float, sex: Sex, triangle: bool = False, up: float = 1.0
-) -> tuple[float, float]:
-    """Centre of the documented-evaluation asterisk: beside the lower right.
+def evaluation_mark_placement(
+    x: float,
+    y: float,
+    half: float,
+    sex: Sex,
+    size: float,
+    line_width: float,
+    triangle: bool = False,
+    up: float = 1.0,
+) -> tuple[float, float, float, float]:
+    """Where the documented-evaluation asterisk goes, beside the lower right.
 
     Bennett et al. 2022, Figure 2 ("Documented evaluation, records
-    reviewed"): just outside the symbol's lower-right corner, or the
-    lower-right edge of a diamond; for a pregnancy loss, beside the right
-    end of the triangle's base.
+    reviewed"): just outside the symbol's lower-right corner, on the
+    diagonal for a circle or the lower-right edge of a diamond; for a
+    pregnancy loss, beside the right end of the triangle's base. The point
+    is on the outline, in layout units; the offset, in points, goes from
+    there to the middle of the asterisk's ink: half the outline's stroke,
+    the ink's half-extent in that direction (more on the diagonal) and
+    `EVALUATION_MARK_GAP_EM` (#110). The PNG draws it as an offset in points,
+    the SVG converts it with its scale (`evaluation_mark_position`).
+
+    Args:
+        x: X of the symbol's centre.
+        y: Y of the symbol's centre.
+        half: Half the shape size (grown round outer borders, if any).
+        sex: The shape drawn.
+        size: The asterisk's font size, in points.
+        line_width: Width of the outline it sits beside, in points.
+        triangle: Whether the symbol is a pregnancy-loss triangle.
+        up: +1 with the y axis pointing up (PNG), -1 pointing down (SVG).
+
+    Returns:
+        (x, y) on the outline, then (dx, dy) in points, in the same y
+        direction.
     """
-    if triangle:
-        return (
-            x + half * TRIANGLE_HALF_WIDTH + EVALUATION_MARK_GAP,
-            y - up * half * TRIANGLE_BASE,
-        )
-    if sex == Sex.MALE:
-        # Beside the right side, near the bottom, as in the figure.
-        return x + half + EVALUATION_MARK_GAP, y - up * half * 0.8
-    reach = shape_reach(sex, half, -math.pi / 4) + EVALUATION_MARK_GAP
-    d = reach / math.sqrt(2)
-    return x + d, y - up * d
+    if triangle or sex == Sex.MALE:
+        if triangle:
+            px, py = x + half * TRIANGLE_HALF_WIDTH, y - up * half * TRIANGLE_BASE
+        else:
+            # Beside the right side, near the bottom, as in the figure.
+            px, py = x + half, y - up * half * 0.8
+        dx, dy, extent = 1.0, 0.0, EVALUATION_MARK_INK_HALF_W_EM
+    else:
+        d = shape_reach(sex, half, -math.pi / 4) / math.sqrt(2)
+        px, py = x + d, y - up * d
+        dx = dy = 1 / math.sqrt(2)
+        dy = -up * dy
+        extent = (EVALUATION_MARK_INK_HALF_W_EM + EVALUATION_MARK_INK_HALF_H_EM) / math.sqrt(2)
+    distance = line_width / 2 + (extent + EVALUATION_MARK_GAP_EM) * size
+    return px, py, dx * distance, dy * distance
+
+
+def evaluation_mark_position(
+    x: float,
+    y: float,
+    half: float,
+    sex: Sex,
+    size: float,
+    line_width: float,
+    units_per_point: float,
+    triangle: bool = False,
+    up: float = 1.0,
+) -> tuple[float, float]:
+    """Middle of the asterisk's ink at a given scale (`evaluation_mark_placement`).
+
+    Args:
+        units_per_point: Layout units per point at the drawing's scale (the
+            SVG's `UNITS_PER_POINT`).
+    """
+    px, py, dx, dy = evaluation_mark_placement(x, y, half, sex, size, line_width, triangle, up)
+    return px + dx * units_per_point, py + dy * units_per_point
 
 
 def text_lines_below(ind: Individual) -> int:

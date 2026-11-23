@@ -1005,13 +1005,19 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
                 f'stroke-width="{style.line_width * _PT:.3f}"/>'
             )
     if node.notation.is_evaluated:
-        ex, ey = symbols.evaluation_mark_position(node.x, node.y, half, node.sex, triangle, up=-1.0)
-        size = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE) * _PT
+        mark_pt = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
+        width = style.shape_line_width
+        if banded and outline_colors(node, ctx.outline_names, style):
+            width *= OUTLINE_WIDTH_SCALE
+        ex, ey = symbols.evaluation_mark_position(
+            node.x, node.y, half, node.sex, mark_pt, width, _PT, triangle, up=-1.0
+        )
+        size = mark_pt * _PT
         out.append(
             _svg_text(
                 ex,
-                # "*" sits high in its line: put its middle, not the line's, on ey.
-                ey + _ASTERISK_MIDDLE_EM * size,
+                # "*" sits high in its line: put its ink's middle on ey (#110).
+                ey + symbols.EVALUATION_MARK_INK_MIDDLE_EM * size,
                 symbols.EVALUATION_MARK,
                 size,
                 style,
@@ -1023,27 +1029,15 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
         )
     letter = symbols.inner_letter(node.notation)
     if letter is not None and not triangle:
-        divided = bool(carriers.marks(node)) or (
-            carriers.legacy and (node.is_carrier or node.is_obligate_carrier)
+        # At the centre, on a white backing over bands, quadrants or
+        # carrier sections (#105).
+        divided = (
+            banded
+            or bool(carriers.marks(node))
+            or (carriers.legacy and (node.is_carrier or node.is_obligate_carrier))
         )
         color = style.line_color
         size = style.text_size() * _PT
-        if banded:
-            x, y = symbols.letter_position(node.x, node.y, half, node.sex, True, up=-1.0)
-            out.append(
-                _svg_text(
-                    x,
-                    y,
-                    letter,
-                    size,
-                    style,
-                    anchor="start",
-                    baseline="auto",
-                    color=color,
-                    cls="symbol-letter",
-                )
-            )
-            return "\n".join(out)
         if divided:
             out.append(
                 f'<rect class="symbol-letter-backing" x="{node.x - size * 0.55:.3f}" '
@@ -1106,13 +1100,26 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
     sep = f'stroke="{SEPARATOR_COLOR}" stroke-width="{0.5 * _PT:.3f}" {clip_attr}'
     band_fs = style.text_size(symbols.BAND_TEXT_SCALE)
 
+    # The letter at the centre, which band text keeps clear of (#105).
+    letter = style.text_size() if symbols.inner_letter(node.notation) else None
+
     def fitted(texts: tuple[str, ...], yc: float, size: float, color: str) -> str | None:
         """The text of a band, fitted to its width at the SVG's scale (#55)."""
         room = band_room(node.sex, half, yc - cy)
-        fit = fit_text(texts, size, style, _PT, room, band_h if n_bands else 2 * half)
+        fit = fit_text(
+            texts,
+            size,
+            style,
+            _PT,
+            room,
+            band_h if n_bands else 2 * half,
+            letter=letter,
+            offset=(0.0, yc - cy),
+        )
         if fit is None:
             return None
-        return _svg_text(cx, yc, fit.text, fit.size * _PT, style, color=color, weight="bold")
+        x = cx + fit.dx
+        return _svg_text(x, yc, fit.text, fit.size * _PT, style, color=color, weight="bold")
 
     def separator(y: float) -> str:
         return f'<line x1="{left:.3f}" y1="{y:.3f}" x2="{left + width:.3f}" y2="{y:.3f}" {sep}/>'
@@ -1169,10 +1176,13 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
             _PT,
             band_room(node.sex, half, 0.0),
             2 * half,
+            letter=letter,
         )
         if na is not None:
+            size = na.size * _PT
+            na_x = cx + na.dx
             out.append(
-                _svg_text(cx, cy, na.text, na.size * _PT, style, color=NA_TEXT_COLOR, weight="bold")
+                _svg_text(na_x, cy, na.text, size, style, color=NA_TEXT_COLOR, weight="bold")
             )
 
     borders = outline_colors(node, ctx.outline_names, style)
@@ -1215,6 +1225,8 @@ def _svg_quadrants(node: NodeLayout, ctx: _SvgContext, clip_attr: str) -> tuple[
     has_carriers = any(n in carriers.keys for n in ctx.render.quadrants)
     all_na = not has_carriers and all_bands_na(node, columns)
     fs = style.text_size(QUADRANT_FONT_SCALE)
+    # The letter at the centre, which quadrant text keeps clear of (#105).
+    letter = style.text_size() if symbols.inner_letter(node.notation) else None
     out: list[str] = []
     for name, position in ctx.render.quadrants.items():
         x, y, w, h = quadrant_box(position, cx, cy, half, up=-1.0)
@@ -1236,9 +1248,9 @@ def _svg_quadrants(node: NodeLayout, ctx: _SvgContext, clip_attr: str) -> tuple[
             if cell.text is not None and not (cell.is_na and all_na):
                 texts, color = cell_texts(cell, style.band_text), cell.text_color
         room = quadrant_room(node.sex, half, position)
-        fit = fit_text(texts, fs, style, _PT, room, half)
+        tx, ty = quadrant_center(position, cx, cy, half, up=-1.0)
+        fit = fit_text(texts, fs, style, _PT, room, half, letter=letter, offset=(tx - cx, ty - cy))
         if fit is not None:
-            tx, ty = quadrant_center(position, cx, cy, half, up=-1.0)
             size = fit.size * _PT
             out.append(_svg_text(tx, ty, fit.text, size, style, color=color, weight="bold"))
     return out, all_na
@@ -1476,9 +1488,6 @@ def _svg_sections(
 # Average advance width of a character, in font sizes. Python cannot measure
 # text, so the legend border is sized from this estimate.
 _CHAR_WIDTH_EM = 0.55
-# Height of the middle of an asterisk above the baseline, in ems (DejaVu Sans,
-# the default font: the glyph spans about 0.42 to 0.76 em).
-_ASTERISK_MIDDLE_EM = 0.59
 
 
 def _svg_legend(

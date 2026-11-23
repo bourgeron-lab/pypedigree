@@ -524,15 +524,17 @@ class TestDocumentedEvaluation:
 
     @pytest.mark.parametrize("sex", [Sex.MALE, Sex.FEMALE, Sex.UNKNOWN])
     def test_mark_sits_outside_at_the_lower_right(self, sex):
-        half = 0.4
-        x, y = symbols.evaluation_mark_position(0.0, 0.0, half, sex)
+        half, size, width, upp = 0.4, 10.4, 1.5, symbols.UNITS_PER_POINT
+        x, y = symbols.evaluation_mark_position(0.0, 0.0, half, sex, size, width, upp)
         assert x > 0 and y < 0, "lower right"
         assert math.hypot(x, y) > symbols.shape_reach(sex, half, math.atan2(y, x)), "outside"
-        xs, ys = symbols.evaluation_mark_position(0.0, 0.0, half, sex, up=-1.0)
+        xs, ys = symbols.evaluation_mark_position(0.0, 0.0, half, sex, size, width, upp, up=-1.0)
         assert (xs, ys) == pytest.approx((x, -y)), "SVG: same place, y pointing down"
 
     def test_triangle_mark_beside_the_base(self):
-        x, y = symbols.evaluation_mark_position(0.0, 0.0, 0.4, Sex.UNKNOWN, triangle=True)
+        x, y = symbols.evaluation_mark_position(
+            0.0, 0.0, 0.4, Sex.UNKNOWN, 10.4, 1.5, symbols.UNITS_PER_POINT, triangle=True
+        )
         assert x > 0.4 * symbols.TRIANGLE_HALF_WIDTH
         assert y == pytest.approx(-0.4 * symbols.TRIANGLE_BASE)
 

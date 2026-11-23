@@ -21,7 +21,7 @@ from matplotlib.axes import Axes
 from matplotlib.axes._base import _AxesBase
 from matplotlib.figure import Figure, SubFigure
 from matplotlib.lines import Line2D
-from matplotlib.text import Text
+from matplotlib.text import Annotation, Text
 from matplotlib.transforms import Affine2D, Bbox, ScaledTranslation
 
 from pypedigree import symbols
@@ -498,6 +498,7 @@ def _render_layout(
             n_lines_before = len(ax.lines)
             n_texts_before = len(ax.texts)
         ring = 0.0  # room taken by the borders after the first (#46)
+        outline_width = style.shape_line_width  # of the outermost outline
 
         banded = use_banded and bool(node.extra_phenotypes) and not node.is_phantom
         if symbols.is_pregnancy_loss(node.notation):
@@ -507,7 +508,10 @@ def _render_layout(
             _draw_pregnancy_loss(ax, node, style, fill)
         elif banded:
             borders = outline_colors(node, outline_names, style)
-            ring = outline_reach(len(borders), style)
+            if band_names:
+                ring = outline_reach(len(borders), style)
+                if borders:
+                    outline_width *= OUTLINE_WIDTH_SCALE
             _draw_banded_node(
                 ax,
                 node,
@@ -522,7 +526,8 @@ def _render_layout(
                 _draw_pgs_ridge(ax, node, style, pgs_names, ring)
         else:
             _draw_node(ax, node, style, carriers)
-        _draw_notation(ax, node, style, carriers, banded, ring if banded else 0.0)
+        divided = banded and bool(band_names)
+        _draw_notation(ax, node, style, carriers, divided, ring, outline_width)
 
         # Apply rotation to all patches/lines added for this node
         if node.rotation != 0.0:
@@ -644,6 +649,15 @@ def _rotate_node_elements(
     elif text_angle < -90.0:
         text_angle += 180.0
     for txt in ax.texts[n_texts_before:]:
+        if isinstance(txt, Annotation):
+            # The asterisk (#110): its point on the outline turns with the
+            # shape, and its offset in points with it.
+            px, py = rot.transform_point(txt.xy)
+            txt.xy = (float(px), float(py))
+            ox, oy = txt.xyann
+            c, s = math.cos(angle), math.sin(angle)
+            txt.xyann = (ox * c - oy * s, ox * s + oy * c)
+            continue
         tx, ty = txt.get_position()
         new_x, new_y = rot.transform_point((tx, ty))
         txt.set_position((float(new_x), float(new_y)))
@@ -980,16 +994,19 @@ def _draw_notation(
     node: NodeLayout,
     style: PedigreeStyle,
     carriers: CarrierScheme,
-    banded: bool,
+    divided: bool,
     ring: float = 0.0,
+    outline_width: float | None = None,
 ) -> None:
     """Draw adoption brackets, the documented-evaluation asterisk, and the letter (P, D or S).
 
-    The letter is white on a filled symbol and gets a white backing on
-    carrier sections. A symbol with phenotype bands has text of its own, so
-    the letter goes outside, beside its upper-right corner. Around several
-    colored borders (`ring` layout units beyond the outline, #46), the
-    brackets, asterisk and outside letter go round the outer border.
+    The letter is at the centre (#105): white on a filled symbol, on a white
+    backing over phenotype bands or quadrants (``divided``) and carrier
+    sections, whose text keeps clear of it (`phenotypes.clear_of_letter`).
+    The asterisk is placed in points from the outline (#110), whose width
+    is ``outline_width`` (the style's shape line width by default). Around
+    several colored borders (`ring` layout units beyond the outline, #46),
+    the brackets and asterisk go round the outer border.
     """
     triangle = symbols.is_pregnancy_loss(node.notation)
     half = style.shape_size / 2
@@ -1006,47 +1023,52 @@ def _draw_notation(
                 zorder=10,
             )
     if node.notation.is_evaluated:
-        ex, ey = symbols.evaluation_mark_position(node.x, node.y, half, node.sex, triangle)
-        ax.text(
-            ex,
-            ey,
+        size = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
+        width = style.shape_line_width if outline_width is None else outline_width
+        px, py, dx, dy = symbols.evaluation_mark_placement(
+            node.x, node.y, half, node.sex, size, width, triangle
+        )
+        # Offsets in points from the outline, so the gap keeps its size at
+        # any scale; the baseline goes below the ink's middle.
+        ax.annotate(
             symbols.EVALUATION_MARK,
-            fontsize=style.text_size(symbols.EVALUATION_MARK_FONT_SCALE),
+            xy=(px, py),
+            xytext=(dx, dy - symbols.EVALUATION_MARK_INK_MIDDLE_EM * size),
+            textcoords="offset points",
+            fontsize=size,
             fontfamily=style.font_family,
             fontweight="bold",
             ha="center",
-            va="center",
+            va="baseline",
             color=style.line_color,
             zorder=10,
         )
     letter = symbols.inner_letter(node.notation)
     if letter is None or triangle:
         return
-    divided = bool(carriers.marks(node)) or (
+    sections = bool(carriers.marks(node)) or (
         carriers.legacy and (node.is_carrier or node.is_obligate_carrier)
     )
-    x, y = symbols.letter_position(node.x, node.y, half, node.sex, outside=banded)
     kwargs: dict[str, Any] = {"color": style.line_color}
-    if banded:
-        kwargs.update(ha="left", va="baseline")
-    else:
-        kwargs.update(ha="center", va="center_baseline")
-        if divided:
-            kwargs["bbox"] = _LETTER_BACKING
-        elif node.phenotype == Phenotype.AFFECTED:
-            kwargs["color"] = text_color_on(style.fill_color)
+    if divided or sections:
+        kwargs["bbox"] = _LETTER_BACKING
+    elif node.phenotype == Phenotype.AFFECTED:
+        kwargs["color"] = text_color_on(style.fill_color)
     ax.text(
-        x,
-        y,
+        node.x,
+        node.y,
         letter,
         fontsize=style.text_size(),
         fontfamily=style.font_family,
+        ha="center",
+        va="center_baseline",
         zorder=11,
         **kwargs,
     )
 
 
-# White backing behind a letter written over bands or carrier sections.
+# White backing behind a letter written over bands, quadrants or carrier
+# sections (within `symbols.LETTER_CLEAR_HALF_W_EM` / `_H_EM`).
 _LETTER_BACKING = {
     "boxstyle": "round,pad=0.15",
     "facecolor": "white",
@@ -1596,11 +1618,15 @@ def _draw_banded_node(
 
     if display_modes is None:
         display_modes = {}
+    # The letter at the centre, which band text keeps clear of (#105).
+    letter = style.text_size() if symbols.inner_letter(node.notation) else None
     if pheno_render.quadrants:
-        all_na = _draw_quadrants(ax, node, style, pheno_render, display_modes, carriers, clip_patch)
+        all_na = _draw_quadrants(
+            ax, node, style, pheno_render, display_modes, carriers, clip_patch, letter
+        )
     else:
         all_na = _draw_bands(
-            ax, node, style, band_names, pheno_render, display_modes, carriers, clip_patch
+            ax, node, style, band_names, pheno_render, display_modes, carriers, clip_patch, letter
         )
 
     # If all bands are NA, draw a single centered "NA" label
@@ -1614,6 +1640,7 @@ def _draw_banded_node(
             style,
             band_room(node.sex, half, 0.0),
             2 * half,
+            letter,
             color=NA_TEXT_COLOR,
             zorder=6,
         )
@@ -1664,8 +1691,12 @@ def _draw_bands(
     display_modes: dict[str, PhenotypeDisplayMode],
     carriers: CarrierScheme,
     clip_patch: mpatches.Patch,
+    letter: float | None = None,
 ) -> bool:
     """Fill a symbol with one horizontal band per phenotype, then per carrier source.
+
+    Text keeps clear of the letter at the centre, whose font size is
+    ``letter`` (#105).
 
     Returns:
         Whether every band has no data, in which case the caller writes a
@@ -1725,6 +1756,8 @@ def _draw_bands(
                 style,
                 band_room(node.sex, half, yc - cy),
                 band_height,
+                letter,
+                (0.0, yc - cy),
                 color=cell.text_color,
                 zorder=6,
             )
@@ -1767,6 +1800,8 @@ def _draw_bands(
                 style,
                 band_room(node.sex, half, yc - cy),
                 band_height,
+                letter,
+                (0.0, yc - cy),
                 color=NA_TEXT_COLOR,
                 zorder=6,
             )
@@ -1782,6 +1817,7 @@ def _draw_quadrants(
     display_modes: dict[str, PhenotypeDisplayMode],
     carriers: CarrierScheme,
     clip_patch: mpatches.Patch,
+    letter: float | None = None,
 ) -> bool:
     """Fill a symbol cut in four, one quadrant per phenotype or carrier source.
 
@@ -1838,6 +1874,8 @@ def _draw_quadrants(
                 style,
                 quadrant_room(node.sex, half, position),
                 half,
+                letter,
+                (tx - cx, ty - cy),
                 color=text_color,
                 zorder=6,
             )
@@ -1909,6 +1947,8 @@ class _FittedText(Text):
         style: PedigreeStyle,
         room: Room,
         height: float,
+        letter: float | None = None,
+        offset: tuple[float, float] = (0.0, 0.0),
         **kwargs: Any,
     ) -> None:
         super().__init__(x, y, texts[0], fontsize=size, **kwargs)
@@ -1917,6 +1957,9 @@ class _FittedText(Text):
         self._style = style
         self._room = room
         self._height = height
+        self._letter = letter
+        self._offset = offset
+        self._dx = 0.0  # moved right of the letter by this much (#105)
 
     def _fit(self, renderer: Any) -> None:
         axes = self.axes
@@ -1927,9 +1970,22 @@ class _FittedText(Text):
         if pixels_per_unit <= 0:
             return
         pt = renderer.points_to_pixels(1.0) / pixels_per_unit
-        fit = fit_text(self._texts, self._size, self._style, pt, self._room, self._height)
+        fit = fit_text(
+            self._texts,
+            self._size,
+            self._style,
+            pt,
+            self._room,
+            self._height,
+            letter=self._letter,
+            offset=self._offset,
+        )
         self.set_text("" if fit is None else fit.text)
         self.set_fontsize(self._size if fit is None else fit.size)
+        dx = 0.0 if fit is None else fit.dx
+        if dx != self._dx:
+            self.set_x(self.get_position()[0] + dx - self._dx)
+            self._dx = dx
 
     def draw(self, renderer: Any) -> None:
         self._fit(renderer)
@@ -1950,12 +2006,16 @@ def _fitted_text(
     style: PedigreeStyle,
     room: Room,
     height: float,
+    letter: float | None = None,
+    offset: tuple[float, float] = (0.0, 0.0),
     **kwargs: Any,
 ) -> None:
     """Write a band's or quadrant's text, fitted to its place (`_FittedText`).
 
     With ``band_text`` other than "auto" nothing needs fitting: the first
-    text is written at ``size``.
+    text is written at ``size``, unless the symbol has a letter at its
+    centre (``letter``, its font size; ``offset``, the text's centre from
+    the symbol's), which the text keeps clear of (#105).
     """
     if not texts:
         return
@@ -1966,10 +2026,10 @@ def _fitted_text(
         "va": "center",
         **kwargs,
     }
-    if style.band_text != "auto":
+    if style.band_text != "auto" and letter is None:
         ax.text(x, y, texts[0], fontsize=size, **kwargs)
         return
-    ax.add_artist(_FittedText(x, y, texts, size, style, room, height, **kwargs))
+    ax.add_artist(_FittedText(x, y, texts, size, style, room, height, letter, offset, **kwargs))
 
 
 def _draw_pgs_ridge(
