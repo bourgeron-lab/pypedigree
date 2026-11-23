@@ -48,7 +48,8 @@ def render(text: str, options_json: str = "{}") -> str:
             for all), ``phenotype_layout``, ``pgs_scale``,
             ``carrier_notation``, ``min_font_size`` (points, or empty for
             none), ``show_labels``, ``show_legend``, ``show_na_labels``,
-            ``show_pgs_values`` and ``style`` (a JSON object of
+            ``show_pgs_values``, ``hpo_features`` (a Phenopackets file's HPO
+            terms as phenotype columns) and ``style`` (a JSON object of
             `PedigreeStyle` fields, as in a ``--style`` file).
 
     Returns:
@@ -72,7 +73,9 @@ def render(text: str, options_json: str = "{}") -> str:
 def _render(text: str, options: dict[str, Any]) -> dict[str, Any]:
     if not text.strip():
         raise ValueError("The file is empty.")
-    pedigree = parse_pedigree_from_string(text)
+    pedigree = parse_pedigree_from_string(
+        text, phenopacket_features=bool(options.get("hpo_features", False))
+    )
     families = sorted(pedigree.families)
     if not families:
         raise ValueError("No individual was found in the file.")

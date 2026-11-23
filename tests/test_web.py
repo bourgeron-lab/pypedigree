@@ -112,6 +112,15 @@ class TestRender:
         assert ">3</text>" not in _render(show_labels=False)["static_svg"]
         assert "Legend" not in _render(show_legend=False)["static_svg"]
 
+    def test_hpo_features_option(self):
+        """A Phenopackets file's HPO terms become phenotypes only when asked (#108)."""
+        path = WEB.parent / "tests" / "data" / "format" / "phenopacket_consanguineous.json"
+        text = path.read_text(encoding="utf-8")
+        plain = _render(text)["static_svg"]
+        with_terms = _render(text, hpo_features=True)["static_svg"]
+        assert "Invented recessive syndrome" in plain and "Hypotonia" not in plain
+        assert "Hypotonia" in with_terms and "Seizure" in with_terms
+
     def test_style_json_as_text_or_object(self):
         as_text = _render(style='{"font_size": 14}')["static_svg"]
         as_object = _render(style={"font_size": 14})["static_svg"]
@@ -253,6 +262,7 @@ class TestSite:
             "show_legend",
             "show_na_labels",
             "show_pgs_values",
+            "hpo_features",
             "min_font_size",
             "style",
         } <= names

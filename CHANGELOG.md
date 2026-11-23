@@ -14,7 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the legend names the condition ("Invented syndrome"). With `parse_pedigree(...,
   phenopacket_features=True)` or `--hpo-features`, each HPO term of the phenopackets'
   `phenotypicFeatures` is a binary column named by its label: observed, excluded (unaffected), not
-  recorded in that phenopacket (unknown), no phenopacket (no data). Off by default.
+  recorded in that phenopacket (unknown), no phenopacket (no data). Off by default. The web app has
+  it as "HPO terms of a Phenopackets file", and a new example, "Phenopackets family"
+  (`tests/data/format/phenopacket_consanguineous.json`, synthetic): a four-generation Family with
+  first-cousin parents (`consanguinousParents`), the proband's disease and the relatives' HPO terms.
 
 - NSGC numbering from the drawing (#125): style option `labels` (`--labels`, the web app's "Labels")
   "generation" labels each individual with their generation in Roman numerals from the top and their

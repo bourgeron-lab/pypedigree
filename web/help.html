@@ -98,7 +98,10 @@
       risk scores are drawn (see the “CanRisk file” example). Its <code>Name</code> column,
       often a real name, is not used. So is a GA4GH Phenopackets v2 <code>Family</code> or
       <code>Pedigree</code> (<code>.json</code>): persons, sex, affected status (named after the
-      proband's disease when it has one), proband and deaths.</p>
+      proband's disease when it has one), proband and deaths. Tick “HPO terms of a Phenopackets
+      file” to draw each HPO term of the relatives' phenopackets as a phenotype (observed:
+      affected, excluded: unaffected, not recorded: unknown); see the “Phenopackets family”
+      example.</p>
     <p>A parent named in a column but with no line of their own is drawn with a dashed outline,
       and a warning says so. The full description, with every code, is in the
       <a href="docs/#file-format">documentation</a>.</p>

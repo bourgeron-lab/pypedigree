@@ -81,6 +81,13 @@ EXAMPLES: list[dict[str, object]] = [
         "title": "CanRisk file",
         "description": "Two families from the CanRisk tool: cancers, gene tests and PRS.",
     },
+    {
+        "file": "format/phenopacket_consanguineous.json",
+        "title": "Phenopackets family",
+        "description": "A GA4GH Phenopackets v2 Family: first-cousin parents, the proband's "
+        "disease and the HPO terms of every relative.",
+        "options": {"hpo_features": True},
+    },
 ]
 
 
