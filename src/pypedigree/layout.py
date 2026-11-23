@@ -331,8 +331,10 @@ class _HierarchicalPlacer:
 
         Half the widest line drawn under the symbol (ID, notes, annotations;
         `symbols.label_width`) plus half the space kept between two labels.
-        Only labels that reach beyond half the sibling gap are listed: the
-        others fit whatever the neighbour.
+        Every labelled node is listed, short labels too: `_label_room` only
+        counts what reaches beyond half the sibling gap, but a couple's gap
+        adds both partners' reaches, so a long label next to a short one
+        needs the short one's real reach, not nothing.
         """
         style = self.style
         size, small = style.text_size(), style.text_size(symbols.SMALL_TEXT_SCALE)
@@ -342,9 +344,8 @@ class _HierarchicalPlacer:
             ind = self.family.individuals[sid]
             label = _get_node_label(sid, ind, style)
             below = symbols.notes(ind) + [v for v in ind.annotations.values() if v]
-            half = (symbols.label_width(label, below, size, small) + pad) / 2
-            if half > style.sibling_gap / 2:
-                reach[sid] = half
+            if label:
+                reach[sid] = (symbols.label_width(label, below, size, small) + pad) / 2
         return reach
 
     def _label_room(self, sid: str) -> float:

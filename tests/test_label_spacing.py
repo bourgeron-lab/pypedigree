@@ -149,6 +149,37 @@ class TestLayout:
         assert xs["c2"] - xs["c1"] > pp.PedigreeStyle().sibling_gap
         _assert_no_overlap(layout, 8.0)
 
+    def test_couple_counts_both_partners_labels(self):
+        """A long label beside a short one: the couple is as wide as both reaches.
+
+        Only labels reaching past half the sibling gap need room among
+        siblings, but a couple's gap adds the partners' reaches, so the
+        shorter one must count too (it counted as nothing before).
+        """
+        text = (
+            "FID\tIID\tFather\tMother\tSex\tPhenotype\ta_name\n"
+            "F1\tf\t0\t0\t1\t1\tAn invented name here\n"
+            "F1\tm\t0\t0\t2\t1\tA much longer invented annotation\n"
+            "F1\tc\tf\tm\t1\t2\t\n"
+        )
+        style = pp.PedigreeStyle()
+        size, small = style.text_size(), style.text_size(symbols.SMALL_TEXT_SCALE)
+        pad = symbols.LABEL_GAP_EM * size * symbols.UNITS_PER_POINT
+
+        def reach(label, note):
+            return (symbols.label_width(label, [note], size, small) + pad) / 2
+
+        short = reach("f", "An invented name here")
+        long = reach("m", "A much longer invented annotation")
+        # The case: one reach within half the sibling gap, the other beyond,
+        # together wider than the couple gap.
+        assert short <= style.sibling_gap / 2 < long
+        assert short + long > style.couple_gap
+        layout = compute_layout(_family(text), style)
+        xs = {n.individual_id: n.x for n in layout.nodes}
+        assert xs["m"] - xs["f"] == pytest.approx(short + long)
+        _assert_no_overlap(layout, 8.0)
+
     def test_proband_marker_room_still_kept(self):
         """The marker's room and the label's room combine (the larger wins)."""
         text = (
