@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- CanRisk pedigree files (formats 1 to 4, #109) are read by the CLI, `parse_pedigree()`,
+  `parse_pedigree_from_string()` and the web app, detected by their first line `##CanRisk`,
+  several families per file. The target is the consultand (and the proband when affected);
+  each cancer someone has gets a binary column (ovarian and prostate cancer "not applicable"
+  for the other sex assigned at birth); age, cancer ages, gene test results ("BRCA1 +",
+  "HOXB13 + (het)"), breast pathology and Ashkenazi ancestry are annotation lines in NSGC order;
+  the `##PRS_*` z-scores are `PGS_` columns of the target. `Name` and risk factors are left out.
+  New module `pypedigree.canrisk`; synthetic fixtures `format/canrisk_v2.txt`, `canrisk_v3.txt`,
+  `canrisk_v4.txt`; web app example "CanRisk file".
+
 - Not applicable as a value of phenotype columns (#107): `N/A`, `not_applicable` or
   `not applicable` (case-insensitive) says a phenotype cannot apply to that individual (ovarian
   cancer for someone assigned male at birth, an adult-onset measure for a child), where `NA`

@@ -309,6 +309,14 @@ The diagonal lines that connect gamete donors and surrogates in the NSGC
 figures are not drawn: a donor is a parent in the file and is joined to the
 other parent like any couple.
 
+### CanRisk files
+
+Pedigree files saved by the CanRisk tool (formats 1 to 4, first line `##CanRisk 4.0`) are read as they are: cancers become binary columns (ovarian and prostate cancer "not applicable" for the other sex assigned at birth), gene test results and ages annotation lines ("BRCA1 +", "BC 40"), the target the consultand (and proband when affected), and the PRS z-scores `PGS_` columns. See `docs/pedigree_standard.md`, "CanRisk files".
+
+```bash
+pypedigree tests/data/format/canrisk_v4.txt -o canrisk.png
+```
+
 ### PLINK FAM File (.fam)
 
 PLINK `.fam` files use the same 6-column format (FID, IID, PAT, MAT, SEX, PHENO), whitespace-delimited, no header. Files with `.fam` extension are auto-detected by the CLI.

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, TypeVar
 if TYPE_CHECKING:
     import pandas as pd
 
+from pypedigree.canrisk import canrisk_to_text, is_canrisk
 from pypedigree.errors import (
     PedigreeDataWarning,
     PedigreeError,
@@ -1415,7 +1416,7 @@ def parse_pedigree(file_path: str | Path) -> Pedigree:
     if not text:
         raise PedigreeParseError(f"Pedigree file is empty: {path}")
 
-    return _parse_text(text)
+    return _parse_any(text)
 
 
 def parse_pedigree_from_string(text: str) -> Pedigree:
@@ -1434,6 +1435,13 @@ def parse_pedigree_from_string(text: str) -> Pedigree:
     text = text.strip()
     if not text:
         raise PedigreeParseError("Pedigree text is empty")
+    return _parse_any(text)
+
+
+def _parse_any(text: str) -> Pedigree:
+    """Parse a pedigree file, or a CanRisk file (#109) rewritten as one."""
+    if is_canrisk(text):
+        return _parse_text(canrisk_to_text(text), header=True)
     return _parse_text(text)
 
 

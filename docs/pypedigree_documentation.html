@@ -1350,6 +1350,21 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
 </section>
 
 <!-- ================================================================ -->
+<section id="canrisk">
+<h2>CanRisk Files</h2>
+
+<p>Pedigree files saved by the CanRisk tool (BOADICEA model; formats 1 to 4, first line <code>##CanRisk 4.0</code>) are read directly, from the CLI, <code>parse_pedigree()</code>, <code>parse_pedigree_from_string()</code> and the web app. A file may hold several families. Columns are read by the names of the <code>##FamID</code> line.</p>
+<ul>
+  <li><strong>Structure</strong>: family, ID, parents, sex, identical twins (<code>MZtwin</code>), deaths, year of birth. <code>Name</code> is left out (often a real name).</li>
+  <li><strong>Target</strong>: the consultand; an affected target is also the proband.</li>
+  <li><strong>Cancers</strong>: one binary column per cancer someone has (breast, ovarian, prostate, pancreatic); ovarian cancer is &ldquo;not applicable&rdquo; for people assigned male at birth, prostate cancer for people assigned female at birth.</li>
+  <li><strong>Annotations</strong>, in NSGC order: age (&ldquo;45y&rdquo;, &ldquo;d. 61y&rdquo;), cancers with their ages (&ldquo;BC 40, BC2 52&rdquo;), one line per gene tested (&ldquo;BRCA1 +&rdquo;, &ldquo;BRCA2 &minus;&rdquo;, &ldquo;HOXB13 + (het)&rdquo;), breast pathology (&ldquo;ER+ PR+ HER2&minus;&rdquo;), &ldquo;Ashkenazi Jewish&rdquo;.</li>
+  <li><strong>PRS</strong>: <code>##PRS_BC</code>, <code>##PRS_OC</code>, <code>##PRS_PC</code> give the target&rsquo;s z-score, drawn on the z-score scale.</li>
+</ul>
+<p>Other header keys (menarche, parity, BMI&hellip;) are ignored. A value CanRisk does not allow raises <code>PedigreeParseError</code> naming the line. CanRisk files are read, not written.</p>
+</section>
+
+<!-- ================================================================ -->
 <section id="plink">
 <h2>PLINK Integration</h2>
 

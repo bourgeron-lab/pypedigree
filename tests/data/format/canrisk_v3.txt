@@ -1,0 +1,11 @@
+##CanRisk 3
+##PRS_BC=alpha=0.45, zscore=1.8
+##FamID	Name	Target	IndivID	FathID	MothID	Sex	MZtwin	Dead	Age	Yob	BC1	BC2	OC	PRO	PAN	Ashkn	BRCA1	BRCA2	PALB2	ATM	CHEK2	BARD1	RAD51D	RAD51C	BRIP1	ER:PR:HER2:CK14:CK56
+FAM1	grandfather	0	gf1	0	0	M	0	1	78	1930	0	0	0	0	72	1	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+FAM1	grandmother	0	gm1	0	0	F	0	1	80	1932	AU	0	0	0	0	1	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+FAM1	father	0	f1	0	0	M	0	0	65	1959	0	0	0	61	0	0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+FAM1	mother	0	m1	gf1	gm1	F	0	1	61	1962	0	0	52	0	0	1	S:P	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+FAM1	me	1	t1	f1	m1	F	0	0	38	1986	35	37	0	0	0	1	T:P	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	N:N:N:0:0
+FAM1	sister	0	s1	f1	m1	F	1	0	33	1991	0	0	0	0	0	1	T:N	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+FAM1	sister	0	s2	f1	m1	F	1	0	33	1991	0	0	0	0	0	1	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0
+FAM1	brother	0	b1	f1	m1	M	0	0	30	1994	0	0	0	0	0	1	T:N	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0	0:0:0:0:0

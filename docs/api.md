@@ -6,6 +6,8 @@
 
 Parse a pedigree from a file. Auto-detects separator (tab, comma, space) and header rows. When a header is present, columns are matched by name (not position), so phenotype columns can appear directly after Sex without needing the full 10-column format. The file is read as UTF-8 whatever the system's default encoding (cp1252 on most Windows systems); a byte order mark is ignored, and a file that is not UTF-8 raises `PedigreeParseError`. `parse_fam_file`, `parse_plink_ped`, `--pheno` and `--annotations` files are read the same way, and `export_fam` writes UTF-8 with `\n` line endings.
 
+A CanRisk file (first line `##CanRisk <version>`, formats 1 to 4, #109) is read too, by `parse_pedigree` and `parse_pedigree_from_string`: `pypedigree.canrisk.canrisk_to_text(text)` rewrites it as a pedigree file with a header (cancers as binary columns, "not applicable" for ovarian and prostate cancer of the other sex assigned at birth, ages, gene tests and pathology as annotations, the target as consultand, the `##PRS_*` z-scores as `PGS_` columns) and `pypedigree.canrisk.is_canrisk(text)` detects it. See `docs/pedigree_standard.md`, "CanRisk files".
+
 ```python
 from pypedigree import parse_pedigree
 

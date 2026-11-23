@@ -397,6 +397,21 @@ pypedigree tests/data/nomenclature/nomenclature.ped --interactive -o nomenclatur
 
 ---
 
+## canrisk_v4.txt
+
+**Description**: Two invented families saved as a CanRisk v4 file (#109). FAM1: the target (the consultand, also the proband since she has breast cancer at 35 and 37, BRCA1 positive, triple negative), her mother (ovarian cancer, deceased), her father (prostate cancer, HOXB13 heterozygous), identical twin sisters, a brother who tested negative, and grandparents with pancreatic and breast cancer. Breast and ovarian PRS z-scores for the target. FAM2: an unaffected target with a prostate PRS, his father with pancreatic cancer.
+
+**Features**: the CanRisk reader: one column per cancer, ovarian and prostate cancer "not applicable" for the other sex assigned at birth (white, crossed), ages, gene tests and pathology as annotations in NSGC order, PRS on the z-score scale.
+
+![A CanRisk file](imgs/examples/canrisk.png)
+
+```bash
+pypedigree tests/data/format/canrisk_v4.txt -o canrisk.png
+pypedigree tests/data/format/canrisk_v4.txt --interactive -o canrisk.svg
+```
+
+---
+
 ## Interactive SVG
 
 **Description**: Any pedigree can be exported as an interactive SVG with tooltips and click-to-highlight. It carries the same phenotype bands, legend, PGS curves and annotations as the PNG.

@@ -146,6 +146,38 @@ nothing to note, and any other value is an error naming the line.
 Gestational age, karyotype, the reason for infertility and similar details go in
 `a_` annotation columns.
 
+## CanRisk files
+
+pypedigree reads the pedigree files of the CanRisk tool (BOADICEA model; formats 1 to 4, current
+since CanRisk 4.0), recognised by their first line, `##CanRisk 4.0` (or `2.0`, `3`, ...), from the
+CLI, `parse_pedigree()`, `parse_pedigree_from_string()` and the web app. A file may hold several
+families, each with its own `##CanRisk` header block. Columns are read by the names of the
+`##FamID ...` line, so every version is read by the same code (v1 has no `BARD1`, v2 and v3 no
+`HOXB13`).
+
+| CanRisk | pypedigree |
+|---|---|
+| `FamID`, `IndivID`, `FathID`, `MothID` (`0` unknown) | family, ID, father, mother |
+| `Name` | left out: in CanRisk it is often a real name or a role |
+| `Target` (1: the person whose risk is computed) | the consultand; an affected target is also the proband (one arrow, with "P") |
+| `Sex` (M/F) | sex (assigned at birth) |
+| `MZtwin` (a code shared by identical twins) | monozygotic twins |
+| `Dead`, `Yob` | deceased, year of birth |
+| `Age` (`0` unknown) | an annotation, "45y", or "d. 61y" for someone deceased |
+| `BC1`, `BC2`, `OC`, `PRO`, `PAN` (`0`, an age, or `AU` for an unknown age) | one binary column per cancer someone in the file has: `breast cancer` (BC1 or BC2), `ovarian cancer`, `prostate cancer`, `pancreatic cancer`; the ages as an annotation ("BC 40, BC2 52", "OC 44", "PrC 61", "PaC 66", "BC ?") |
+| `BRCA1` … `BRIP1` (`type:result`) | one annotation line per gene tested, as NSGC writes a result: "BRCA1 +", "BRCA2 −"; untested genes write nothing |
+| `HOXB13` (v4: `T:HET`, `T:HOM`, `T:N`) | "HOXB13 + (het)", "HOXB13 + (hom)", "HOXB13 −" |
+| `ER:PR:HER2:CK14:CK56` | for people with breast cancer, the markers given: "ER+ PR+ HER2−" |
+| `Ashkn` | "Ashkenazi Jewish" for `1` |
+| `##PRS_BC`, `##PRS_OC`, `##PRS_PC` (`alpha=…, zscore=…`) | the target's z-score in a `PGS_breast_cancer`, `PGS_ovarian_cancer` or `PGS_prostate_cancer` column, drawn on the z-score scale (the default) |
+| other header keys (menarche, parity, BMI, ...) | ignored: risk factors, not pedigree data |
+
+Annotation lines follow NSGC order: age, cancers, gene tests, pathology, Ashkenazi. Ovarian cancer
+does not apply to people assigned male at birth, nor prostate cancer to people assigned female at
+birth: those cells are "not applicable" (white, crossed). An age given for one (which CanRisk
+should not produce) is kept as affected, with a warning. A value CanRisk does not allow raises
+`PedigreeParseError` naming the line. CanRisk files are read, not written.
+
 ## Diagram representation
 
 The images in this section are drawn by pypedigree (`docs/imgs/make_notation_images.py`).

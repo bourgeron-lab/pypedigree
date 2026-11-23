@@ -63,6 +63,7 @@ src/pypedigree/
   api.py           -> PedigreeBuilder fluent API (depends on: models, config, renderer, svg_renderer)
   batch.py         -> render_families / family_file_names: one file per family (#49) (depends on:
                       models, config, carriers, phenotypes; renderer or svg_renderer inside the function)
+  canrisk.py   -> CanRisk files (#109) rewritten as pedigree text for _parse_text (depends on: errors)
   cli.py       -> Click CLI (depends on: parser, config; renderer and matplotlib only for PNG/PDF)
   __init__.py  -> Public re-exports (includes compute_layout_circular); render_pedigree and
                   render_family are imported lazily through a module __getattr__ (PEP 562)
@@ -634,6 +635,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   PGS box, tooltip, legend row, PNG borders in points, warning above three
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
 - `tests/test_deceased_pgs.py` — The deceased line clear of the PGS box (#80)
+- `tests/test_canrisk.py` — CanRisk files v1-v4 (#109): structure, target, cancers and N/A, annotations, PRS, errors
 - `tests/test_not_applicable.py` — Not applicable (N/A) values: parsing, cells, stroke, legend row, tooltip (#107)
 - `tests/test_notation_clearance.py` — The evaluation asterisk's gap in ems, in PNG pixels too (#110),
   the inner letter at the centre with band text clear of it (#105), a diamond's PGS box (#111)
@@ -720,6 +722,17 @@ Native support for PLINK bioinformatics formats:
 - `parse_plink_ped(path)` — reads PLINK `.ped` files (ignores genotype columns after col 6)
 - `export_fam(pedigree, path)` — writes `.fam` format (excludes phantoms/duplicates)
 - CLI: `.fam` extension auto-detected; `--plink` flag for PLINK `.ped` files
+
+## CanRisk files
+
+`canrisk.is_canrisk` (first line `##CanRisk`) and `canrisk_to_text` (#109): `parser._parse_any`, called by
+`parse_pedigree` and `parse_pedigree_from_string`, rewrites a CanRisk file (v1-v4, several family blocks,
+columns by the names of the `##FamID` line) as header + tab text and calls `_parse_text(..., header=True)`.
+Target → `consultand` (and `proband` if affected); one `b_` column per cancer someone has, "N/A" (#107) for
+ovarian/prostate cancer of the other sex assigned at birth (an age given is kept, with a warning); `a_`
+columns in NSGC order (age, cancers, one per gene tested, pathology, ancestry); `##PRS_*` z-scores on the
+block's target as `PGS_*_cancer`. `Name` and risk-factor keys are dropped. `tests/test_canrisk.py`,
+fixtures `tests/data/format/canrisk_v*.txt`; web example "CanRisk file".
 
 ## Pandas Integration
 
