@@ -1,0 +1,28 @@
+{
+  "persons": [
+    {
+      "familyId": "FAM1",
+      "individualId": "father",
+      "paternalId": "0",
+      "maternalId": "0",
+      "sex": "MALE",
+      "affectedStatus": "UNAFFECTED"
+    },
+    {
+      "familyId": "FAM1",
+      "individualId": "mother",
+      "paternalId": "0",
+      "maternalId": "0",
+      "sex": "FEMALE",
+      "affectedStatus": "UNAFFECTED"
+    },
+    {
+      "familyId": "FAM1",
+      "individualId": "child",
+      "paternalId": "father",
+      "maternalId": "mother",
+      "sex": "FEMALE",
+      "affectedStatus": "AFFECTED"
+    }
+  ]
+}

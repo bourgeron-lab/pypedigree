@@ -1365,6 +1365,14 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
 </section>
 
 <!-- ================================================================ -->
+<section id="phenopackets">
+<h2>GA4GH Phenopackets v2</h2>
+
+<p>A Phenopackets v2 JSON file, a whole <code>Family</code> or a bare <code>Pedigree</code> (<code>{"persons": [...]}</code>), is read by the CLI, <code>parse_pedigree()</code>, <code>parse_pedigree_from_string()</code> and the web app: family, IDs, parents, <code>sex</code> (<code>MALE</code>, <code>FEMALE</code>, <code>UNKNOWN_SEX</code>, <code>OTHER_SEX</code>), <code>affectedStatus</code> (<code>AFFECTED</code>, <code>UNAFFECTED</code>, <code>MISSING</code>), the proband (<code>proband.subject.id</code>) and deaths (<code>vitalStatus</code>). camelCase and snake_case names, fields left at their default and enum numbers (Phenopackets numbering: <code>FEMALE = 1</code>, <code>MALE = 2</code>) are accepted. With <code>consanguinousParents</code>, the proband&rsquo;s parents are drawn with a double line, with a warning when the pedigree holds none of their common ancestors. HPO features and diseases are not drawn.</p>
+<p><code>export_phenopacket_pedigree(pedigree, path)</code> writes a <code>Pedigree</code> message, without phantom parents or duplicates.</p>
+</section>
+
+<!-- ================================================================ -->
 <section id="plink">
 <h2>PLINK Integration</h2>
 

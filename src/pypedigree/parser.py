@@ -12,7 +12,7 @@ import numbers
 import re
 import warnings
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
@@ -44,6 +44,11 @@ from pypedigree.models import (
     TwinInfo,
     TwinType,
     Union,
+)
+from pypedigree.phenopackets import (
+    load_phenopacket,
+    mark_declared_consanguinity,
+    phenopacket_to_text,
 )
 
 # Known header tokens (case-insensitive) for auto-detection
@@ -1439,9 +1444,15 @@ def parse_pedigree_from_string(text: str) -> Pedigree:
 
 
 def _parse_any(text: str) -> Pedigree:
-    """Parse a pedigree file, or a CanRisk file (#109) rewritten as one."""
+    """Parse a pedigree file, or a CanRisk file (#109) or a GA4GH Phenopackets
+    v2 ``Family`` / ``Pedigree`` (#108) rewritten as one."""
     if is_canrisk(text):
         return _parse_text(canrisk_to_text(text), header=True)
+    packet = load_phenopacket(text)
+    if packet is not None:
+        pedigree = _parse_text(phenopacket_to_text(packet), header=True)
+        mark_declared_consanguinity(pedigree, packet)
+        return pedigree
     return _parse_text(text)
 
 
@@ -1963,6 +1974,31 @@ def parse_plink_ped(file_path: str | Path) -> Pedigree:
     return _parse_text(text, max_columns=6)
 
 
+def _original_parent(family: Family, parent: str | None) -> str:
+    """A parent ID as written in a file: "0" for none or a phantom, the
+    original's ID for a duplicate."""
+    if not parent or parent.startswith("_phantom_"):
+        return "0"
+    if parent.startswith("_dup_"):
+        dup = family.individuals.get(parent)
+        return dup.duplicate_of if dup and dup.duplicate_of else "0"
+    return parent
+
+
+def fam_rows(pedigree: Pedigree) -> Iterator[tuple[str, str, str, str, Individual]]:
+    """The individuals a PED export writes: family, ID, father, mother ("0"
+    when unknown) and the individual, without phantom parents or duplicates,
+    whose IDs are resolved back to the original (`export_fam`,
+    `phenopackets.export_phenopacket_pedigree`)."""
+    for family in pedigree.families.values():
+        for ind in family.individuals.values():
+            if ind.is_phantom or ind.is_duplicate:
+                continue
+            father = _original_parent(family, ind.father_id)
+            mother = _original_parent(family, ind.mother_id)
+            yield ind.family_id, ind.sample_id, father, mother, ind
+
+
 def export_fam(pedigree: Pedigree, file_path: str | Path) -> Path:
     """Export a Pedigree to PLINK .fam format.
 
@@ -1980,46 +2016,14 @@ def export_fam(pedigree: Pedigree, file_path: str | Path) -> Path:
         The Path of the written file.
     """
     path = Path(file_path)
-    lines: list[str] = []
-
-    for family in pedigree.families.values():
-        for ind in family.individuals.values():
-            if ind.is_phantom or ind.is_duplicate:
-                continue
-
-            fid = ind.family_id
-            iid = ind.sample_id
-            # Resolve internal IDs back to original
-            father = ind.father_id
-            if father:
-                if father.startswith("_phantom_"):
-                    father = "0"
-                elif father.startswith("_dup_"):
-                    fi = family.individuals.get(father)
-                    father = fi.duplicate_of if fi and fi.duplicate_of else "0"
-            else:
-                father = "0"
-            pat = father
-
-            mother = ind.mother_id
-            if mother:
-                if mother.startswith("_phantom_"):
-                    mother = "0"
-                elif mother.startswith("_dup_"):
-                    mi = family.individuals.get(mother)
-                    mother = mi.duplicate_of if mi and mi.duplicate_of else "0"
-            else:
-                mother = "0"
-            mat = mother
-
-            sex_map = {Sex.MALE: "1", Sex.FEMALE: "2", Sex.UNKNOWN: "0"}
-            sex = sex_map.get(ind.sex, "0")
-
-            pheno_map = {Phenotype.UNAFFECTED: "1", Phenotype.AFFECTED: "2", Phenotype.UNKNOWN: "0"}
-            pheno = pheno_map.get(ind.phenotype, "0")
-
-            lines.append(f"{fid}\t{iid}\t{pat}\t{mat}\t{sex}\t{pheno}")
-
+    sex_map = {Sex.MALE: "1", Sex.FEMALE: "2", Sex.UNKNOWN: "0"}
+    pheno_map = {Phenotype.UNAFFECTED: "1", Phenotype.AFFECTED: "2", Phenotype.UNKNOWN: "0"}
+    lines = [
+        "\t".join(
+            (fid, iid, pat, mat, sex_map.get(ind.sex, "0"), pheno_map.get(ind.phenotype, "0"))
+        )
+        for fid, iid, pat, mat, ind in fam_rows(pedigree)
+    ]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return path
 

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GA4GH Phenopackets v2 pedigrees (#108). A JSON `Family` or `Pedigree` is read by the CLI,
+  `parse_pedigree()`, `parse_pedigree_from_string()` and the web app: persons, sex, affected
+  status, the proband and deaths from the phenopackets; camelCase or snake_case names, fields
+  left at their default, enums by name or by the Phenopackets numbers (`FEMALE = 1`,
+  `MALE = 2`). With `consanguinousParents`, the proband's parents are drawn with a double line,
+  with a warning when the pedigree holds none of their common ancestors. New
+  `export_phenopacket_pedigree(pedigree, path)` writes a `Pedigree` message, without phantoms
+  or duplicates, as `export_fam`. HPO features are not drawn. Synthetic fixtures
+  `format/phenopacket_*.json`.
+
 - CanRisk pedigree files (formats 1 to 4, #109) are read by the CLI, `parse_pedigree()`,
   `parse_pedigree_from_string()` and the web app, detected by their first line `##CanRisk`,
   several families per file. The target is the consultand (and the proband when affected);

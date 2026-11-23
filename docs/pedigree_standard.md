@@ -178,6 +178,33 @@ birth: those cells are "not applicable" (white, crossed). An age given for one (
 should not produce) is kept as affected, with a warning. A value CanRisk does not allow raises
 `PedigreeParseError` naming the line. CanRisk files are read, not written.
 
+## GA4GH Phenopackets v2
+
+A GA4GH Phenopackets v2 (ISO 4454:2022) JSON file is read by the CLI, `parse_pedigree()`,
+`parse_pedigree_from_string()` and the web app: a whole `Family` (`proband`, `relatives`,
+`pedigree`) or a bare `Pedigree` (`{"persons": [...]}`), recognised by a top-level `pedigree` or
+`persons` key. Any other JSON raises `PedigreeParseError`.
+
+| Phenopackets v2 | pypedigree |
+|---|---|
+| `pedigree.persons[].familyId`, `individualId`, `paternalId`, `maternalId` | family, ID, father, mother; `"0"`, `""` or a missing field is an unknown parent |
+| `sex`: `MALE`, `FEMALE`, `UNKNOWN_SEX`, `OTHER_SEX` | sex 1, 2, 0, 0 |
+| `affectedStatus`: `AFFECTED`, `UNAFFECTED`, `MISSING` | phenotype 2, 1, 0 |
+| `proband.subject.id` | proband |
+| `subject.vitalStatus.status` `DECEASED`, on any phenopacket | deceased |
+| `consanguinousParents: true` | the proband's parents drawn with a double line; when the pedigree holds none of their common ancestors, with a warning |
+
+proto3 JSON is read as protobuf writes it: camelCase or snake_case names (`individualId` /
+`individual_id`), fields at their default value left out (no `sex`: `UNKNOWN_SEX`; no
+`affectedStatus`: `MISSING`), and enums as names or numbers. Numbers follow the Phenopackets
+schema, not PED: `Sex` is `FEMALE = 1`, `MALE = 2`. Phenotypic features (HPO terms), diseases and
+`gender` are not drawn.
+
+`export_phenopacket_pedigree(pedigree, path)` writes a `Pedigree` message from the PED fields,
+without phantom parents or duplicates, as `export_fam` does, with `UNKNOWN_SEX` and `MISSING`
+written out. A whole `Family` is not written: it needs phenopackets with clinical data and metadata
+pypedigree does not hold.
+
 ## Diagram representation
 
 The images in this section are drawn by pypedigree (`docs/imgs/make_notation_images.py`).

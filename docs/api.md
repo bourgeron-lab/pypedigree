@@ -8,6 +8,18 @@ Parse a pedigree from a file. Auto-detects separator (tab, comma, space) and hea
 
 A CanRisk file (first line `##CanRisk <version>`, formats 1 to 4, #109) is read too, by `parse_pedigree` and `parse_pedigree_from_string`: `pypedigree.canrisk.canrisk_to_text(text)` rewrites it as a pedigree file with a header (cancers as binary columns, "not applicable" for ovarian and prostate cancer of the other sex assigned at birth, ages, gene tests and pathology as annotations, the target as consultand, the `##PRS_*` z-scores as `PGS_` columns) and `pypedigree.canrisk.is_canrisk(text)` detects it. See `docs/pedigree_standard.md`, "CanRisk files".
 
+A GA4GH Phenopackets v2 JSON `Family` or `Pedigree` (#108) is read the same way (`pypedigree.phenopackets`): persons, sex and affected status (camelCase or snake_case, enums by name or by the Phenopackets numbers), the proband, deaths, and `consanguinousParents` (a double line, with a warning when the structure does not show it). See `docs/pedigree_standard.md`, "GA4GH Phenopackets v2".
+
+### `export_phenopacket_pedigree(pedigree, file_path)`
+
+Write a Phenopackets v2 `Pedigree` message (`{"persons": [...]}`, camelCase, enums by name, `UNKNOWN_SEX` and `MISSING` written out) without phantom parents or duplicates, as `export_fam` does. Returns the `Path` written.
+
+```python
+from pypedigree import export_phenopacket_pedigree, parse_pedigree
+
+export_phenopacket_pedigree(parse_pedigree("family.ped"), "pedigree.json")
+```
+
 ```python
 from pypedigree import parse_pedigree
 

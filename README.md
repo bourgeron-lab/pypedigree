@@ -317,6 +317,14 @@ Pedigree files saved by the CanRisk tool (formats 1 to 4, first line `##CanRisk 
 pypedigree tests/data/format/canrisk_v4.txt -o canrisk.png
 ```
 
+### GA4GH Phenopackets (.json)
+
+A Phenopackets v2 `Family` or `Pedigree` (JSON) is read as it is: persons, sex, affected status, the proband, deaths, and declared consanguinity of the proband's parents. `export_phenopacket_pedigree(pedigree, "pedigree.json")` writes a `Pedigree` message. See `docs/pedigree_standard.md`, "GA4GH Phenopackets v2".
+
+```bash
+pypedigree tests/data/format/phenopacket_family.json -o family.png
+```
+
 ### PLINK FAM File (.fam)
 
 PLINK `.fam` files use the same 6-column format (FID, IID, PAT, MAT, SEX, PHENO), whitespace-delimited, no header. Files with `.fam` extension are auto-detected by the CLI.

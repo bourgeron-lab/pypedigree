@@ -64,6 +64,8 @@ src/pypedigree/
   batch.py         -> render_families / family_file_names: one file per family (#49) (depends on:
                       models, config, carriers, phenotypes; renderer or svg_renderer inside the function)
   canrisk.py   -> CanRisk files (#109) rewritten as pedigree text for _parse_text (depends on: errors)
+  phenopackets.py -> GA4GH Phenopackets v2 Family/Pedigree JSON read as pedigree text; Pedigree export
+                  (#108) (depends on: errors, models; parser.fam_rows inside the export)
   cli.py       -> Click CLI (depends on: parser, config; renderer and matplotlib only for PNG/PDF)
   __init__.py  -> Public re-exports (includes compute_layout_circular); render_pedigree and
                   render_family are imported lazily through a module __getattr__ (PEP 562)
@@ -635,6 +637,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   PGS box, tooltip, legend row, PNG borders in points, warning above three
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
 - `tests/test_deceased_pgs.py` — The deceased line clear of the PGS box (#80)
+- `tests/test_phenopackets.py` — Phenopackets v2 Family / Pedigree read, Pedigree written (#108)
 - `tests/test_canrisk.py` — CanRisk files v1-v4 (#109): structure, target, cancers and N/A, annotations, PRS, errors
 - `tests/test_not_applicable.py` — Not applicable (N/A) values: parsing, cells, stroke, legend row, tooltip (#107)
 - `tests/test_notation_clearance.py` — The evaluation asterisk's gap in ems, in PNG pixels too (#110),
@@ -733,6 +736,16 @@ ovarian/prostate cancer of the other sex assigned at birth (an age given is kept
 columns in NSGC order (age, cancers, one per gene tested, pathology, ancestry); `##PRS_*` z-scores on the
 block's target as `PGS_*_cancer`. `Name` and risk-factor keys are dropped. `tests/test_canrisk.py`,
 fixtures `tests/data/format/canrisk_v*.txt`; web example "CanRisk file".
+
+## GA4GH Phenopackets v2
+
+`phenopackets.load_phenopacket` (text starting with `{`: JSON with a top-level `pedigree` or `persons`,
+else `PedigreeParseError`), `phenopacket_to_text` (persons; camelCase or snake_case; enums by name or
+Phenopackets number, `Sex` FEMALE = 1, MALE = 2; proband from `proband.subject.id`, deaths from every
+phenopacket's `vitalStatus`) and `mark_declared_consanguinity` (`consanguinousParents`: the proband's
+parents' union `is_consanguinous`, warning when the structure did not find it), all called by
+`parser._parse_any`. `export_phenopacket_pedigree` writes `{"persons": [...]}` from `parser.fam_rows`, the
+rows `export_fam` writes. HPO features and diseases are not read. `tests/test_phenopackets.py`.
 
 ## Pandas Integration
 
