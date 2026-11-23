@@ -349,18 +349,26 @@ class TestDuplicateArcRendering:
         assert out.stat().st_size > 1000
         plt.close(fig)
 
-    def test_duplicate_arc_creates_patch(self, style):
-        """Duplicate arc should add a FancyArrowPatch to the axes."""
-        import matplotlib.patches as mpatches
-
+    def test_duplicate_arc_draws_a_dotted_line(self, style):
+        """The two copies are joined by a dotted line, routed above their row (#149)."""
         ped = parse_pedigree(TEST_DATA_DIR / "multi_partner/multiple_partners.ped")
         fig = render_pedigree(ped, style=style)
         ax = fig.axes[0]
+        links = [ln for ln in ax.lines if ln.get_gid() == "duplicate-link"]
+        assert len(links) == 1
+        assert links[0].get_linestyle() == ":"
+        plt.close(fig)
+
+    def test_circular_duplicate_arc_stays_a_curve(self, style):
+        """The circular layout keeps the curved arc."""
+        import matplotlib.patches as mpatches
+
+        ped = parse_pedigree(TEST_DATA_DIR / "multi_partner/multiple_partners.ped")
+        fig = render_pedigree(ped, style=style, circular=True)
+        ax = fig.axes[0]
         fancy_patches = [p for p in ax.patches if isinstance(p, mpatches.FancyArrowPatch)]
         assert len(fancy_patches) >= 1
-        # Check it uses dotted linestyle
-        arc_patch = fancy_patches[0]
-        assert arc_patch.get_linestyle() == ":"
+        assert fancy_patches[0].get_linestyle() == ":"
         plt.close(fig)
 
     def test_duplicate_labels_show_original_name(self, style):

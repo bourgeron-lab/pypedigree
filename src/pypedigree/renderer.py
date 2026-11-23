@@ -1309,6 +1309,18 @@ def _draw_duplicate_arc(ax: Axes, arc: DuplicateArc, style: PedigreeStyle) -> No
     x1, y1 = arc.from_pos
     x2, y2 = arc.to_pos
     color = style.line_color
+    if arc.waypoints:
+        # The hierarchical layout's route, above the row (#149).
+        ax.plot(
+            [p[0] for p in arc.waypoints],
+            [p[1] for p in arc.waypoints],
+            linestyle=":",
+            linewidth=style.line_width,
+            color=color,
+            zorder=0,
+            gid="duplicate-link",
+        )
+        return
 
     # Compute arc as a curved path using a FancyArrowPatch with
     # connectionstyle="arc3" for a smooth curve.

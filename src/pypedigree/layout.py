@@ -92,7 +92,7 @@ def compute_layout(
     positions = {
         sid: (x, -generations.get(sid, 0) * style.generation_gap) for sid, x in x_positions.items()
     }
-    duplicate_arcs = _compute_duplicate_arcs(family, positions, style)
+    duplicate_arcs = _route_duplicate_arcs(_compute_duplicate_arcs(family, positions, style), style)
 
     return FamilyLayout(
         family_id=family.family_id,
@@ -1590,6 +1590,79 @@ def _compute_duplicate_arcs(
         )
 
     return arcs
+
+
+# Routing of the dotted lines between a person's two copies (#149): where the
+# line leaves the top of a copy, in half symbol sizes from its centre (off its
+# own vertical line, and short of a deceased line's end at the corner); the
+# share of the band above the row kept clear at its bottom and top; the
+# radius of the line's corners; and the room kept between two lines' spans.
+_ARC_EXIT = 0.5
+_ARC_BAND_MARGIN = 0.2
+_ARC_CORNER = 0.1
+_ARC_LANE_PAD = 0.1
+
+
+def _route_duplicate_arcs(arcs: list[DuplicateArc], style: PedigreeStyle) -> list[DuplicateArc]:
+    """Route each dotted line through the band above its row (#149).
+
+    The two copies of a person are always in the same row, often far apart;
+    a curve from centre to centre ran through every symbol in between. The
+    line now leaves the top of each copy `_ARC_EXIT` half-sizes towards the
+    other, rises into the band between the symbols' tops and their sibship
+    lines (`generation_gap` / 2 above the row), which holds no symbol, runs
+    across and comes down, with rounded corners. Lines of a row whose spans
+    overlap get lanes at different heights, the shorter ones lower, so a
+    line nested in another stays inside it.
+    """
+    half = style.shape_size / 2
+    rows: dict[float, list[int]] = {}
+    for i, arc in enumerate(arcs):
+        rows.setdefault(round(arc.from_pos[1], 6), []).append(i)
+    routed = list(arcs)
+    for row_y, members in rows.items():
+        spans = {}
+        for i in members:
+            (x1, _), (x2, _) = arcs[i].from_pos, arcs[i].to_pos
+            side = 1.0 if x2 >= x1 else -1.0
+            spans[i] = (x1 + side * half * _ARC_EXIT, x2 - side * half * _ARC_EXIT)
+        lanes: list[list[tuple[float, float]]] = []
+        lane_of: dict[int, int] = {}
+        for i in sorted(members, key=lambda j: abs(spans[j][1] - spans[j][0])):
+            lo, hi = sorted(spans[i])
+            for k, taken in enumerate(lanes):
+                if all(hi + _ARC_LANE_PAD < a or b + _ARC_LANE_PAD < lo for a, b in taken):
+                    taken.append((lo, hi))
+                    lane_of[i] = k
+                    break
+            else:
+                lanes.append([(lo, hi)])
+                lane_of[i] = len(lanes) - 1
+        bottom = row_y + half
+        band = style.generation_gap / 2 - half
+        low, high = bottom + band * _ARC_BAND_MARGIN, bottom + band * (1 - _ARC_BAND_MARGIN)
+        for i in members:
+            k = lane_of[i]
+            lane = low + (high - low) * (k + 1) / (len(lanes) + 1)
+            routed[i] = replace(arcs[i], waypoints=_arc_route(*spans[i], bottom, lane))
+    return routed
+
+
+def _arc_route(xa: float, xb: float, bottom: float, lane: float) -> list[tuple[float, float]]:
+    """Up from (xa, bottom), across at ``lane``, down to (xb, bottom), with
+    quarter-circle corners of radius `_ARC_CORNER` (less when short)."""
+    side = 1.0 if xb >= xa else -1.0
+    r = min(_ARC_CORNER, (lane - bottom) / 2, abs(xb - xa) / 2)
+    steps = 6
+    points = [(xa, bottom)]
+    for k in range(steps + 1):  # first corner: from going up to going across
+        a = math.pi / 2 * k / steps
+        points.append((xa + side * r * (1 - math.cos(a)), lane - r + r * math.sin(a)))
+    for k in range(steps + 1):  # second corner: from going across to going down
+        a = math.pi / 2 * k / steps
+        points.append((xb - side * r + side * r * math.sin(a), lane - r * (1 - math.cos(a))))
+    points.append((xb, bottom))
+    return points
 
 
 # =====================================================================
