@@ -700,7 +700,8 @@ def pgs_box_near(
     side: a diamond reaches `DIAMOND_SCALE` half-sizes (#111), and outer
     borders (``ring``, #46) grow the shape with `grown_half`. Beside a
     struck-through (deceased) symbol, the box also clears the line's end,
-    `DECEASED_OVERSHOOT` past the corner, by `PGS_DECEASED_MARGIN` (#80). A
+    `DECEASED_OVERSHOOT` past the corner, by `PGS_DECEASED_MARGIN` (#80).
+    Round adoption brackets, the gap is from the bracket's stroke (#136). A
     box on the right also clears the documented-evaluation asterisk at the
     symbol's lower right (#78), measured at the SVG's scale.
 
@@ -714,13 +715,18 @@ def pgs_box_near(
         ring: Room the borders after the first take, in layout units.
         line_width: Width of the outermost outline, in points.
         bracket_width: Stroke of the adoption brackets round the symbol, in
-            points, or None without brackets: the asterisk is then outside
-            the right one (`evaluation_mark_placement`).
+            points, or None without brackets: the box keeps its gap from the
+            bracket's stroke (#136), and the asterisk is outside the right
+            bracket (`evaluation_mark_placement`).
     """
     grown = grown_half(sex, half, ring) if ring else half
     near = shape_half_width(sex, grown) + half * PGS_BOX_GAP
     if struck:
         near = max(near, ring + half * (1 + DECEASED_OVERSHOOT + PGS_DECEASED_MARGIN))
+    if bracket_width is not None:
+        # Brackets on both sides: the gap is from the bracket's stroke (#136).
+        outside = bracket_offset(grown, sex) + bracket_width / 2 * UNITS_PER_POINT
+        near = max(near, outside + half * PGS_BOX_GAP)
     if side == "right" and evaluated:
         mark_x, _ = evaluation_mark_position(
             0.0,

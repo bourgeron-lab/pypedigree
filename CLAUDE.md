@@ -120,7 +120,7 @@ src/pypedigree/
    renderers, `symbols.pgs_box_near` measures from the shape's reach (a diamond's tip, grown round outer borders, #111),
    clears the evaluation asterisk and, for a struck-through symbol, the deceased
    line's end (`DECEASED_OVERSHOOT` + `PGS_DECEASED_MARGIN`, #80; the placer counts the extra over a
-   square's box, `_pgs_extra`), and the placer keeps
+   square's box, `_pgs_extra`) and an adopted person's brackets (gap from the bracket's stroke, #136), and the placer keeps
    `style.pgs_box_room` (set by `apply_pgs_spacing`) right of such nodes (`_add(..., pgs_right)`). `_HierarchicalPlacer.marker_room` gives each of them
    the distance their left neighbour needs (`symbols.marker_clearance`, for the
    longest label of the generation, text converted with

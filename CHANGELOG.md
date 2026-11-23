@@ -79,6 +79,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bracket, touching it: it now goes outside the bracket, at the same height, with the same gap in
   ems from the bracket's stroke as from an outline (#134). A PGS box on that side clears it too.
   `symbols.evaluation_mark_placement(..., bracket_width=)`, `symbols.bracket_offset`.
+- An adopted person's PGS box was drawn over the adoption bracket on its side, most visibly beside
+  a circle: it keeps its gap (`PGS_BOX_GAP` half-sizes) from the bracket's stroke now, on either
+  side, and the layout leaves room for it (#136). `symbols.pgs_box_near(..., bracket_width=)`.
 - A long line of text under one partner of a couple crossed the couple's descent line (#130): the
   couple was spaced for the sum of the two partners' labels (#41), so they did not meet, but the
   descent line starts in the middle, and since #120 a CanRisk panel's gene line ("BRCA1, BRCA2,
