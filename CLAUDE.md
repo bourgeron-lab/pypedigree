@@ -66,6 +66,7 @@ src/pypedigree/
   canrisk.py   -> CanRisk files (#109) rewritten as pedigree text for _parse_text (depends on: errors)
   phenopackets.py -> GA4GH Phenopackets v2 Family/Pedigree JSON read as pedigree text; Pedigree export
                   (#108) (depends on: errors, models; parser.fam_rows inside the export)
+  transmission.py -> pTDT deviations computed from the parents' PGS (#52) (depends on: config, errors, models)
   cli.py       -> Click CLI (depends on: parser, config; renderer and matplotlib only for PNG/PDF)
   __init__.py  -> Public re-exports (includes compute_layout_circular); render_pedigree and
                   render_family are imported lazily through a module __getattr__ (PEP 562)
@@ -445,6 +446,12 @@ Multi-phenotype support:
   second "pgs" row, `ptdt_legend_description()`; tooltip `curve_value_text` ("pTDT = +2.12").
   `_assign_pgs_colors` colors each kind apart (pTDT_autism may share PGS_autism's color). Captions keep
   "±2 SD" and the pTDT formula together with no-break spaces (`NBSP`, `TWO_SD`) when a row wraps
+- Computed pTDT (#52 step 2): `transmission.with_transmission(pedigree, style)`, first thing in both renderers (and
+  `check_transmission` in `render_families`): with `pgs_transmission`, over `column_scope`, a copy of the pedigree
+  where each child with two parents valued in `PGS_x` gets `pTDT_x` = (child − mid-parent) / `ptdt_midparent_sd`
+  (√½ default), a duplicate parent read as its original; returns the computed names, which `warn_mixed_curves`
+  skips; a `pTDT_x` given in the file is kept, with a warning; a subset is re-subset from the computed whole.
+  `--ptdt`. `tests/test_ptdt_computed.py`
 - PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve, upright,
   baseline near the box's right edge and peak to the left (`phenotypes.pgs_curve_base` / `pgs_curve_x`,
   `PGS_CURVE_MARGIN`, `PGS_CURVE_REACH`, both renderers; #126: turned clockwise it is the legend's bell,
@@ -547,6 +554,8 @@ pypedigree INPUT.ped [OPTIONS]
 --no-labels              Hide sample ID labels
 --labels [id|generation|both]  Sample IDs (default), NSGC numbers from the drawing (I-1, II-3), or both (style `labels`)
 --canrisk-names          For a CanRisk file: its Name column as labels, where given and unique
+--hpo-features           For a Phenopackets Family: each HPO term as a binary column
+--ptdt                   Compute each child's pTDT deviation from the parents' PGS (style `pgs_transmission`)
 --no-legend              Hide the phenotype legend
 --show-phenotype-labels  Show YES/NO text inside binary phenotype bands
 --no-na-labels           Do not write "NA" in bands with no data (style `show_na_labels`)
@@ -659,6 +668,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_legend_bottom.py` — The last legend row's captions inside the frame (#77)
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)
 - `tests/test_ptdt.py` — pTDT deviation columns: z scale, captions, legend row, tooltip, colors (#52)
+- `tests/test_ptdt_computed.py` — pTDT deviations computed from the parents' PGS (#52 step 2)
 - `tests/test_legend_name_column.py` — The names of swatch and bar rows in one column (#88)
 - `tests/test_legend_text.py` — The legend's wording (`legend_text`), the minimal legend's frame (#79)
 - `tests/test_legend_wrap.py` — The PGS legend row wrapped at the other rows or `legend_max_width` (#68)

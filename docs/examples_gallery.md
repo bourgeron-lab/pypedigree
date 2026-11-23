@@ -276,6 +276,8 @@ pypedigree family.ped --style style.json -o diverging.png
 
 ```bash
 pypedigree tests/data/phenotype/ptdt.ped --style tests/data/phenotype/ptdt.json -o ptdt.png
+# or computed from the parents' PGS columns, (child − mid-parent) / √½:
+pypedigree family_with_pgs.ped --ptdt -o ptdt_computed.png
 ```
 
 ---

@@ -141,6 +141,7 @@ from pypedigree.phenotypes import (
     with_outline_rings,
     with_quadrants,
 )
+from pypedigree.transmission import with_transmission
 
 
 def render_pedigree(
@@ -186,6 +187,9 @@ def render_pedigree(
         ax_obj.axis("off")
         return fig
 
+    # The children's pTDT deviations, from their parents' PGS (#52).
+    pedigree, computed = with_transmission(pedigree, style)
+    families = list(pedigree.families.values())
     pheno_names = pedigree.phenotype_names
     display_modes = pedigree.phenotype_display_modes
 
@@ -194,7 +198,7 @@ def render_pedigree(
     # applies the PGS spacing, so it can never be applied twice.
     style = resolve_style(style, pheno_names)
     pgs_cols = [n for n in pheno_names if is_curve_column(n)]
-    warn_mixed_curves(pedigree.individuals(), pgs_cols)
+    warn_mixed_curves(pedigree.individuals(), pgs_cols, computed)
     warn_pgs_scale(pedigree.column_scope.individuals(), pgs_cols, style.pgs_scale)
     values_width = pgs_values_width(pedigree.individuals(), pgs_cols, style)
     # The only place the PGS spacing is applied (see `apply_pgs_spacing`).
