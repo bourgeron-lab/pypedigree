@@ -31,10 +31,11 @@ Generate publication-quality pedigree (family tree) diagrams from standard pedig
 - **Customizable styling**: JSON-based style overrides for colors, sizes, fonts
 - **Long IDs**: symbols are spaced by their labels' width, so long IDs or a large font do not make labels run into each other; short labels keep the usual spacing
 - **Journal-ready text sizes**: `--min-font-size 6` (style `min_font_size`) raises every text, notes, annotations, values in the symbols, "PGS" captions and legend, to at least 6 pt, whatever the label size
+- **Figures drawn small**: `--text-scale` (style `text_scale`) keeps room for labels, markers and PGS boxes when you draw a pedigree into a small axes of your own, as in a multi-panel figure
 - **Separate phenotype files**: load phenotypes from `.pheno` TSV files
 - **Optional legend**: auto-generated phenotype legend with proper male/female symbols; compact with quadrants (the key gives each column's color, one shared Affected / Unaffected / Unknown row), each PGS score named after a dash of its color, and `phenotype_labels` to show columns under other names ("SRS T-score"); for journal figures, `legend: "minimal"` or `legend_title`, `legend_sex_symbols` and `legend_spacing` make it much shorter, and the PGS row wraps rather than widen it (`legend_max_width`); `legend_text` changes its wording (British spelling, another language)
 - **Programmatic API**: fluent `PedigreeBuilder` for constructing pedigrees from code
-- **Circular/radial layout**: founders at center, descendants on concentric rings (`--circular` flag), in the order of the hierarchical layout, so sibships never interleave; ring radius auto-expands so nodes never overlap; upright shapes, labels set outside them, radially or turned aside where a line or another label would cross them, twin connectors and duplicate arcs as in the default layout
+- **Circular/radial layout** (experimental: how it is drawn may change in 1.x): founders at center, descendants on concentric rings (`--circular` flag), in the order of the hierarchical layout, so sibships never interleave; ring radius auto-expands so nodes never overlap; upright shapes, labels set outside them, radially or turned aside where a line or another label would cross them, twin connectors and duplicate arcs as in the default layout
 - **Large pedigree support**: each couple's children hang from their own stretch of sibship line, so sibships never merge, at 10 or 500 individuals; loops (consanguinity, marriages between branches) are ordered so the partners meet side by side, and drawn with a duplicate individual only where they would still tangle lines
 - **Auto-scaling figures**: figure dimensions grow with pedigree size
 - **Jupyter integration**: inline display via `_repr_png_`
@@ -406,6 +407,7 @@ Options:
   --format [png|svg|pdf]         Output format (auto-detected from extension)
   --family ID                    Render only this family ID
   --output-dir DIR               One file per family in DIR, named after the family
+  --export PATH                  Also write .fam or Phenopackets .json (six PED fields); alone, nothing is drawn
   --dpi INT                      Output resolution (default: 150)
   --show                         Display interactively instead of saving
   --style PATH                   JSON file with style overrides
@@ -415,6 +417,7 @@ Options:
   --outline-color COLOR          Shape outline color (e.g. 'grey', '#888888')
   --carrier-notation [nsgc2022|legacy]  Carrier notation (default: nsgc2022)
   --min-font-size PT             Smallest size of any text, in points (e.g. 6 for journals)
+  --text-scale X                 Text and marks X times larger relative to the symbols (for a pedigree drawn small)
   --no-labels                    Hide sample ID labels
   --labels [id|generation|both]  Label with the sample ID (default), the NSGC number from the drawing (I-1, II-3), or both
   --canrisk-names                For a CanRisk file: label with its Name column, where given and unique
@@ -433,7 +436,7 @@ Options:
   --no-script                    With --interactive: same SVG without script or tooltip (print, host pages)
   --id-prefix PREFIX             With --interactive: prepend PREFIX to every id in the SVG
   --responsive                   With --interactive: width="100%" and no height (fills its container)
-  --circular                     Use circular/radial layout (founders at center)
+  --circular                     Use circular/radial layout (founders at center; experimental)
   --plink                        Parse as PLINK format (ignore genotype columns)
   --version                      Show version
 ```

@@ -74,6 +74,10 @@ curl -s -o /dev/null -w '%{http_code}\n' https://pypi.org/pypi/pypedigree/json
    bump to the next version instead (0.4.0 and 0.4.1 were withdrawn this
    way and released as 0.4.2).
 
+   Redraw the documentation's images so they show this version:
+   `uv run python docs/imgs/make_notation_images.py` and
+   `uv run python docs/imgs/examples/make_example_images.py`.
+
 4. Verify locally:
 
    ```bash

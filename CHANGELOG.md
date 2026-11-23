@@ -55,6 +55,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Documentation: the example images (`docs/imgs/examples/`) are redrawn with this version by a new
+  script, `docs/imgs/examples/make_example_images.py`, from the synthetic fixtures (they were
+  drawn by hand, several with earlier versions); the release procedure runs it. The HTML
+  documentation's PGS section said min-max was the default scale (z-scores are, since 0.10.0);
+  separation marks and the dotted line between a person's two copies are described as drawn now.
 - Stability (1.0.0): `docs/api.md` says what 1.x keeps stable under Semantic Versioning (the
   exported names, style options, CLI options, input formats, SVG hooks, warning and error classes)
   and what it does not (private names, the `symbols` / `phenotypes` / `carriers` helper modules,
