@@ -129,7 +129,8 @@ src/pypedigree/
    square's box, `_pgs_extra`) and an adopted person's brackets (gap from the bracket's stroke, #136), and the placer keeps
    `style.pgs_box_room` (set by `apply_pgs_spacing`) right of such nodes (`_add(..., pgs_right)`). `_HierarchicalPlacer.marker_room` gives each of them
    the distance their left neighbour needs (`symbols.marker_clearance`, for the
-   longest label of the generation, text converted with
+   longest label of the generation, and the widest-reaching evaluation asterisk of the generation,
+   `symbols.evaluation_mark_reach`, #143; text converted with
    `symbols.UNITS_PER_POINT`, the SVG's scale); only those needing more than
    the sibling gap are listed. It is applied while packing, not after: as a
    left margin on the contour (`_Block.add(sid, x, gen, left, right)`, via

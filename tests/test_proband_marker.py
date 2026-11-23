@@ -3,7 +3,8 @@
 The marker sits at the lower left of the symbol, level with the labels. With
 tight spacing or large text, 0.4.4 drew the "P" over the label of the
 individual on the left; the layout now keeps that neighbour far enough
-(`symbols.marker_clearance`). At the default style nothing moves.
+(`symbols.marker_clearance`). A left neighbour's evaluation asterisk keeps
+clear of the arrow too (#143). At the default style nothing moves.
 
 All pedigrees here are synthetic.
 """
@@ -230,5 +231,70 @@ class TestPgsCaption:
         fig = render_pedigree(parse_pedigree_from_string(_sibship()), style=TIGHT, circular=True)
         try:
             assert [t.get_text() for t in fig.axes[0].texts].count("P") == 1
+        finally:
+            plt.close(fig)
+
+
+class TestNeighbourAsterisk:
+    """The arrow keeps clear of a left neighbour's evaluation asterisk (#143):
+    with tight spacing or large text, the asterisk ran into the arrow's tail."""
+
+    HEAD = "FID\tID\tFather\tMother\tSex\tConsultand\tProband\tevaluated\n"
+
+    def _ped(self, sexes=("1", "1"), proband: bool = False) -> str:
+        rows = ["F\tf\t0\t0\t1\t0\t0\t0", "F\tm\t0\t0\t2\t0\t0\t0"]
+        rows.append(f"F\ta\tf\tm\t{sexes[0]}\t0\t0\t1")  # evaluated, on the left
+        marked = "0\t1" if proband else "1\t0"
+        rows.append(f"F\tb\tf\tm\t{sexes[1]}\t{marked}\t0")
+        return self.HEAD + "\n".join(rows) + "\n"
+
+    @staticmethod
+    def _mark_reach(style: PedigreeStyle, sex) -> float:
+        from pypedigree import symbols
+
+        size = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
+        reach = symbols.evaluation_mark_reach(
+            style.shape_size / 2, sex, size, style.shape_line_width
+        )
+        return reach + symbols.EVALUATION_MARK_GAP_EM * size * UNITS_PER_POINT
+
+    def test_clearance_counts_the_asterisk(self):
+        half, size = 0.4, 18
+        reach = 0.5
+        need = marker_clearance(half, size, 2, False, neighbour_mark=reach)
+        assert need >= reach + half + size * UNITS_PER_POINT * MARKER_ARROW_EM - 1e-9
+        assert marker_clearance(half, size, 2, False) < need
+
+    @pytest.mark.parametrize("sexes", [("1", "1"), ("2", "2"), ("0", "1")])
+    @pytest.mark.parametrize("proband", [False, True])
+    def test_layout_keeps_the_arrow_off_the_asterisk(self, sexes, proband):
+        from pypedigree.models import Sex
+
+        style = PedigreeStyle(sibling_gap=1.0, couple_gap=1.0, font_size=14)
+        x = _xs(self._ped(sexes, proband), style)
+        sex = {"1": Sex.MALE, "2": Sex.FEMALE, "0": Sex.UNKNOWN}[sexes[0]]
+        tail = style.shape_size / 2 + style.font_size * UNITS_PER_POINT * MARKER_ARROW_EM
+        assert x["b"] - x["a"] >= self._mark_reach(style, sex) + tail - 1e-9
+
+    def test_default_style_moves_nothing(self):
+        style = PedigreeStyle()
+        with_mark = _xs(self._ped(), style)
+        without = _xs(self._ped().replace("\t0\t0\t1\n", "\t0\t0\t0\n"), style)
+        assert with_mark == without
+
+    def test_png_asterisk_clear_of_the_arrow(self):
+        """In the PNG at the text scale (render_pedigree's own figure), the
+        asterisk's box ends left of the arrow's tail."""
+        style = PedigreeStyle(sibling_gap=1.0, couple_gap=1.0, font_size=14)
+        fig = render_pedigree(parse_pedigree_from_string(self._ped()), style=style)
+        try:
+            fig.canvas.draw()
+            renderer = fig.canvas.get_renderer()
+            ax = fig.axes[0]
+            (star,) = [t for t in ax.texts if t.get_text() == "*"]
+            (arrow,) = [t for t in ax.texts if t.get_text() == "" and t.arrow_patch is not None]
+            star_box = star.get_window_extent(renderer)
+            tail_x = arrow.arrow_patch.get_window_extent(renderer).x0
+            assert star_box.x1 < tail_x
         finally:
             plt.close(fig)
