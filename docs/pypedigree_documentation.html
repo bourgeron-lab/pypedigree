@@ -772,7 +772,7 @@ so this is only needed for <strong>childless couples</strong> or to set consangu
   <dt>partner1: str</dt><dd>First partner's sample_id.</dd>
   <dt>partner2: str</dt><dd>Second partner's sample_id.</dd>
   <dt>consanguineous: bool = False</dt><dd>Double-line relationship (shared ancestors).</dd>
-  <dt>broken: bool = False</dt><dd>Broken-line relationship (dissolved).</dd>
+  <dt>broken: bool = False</dt><dd>Separated couple: two slashes across the relationship line, beside the line of descent.</dd>
 </dl>
 
 <h3><code>set_style(style)</code></h3>
@@ -886,7 +886,7 @@ produce the same figure for the same input.</p>
 </figure>
 
 <h4>PGS on a Fixed Scale</h4>
-<p>By default a PGS value is placed between the pedigree's lowest and highest score, so in a trio with z = +2.5, &minus;0.2 and +1.1 the parent at the 42nd percentile sits at the bottom of the curve. With <code>--pgs-scale zscore</code> (style <code>"pgs_scale": "zscore"</code>) each value is a z-score placed on the drawn standard normal, the same for every pedigree; with <code>--pgs-scale percentile</code> it is a population percentile (0&ndash;100). On these fixed scales the &plusmn;2 SD tails are marked with dotted lines, the legend names the scale, and the SVG tooltip gives z and percentile (<code>z = +1.10, 86th percentile</code>). PGS curves are drawn even when the pedigree has no other phenotype column.</p>
+<p>By default (<code>--pgs-scale zscore</code>, style <code>"pgs_scale": "zscore"</code>, since 0.10.0) each value is a z-score placed on the drawn standard normal, the same for every pedigree; with <code>--pgs-scale percentile</code> it is a population percentile (0&ndash;100). With <code>--pgs-scale minmax</code> a value is placed between the pedigree's lowest and highest score instead (for raw scores), so in a trio with +2.5, &minus;0.2 and +1.1 the parent at the 42nd percentile sits at the bottom of the curve. On these fixed scales the &plusmn;2 SD tails are marked with dotted lines, the legend names the scale, and the SVG tooltip gives z and percentile (<code>z = +1.10, 86th percentile</code>). PGS curves are drawn even when the pedigree has no other phenotype column.</p>
 <p>The legend's PGS row writes each score's name after a dash of its color (&ldquo;PGS distribution: &#8211;&#8211; autism &#8211;&#8211; ADHD&rdquo;), so the markers can be told apart; <code>phenotype_labels</code> renames them (<code>{"PGS_EA": "educational attainment"}</code>).</p>
 <p>A printed figure shows where a score sits on the curve, not its value. <code>--show-pgs-values</code> (style <code>"show_pgs_values": true</code>) writes each value beside its marker, in the marker's color, on the far side of the curve from the symbol: &ldquo;+2.1&rdquo; or &ldquo;&minus;0.4&rdquo; on the z scale, the rounded percentile, or the value to three significant digits; close values are spread apart, and the symbols move apart to make room. Markers of different scores with close values have their dots set side by side, so none hides another.</p>
 
@@ -1446,7 +1446,7 @@ export_fam(ped, "output.fam")  # Ready for PLINK/KING</code></pre>
   <li><strong>Couple alone in its family</strong> &mdash; A family holding only two parents, a man and a woman, with no child in the file, is drawn as their couple, father on the left, with a descent line to a &ldquo;?&rdquo;. The pedigree itself is not changed.</li>
   <li><strong>Assign generations</strong> &mdash; BFS from founders, children one generation below parents. Partners aligned to same generation, then propagated until every child sits below both parents. A duplicate node stands on the generation of the individual it repeats. Uses a parent&rarr;child adjacency index.</li>
   <li><strong>Compute horizontal positions</strong> &mdash; Each union's descendants form a block. Sibling blocks are packed left to right against each other's contours, generation by generation, and every couple is centred over its children. A married twin's partner stands on the outer side of the twin group, so no spouse is drawn between twins. Where two neighbours' labels would overlap (long IDs, a large <code>font_size</code>, long annotations), those two are moved apart by the room their labels need, measured with the character widths of DejaVu Sans at the SVG's scale; labels that fit change nothing.</li>
-  <li><strong>Break tangled loops</strong> &mdash; When both partners descend from people in the pedigree (consanguinity, marriages between branches), they are drawn side by side and the second partner's sibship line stretches to reach them. Siblings are ordered so that the two branches of a loop meet, which keeps that line clear in most pedigrees; when both branches come from the same sibship (cousins marrying), those two siblings are kept together, before any sibling who marries into a family placed later. Where it would still overlap another sibship, the partner is drawn twice instead: among their siblings, and as a duplicate next to their partner, joined by a dotted arc, as the nomenclature allows.</li>
+  <li><strong>Break tangled loops</strong> &mdash; When both partners descend from people in the pedigree (consanguinity, marriages between branches), they are drawn side by side and the second partner's sibship line stretches to reach them. Siblings are ordered so that the two branches of a loop meet, which keeps that line clear in most pedigrees; when both branches come from the same sibship (cousins marrying), those two siblings are kept together, before any sibling who marries into a family placed later. Where it would still overlap another sibship, the partner is drawn twice instead: among their siblings, and as a duplicate next to their partner, joined by a dotted line that runs in the band above their row, clear of every other symbol, as the nomenclature allows.</li>
   <li><strong>Build geometry</strong> &mdash; Compute node positions, connection edges (relationship, descent, sibship, individual lines), twin connectors, and duplicate arcs. Every line is horizontal or vertical, as the standard nomenclature requires: a single child that is not centred under its parents (possible only in a loop) hangs from a short sibship-level segment rather than a diagonal.</li>
 </ol>
 
@@ -1605,7 +1605,7 @@ export_fam(ped, "output.fam")  # Ready for PLINK/KING</code></pre>
   <dt>nodes: list[NodeLayout]</dt><dd>Positioned individuals.</dd>
   <dt>edges: list[EdgeLayout]</dt><dd>Positioned connection lines.</dd>
   <dt>twin_connectors: list[TwinConnector]</dt><dd>Twin connection geometry.</dd>
-  <dt>duplicate_arcs: list[DuplicateArc]</dt><dd>Arcs connecting duplicate nodes.</dd>
+  <dt>duplicate_arcs: list[DuplicateArc]</dt><dd>Dotted lines joining a duplicate to its original (<code>waypoints</code>: the route above their row; empty in the circular layout, drawn as a curve).</dd>
 </dl>
 
 <h4><code>NodeLayout</code></h4>

@@ -764,7 +764,8 @@ sibship line, individual lines).
 - `docs/examples_gallery.md` — Gallery of example files with CLI commands
 - `docs/RELEASING.md` — Release procedure and the one-time PyPI trusted-publishing setup
 - `docs/imgs/` — Reference images for visual elements (`make_notation_images.py`)
-- `docs/imgs/examples/` — Generated example images for documentation
+- `docs/imgs/examples/` — Example images for documentation, drawn from `tests/data/` by
+  `uv run python docs/imgs/examples/make_example_images.py` (rerun before a release)
 
 ## Web app
 

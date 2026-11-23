@@ -6,6 +6,11 @@ Each example file in `tests/data/` demonstrates specific pypedigree features, or
 pypedigree tests/data/<subdir>/<file>.ped -o output.png
 ```
 
+The images in `docs/imgs/examples/` are drawn from these files by
+`uv run python docs/imgs/examples/make_example_images.py`, with the options
+given below; rerun it before a release so they show what the current version
+draws.
+
 ---
 
 ## simple_trio.ped
