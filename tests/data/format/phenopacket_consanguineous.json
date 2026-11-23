@@ -1,0 +1,557 @@
+{
+  "id": "SYN-PPKT-1",
+  "proband": {
+    "id": "pp-IV-1",
+    "subject": {
+      "id": "IV-1",
+      "sex": "FEMALE"
+    },
+    "phenotypicFeatures": [
+      {
+        "type": {
+          "id": "HP:0001250",
+          "label": "Seizure"
+        }
+      },
+      {
+        "type": {
+          "id": "HP:0001263",
+          "label": "Global developmental delay"
+        }
+      },
+      {
+        "type": {
+          "id": "HP:0001252",
+          "label": "Hypotonia"
+        }
+      }
+    ],
+    "metaData": {
+      "created": "2026-01-01T00:00:00Z",
+      "createdBy": "synthetic (pypedigree example)",
+      "phenopacketSchemaVersion": "2.0",
+      "resources": [
+        {
+          "id": "hp",
+          "name": "human phenotype ontology",
+          "url": "http://purl.obolibrary.org/obo/hp.owl",
+          "version": "2024-04-26",
+          "namespacePrefix": "HP",
+          "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+        }
+      ]
+    },
+    "diseases": [
+      {
+        "term": {
+          "id": "OMIM:000000",
+          "label": "Invented recessive syndrome"
+        }
+      }
+    ]
+  },
+  "relatives": [
+    {
+      "id": "pp-I-1",
+      "subject": {
+        "id": "I-1",
+        "sex": "MALE",
+        "vitalStatus": {
+          "status": "DECEASED"
+        }
+      },
+      "metaData": {
+        "created": "2026-01-01T00:00:00Z",
+        "createdBy": "synthetic (pypedigree example)",
+        "phenopacketSchemaVersion": "2.0",
+        "resources": [
+          {
+            "id": "hp",
+            "name": "human phenotype ontology",
+            "url": "http://purl.obolibrary.org/obo/hp.owl",
+            "version": "2024-04-26",
+            "namespacePrefix": "HP",
+            "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pp-I-2",
+      "subject": {
+        "id": "I-2",
+        "sex": "FEMALE",
+        "vitalStatus": {
+          "status": "DECEASED"
+        }
+      },
+      "metaData": {
+        "created": "2026-01-01T00:00:00Z",
+        "createdBy": "synthetic (pypedigree example)",
+        "phenopacketSchemaVersion": "2.0",
+        "resources": [
+          {
+            "id": "hp",
+            "name": "human phenotype ontology",
+            "url": "http://purl.obolibrary.org/obo/hp.owl",
+            "version": "2024-04-26",
+            "namespacePrefix": "HP",
+            "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pp-II-1",
+      "subject": {
+        "id": "II-1",
+        "sex": "MALE"
+      },
+      "phenotypicFeatures": [
+        {
+          "type": {
+            "id": "HP:0001250",
+            "label": "Seizure"
+          },
+          "excluded": true
+        },
+        {
+          "type": {
+            "id": "HP:0001263",
+            "label": "Global developmental delay"
+          },
+          "excluded": true
+        }
+      ],
+      "metaData": {
+        "created": "2026-01-01T00:00:00Z",
+        "createdBy": "synthetic (pypedigree example)",
+        "phenopacketSchemaVersion": "2.0",
+        "resources": [
+          {
+            "id": "hp",
+            "name": "human phenotype ontology",
+            "url": "http://purl.obolibrary.org/obo/hp.owl",
+            "version": "2024-04-26",
+            "namespacePrefix": "HP",
+            "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pp-II-2",
+      "subject": {
+        "id": "II-2",
+        "sex": "FEMALE"
+      },
+      "metaData": {
+        "created": "2026-01-01T00:00:00Z",
+        "createdBy": "synthetic (pypedigree example)",
+        "phenopacketSchemaVersion": "2.0",
+        "resources": [
+          {
+            "id": "hp",
+            "name": "human phenotype ontology",
+            "url": "http://purl.obolibrary.org/obo/hp.owl",
+            "version": "2024-04-26",
+            "namespacePrefix": "HP",
+            "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pp-II-3",
+      "subject": {
+        "id": "II-3",
+        "sex": "MALE"
+      },
+      "metaData": {
+        "created": "2026-01-01T00:00:00Z",
+        "createdBy": "synthetic (pypedigree example)",
+        "phenopacketSchemaVersion": "2.0",
+        "resources": [
+          {
+            "id": "hp",
+            "name": "human phenotype ontology",
+            "url": "http://purl.obolibrary.org/obo/hp.owl",
+            "version": "2024-04-26",
+            "namespacePrefix": "HP",
+            "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pp-II-4",
+      "subject": {
+        "id": "II-4",
+        "sex": "FEMALE"
+      },
+      "phenotypicFeatures": [
+        {
+          "type": {
+            "id": "HP:0001250",
+            "label": "Seizure"
+          },
+          "excluded": true
+        },
+        {
+          "type": {
+            "id": "HP:0001263",
+            "label": "Global developmental delay"
+          },
+          "excluded": true
+        }
+      ],
+      "metaData": {
+        "created": "2026-01-01T00:00:00Z",
+        "createdBy": "synthetic (pypedigree example)",
+        "phenopacketSchemaVersion": "2.0",
+        "resources": [
+          {
+            "id": "hp",
+            "name": "human phenotype ontology",
+            "url": "http://purl.obolibrary.org/obo/hp.owl",
+            "version": "2024-04-26",
+            "namespacePrefix": "HP",
+            "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pp-III-1",
+      "subject": {
+        "id": "III-1",
+        "sex": "MALE"
+      },
+      "phenotypicFeatures": [
+        {
+          "type": {
+            "id": "HP:0001250",
+            "label": "Seizure"
+          },
+          "excluded": true
+        },
+        {
+          "type": {
+            "id": "HP:0001263",
+            "label": "Global developmental delay"
+          },
+          "excluded": true
+        },
+        {
+          "type": {
+            "id": "HP:0001252",
+            "label": "Hypotonia"
+          },
+          "excluded": true
+        }
+      ],
+      "metaData": {
+        "created": "2026-01-01T00:00:00Z",
+        "createdBy": "synthetic (pypedigree example)",
+        "phenopacketSchemaVersion": "2.0",
+        "resources": [
+          {
+            "id": "hp",
+            "name": "human phenotype ontology",
+            "url": "http://purl.obolibrary.org/obo/hp.owl",
+            "version": "2024-04-26",
+            "namespacePrefix": "HP",
+            "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pp-III-2",
+      "subject": {
+        "id": "III-2",
+        "sex": "FEMALE"
+      },
+      "phenotypicFeatures": [
+        {
+          "type": {
+            "id": "HP:0001250",
+            "label": "Seizure"
+          },
+          "excluded": true
+        },
+        {
+          "type": {
+            "id": "HP:0001263",
+            "label": "Global developmental delay"
+          },
+          "excluded": true
+        },
+        {
+          "type": {
+            "id": "HP:0001252",
+            "label": "Hypotonia"
+          },
+          "excluded": true
+        }
+      ],
+      "metaData": {
+        "created": "2026-01-01T00:00:00Z",
+        "createdBy": "synthetic (pypedigree example)",
+        "phenopacketSchemaVersion": "2.0",
+        "resources": [
+          {
+            "id": "hp",
+            "name": "human phenotype ontology",
+            "url": "http://purl.obolibrary.org/obo/hp.owl",
+            "version": "2024-04-26",
+            "namespacePrefix": "HP",
+            "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pp-III-3",
+      "subject": {
+        "id": "III-3",
+        "sex": "MALE"
+      },
+      "phenotypicFeatures": [
+        {
+          "type": {
+            "id": "HP:0001250",
+            "label": "Seizure"
+          },
+          "excluded": true
+        },
+        {
+          "type": {
+            "id": "HP:0001263",
+            "label": "Global developmental delay"
+          },
+          "excluded": true
+        },
+        {
+          "type": {
+            "id": "HP:0001252",
+            "label": "Hypotonia"
+          },
+          "excluded": true
+        }
+      ],
+      "metaData": {
+        "created": "2026-01-01T00:00:00Z",
+        "createdBy": "synthetic (pypedigree example)",
+        "phenopacketSchemaVersion": "2.0",
+        "resources": [
+          {
+            "id": "hp",
+            "name": "human phenotype ontology",
+            "url": "http://purl.obolibrary.org/obo/hp.owl",
+            "version": "2024-04-26",
+            "namespacePrefix": "HP",
+            "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pp-IV-2",
+      "subject": {
+        "id": "IV-2",
+        "sex": "FEMALE"
+      },
+      "phenotypicFeatures": [
+        {
+          "type": {
+            "id": "HP:0001250",
+            "label": "Seizure"
+          }
+        },
+        {
+          "type": {
+            "id": "HP:0001263",
+            "label": "Global developmental delay"
+          }
+        }
+      ],
+      "metaData": {
+        "created": "2026-01-01T00:00:00Z",
+        "createdBy": "synthetic (pypedigree example)",
+        "phenopacketSchemaVersion": "2.0",
+        "resources": [
+          {
+            "id": "hp",
+            "name": "human phenotype ontology",
+            "url": "http://purl.obolibrary.org/obo/hp.owl",
+            "version": "2024-04-26",
+            "namespacePrefix": "HP",
+            "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pp-IV-3",
+      "subject": {
+        "id": "IV-3",
+        "sex": "MALE"
+      },
+      "phenotypicFeatures": [
+        {
+          "type": {
+            "id": "HP:0001250",
+            "label": "Seizure"
+          },
+          "excluded": true
+        },
+        {
+          "type": {
+            "id": "HP:0001263",
+            "label": "Global developmental delay"
+          },
+          "excluded": true
+        },
+        {
+          "type": {
+            "id": "HP:0001252",
+            "label": "Hypotonia"
+          },
+          "excluded": true
+        }
+      ],
+      "metaData": {
+        "created": "2026-01-01T00:00:00Z",
+        "createdBy": "synthetic (pypedigree example)",
+        "phenopacketSchemaVersion": "2.0",
+        "resources": [
+          {
+            "id": "hp",
+            "name": "human phenotype ontology",
+            "url": "http://purl.obolibrary.org/obo/hp.owl",
+            "version": "2024-04-26",
+            "namespacePrefix": "HP",
+            "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+          }
+        ]
+      }
+    }
+  ],
+  "consanguinousParents": true,
+  "pedigree": {
+    "persons": [
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "I-1",
+        "paternalId": "0",
+        "maternalId": "0",
+        "sex": "MALE",
+        "affectedStatus": "UNAFFECTED"
+      },
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "I-2",
+        "paternalId": "0",
+        "maternalId": "0",
+        "sex": "FEMALE",
+        "affectedStatus": "UNAFFECTED"
+      },
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "II-1",
+        "paternalId": "I-1",
+        "maternalId": "I-2",
+        "sex": "MALE",
+        "affectedStatus": "UNAFFECTED"
+      },
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "II-2",
+        "paternalId": "0",
+        "maternalId": "0",
+        "sex": "FEMALE",
+        "affectedStatus": "UNAFFECTED"
+      },
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "II-3",
+        "paternalId": "0",
+        "maternalId": "0",
+        "sex": "MALE",
+        "affectedStatus": "UNAFFECTED"
+      },
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "II-4",
+        "paternalId": "I-1",
+        "maternalId": "I-2",
+        "sex": "FEMALE",
+        "affectedStatus": "UNAFFECTED"
+      },
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "III-1",
+        "paternalId": "II-1",
+        "maternalId": "II-2",
+        "sex": "MALE",
+        "affectedStatus": "UNAFFECTED"
+      },
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "III-2",
+        "paternalId": "II-3",
+        "maternalId": "II-4",
+        "sex": "FEMALE",
+        "affectedStatus": "UNAFFECTED"
+      },
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "III-3",
+        "paternalId": "II-3",
+        "maternalId": "II-4",
+        "sex": "MALE",
+        "affectedStatus": "UNAFFECTED"
+      },
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "IV-1",
+        "paternalId": "III-1",
+        "maternalId": "III-2",
+        "sex": "FEMALE",
+        "affectedStatus": "AFFECTED"
+      },
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "IV-2",
+        "paternalId": "III-1",
+        "maternalId": "III-2",
+        "sex": "FEMALE",
+        "affectedStatus": "AFFECTED"
+      },
+      {
+        "familyId": "SYN-PPKT-1",
+        "individualId": "IV-3",
+        "paternalId": "III-1",
+        "maternalId": "III-2",
+        "sex": "MALE",
+        "affectedStatus": "UNAFFECTED"
+      }
+    ]
+  },
+  "metaData": {
+    "created": "2026-01-01T00:00:00Z",
+    "createdBy": "synthetic (pypedigree example)",
+    "phenopacketSchemaVersion": "2.0",
+    "resources": [
+      {
+        "id": "hp",
+        "name": "human phenotype ontology",
+        "url": "http://purl.obolibrary.org/obo/hp.owl",
+        "version": "2024-04-26",
+        "namespacePrefix": "HP",
+        "iriPrefix": "http://purl.obolibrary.org/obo/HP_"
+      }
+    ]
+  }
+}

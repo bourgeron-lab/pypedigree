@@ -76,7 +76,9 @@ async function openExample(example) {
   $("file-name").textContent = `Example: ${example.title}`;
   form.reset();
   for (const [name, value] of Object.entries(example.options || {})) {
-    form.elements[name].value = value;
+    const field = form.elements[name];
+    if (field.type === "checkbox") field.checked = Boolean(value);
+    else field.value = value;
   }
   $("style").value = example.style ? JSON.stringify(example.style, null, 2) : "";
   draw({ newFile: true });
@@ -108,6 +110,7 @@ function options() {
     show_legend: f.show_legend.checked,
     show_na_labels: f.show_na_labels.checked,
     show_pgs_values: f.show_pgs_values.checked,
+    hpo_features: f.hpo_features.checked,
     style: f.style.value,
   };
 }
