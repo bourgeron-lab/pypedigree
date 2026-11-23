@@ -97,8 +97,8 @@
       is: cancers, gene test results (grouped by result and test type), ages and polygenic
       risk scores are drawn (see the “CanRisk file” example). Its <code>Name</code> column,
       often a real name, is not used. So is a GA4GH Phenopackets v2 <code>Family</code> or
-      <code>Pedigree</code> (<code>.json</code>): persons, sex, affected status, proband and
-      deaths.</p>
+      <code>Pedigree</code> (<code>.json</code>): persons, sex, affected status (named after the
+      proband's disease when it has one), proband and deaths.</p>
     <p>A parent named in a column but with no line of their own is drawn with a dashed outline,
       and a warning says so. The full description, with every code, is in the
       <a href="docs/#file-format">documentation</a>.</p>
@@ -145,8 +145,8 @@
     <ul>
       <li><strong>Family</strong>: a file with several families draws them side by side; choose
         one to draw it alone.</li>
-      <li><strong>Phenotypes</strong>: quadrants up to four phenotypes and bands beyond (the
-        default), quadrants only, or horizontal bands. Autism, ADHD, intellectual disability and
+      <li><strong>Phenotypes</strong>: quadrants for two to four phenotypes, the whole symbol for
+        one, and bands beyond (the default), quadrants only, or horizontal bands. Autism, ADHD, intellectual disability and
         epilepsy take their conventional quadrant and colour.</li>
       <li><strong>Polygenic score position</strong>: z-score (the default), min–max within the
         pedigree for raw scores, or percentile.</li>

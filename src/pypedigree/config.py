@@ -155,8 +155,9 @@ class PedigreeStyle:
 
     # How phenotypes divide a symbol: "quadrants" (the symbol cut in four,
     # one quadrant per column, up to four), "bands" (horizontal stripes, one
-    # per column), or "auto" (the default: quadrants up to four phenotype and
-    # carrier sources, bands beyond, without a warning). See
+    # per column), or "auto" (the default: quadrants for two to four phenotype
+    # and carrier sources, the whole symbol for one, bands beyond, without a
+    # warning). See
     # `phenotype_quadrants`.
     phenotype_layout: str = "auto"
 

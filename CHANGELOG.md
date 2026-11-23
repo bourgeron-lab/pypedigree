@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GA4GH Phenopackets phenotypes (#108, second step): when the proband has exactly one disease
+  (`diseases[].term`, not excluded), the affected status is also a binary column named after it, so
+  the legend names the condition ("Invented syndrome"). With `parse_pedigree(...,
+  phenopacket_features=True)` or `--hpo-features`, each HPO term of the phenopackets'
+  `phenotypicFeatures` is a binary column named by its label: observed, excluded (unaffected), not
+  recorded in that phenopacket (unknown), no phenopacket (no data). Off by default.
+
 - NSGC numbering from the drawing (#125): style option `labels` (`--labels`, the web app's "Labels")
   "generation" labels each individual with their generation in Roman numerals from the top and their
   position from the left within it (I-1, II-3), as the NSGC recommends, so the numbers always match
@@ -25,6 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Under `phenotype_layout` "auto" (the default), a single phenotype column with no carrier column
+  fills the whole symbol, as NSGC draws one condition, instead of one quadrant: an affected
+  individual looked three quarters unaffected (#108). Every figure with one column changes; ask for
+  `"quadrants"` to keep the quadrant. Goldens `outline_rings` and `ptdt` change.
 - CanRisk gene tests (#120) are grouped: the genes with the same result and test type share one
   annotation line, positives first, at most five a line, and the test type is kept, where it was
   lost: "BRCA1 + (direct test)", "BRCA2, PALB2, ATM, CHEK2, BARD1 − (search)", "HOXB13 + (het,

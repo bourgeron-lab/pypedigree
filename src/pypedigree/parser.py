@@ -1585,7 +1585,9 @@ def _read_text(path: Path) -> str:
         ) from exc
 
 
-def parse_pedigree(file_path: str | Path, *, canrisk_names: bool = False) -> Pedigree:
+def parse_pedigree(
+    file_path: str | Path, *, canrisk_names: bool = False, phenopacket_features: bool = False
+) -> Pedigree:
     """Parse a pedigree from a file.
 
     Auto-detects separator (tab, comma, whitespace) and header presence; a
@@ -1596,6 +1598,9 @@ def parse_pedigree(file_path: str | Path, *, canrisk_names: bool = False) -> Ped
         canrisk_names: For a CanRisk file, label individuals with its ``Name``
             column instead of ``IndivID`` where given and unique (#120);
             ignored for other files.
+        phenopacket_features: For a Phenopackets ``Family``, read each HPO
+            term of its phenopackets as a binary column (#108); ignored for
+            other files.
 
     Returns:
         A Pedigree object containing all parsed families.
@@ -1613,16 +1618,20 @@ def parse_pedigree(file_path: str | Path, *, canrisk_names: bool = False) -> Ped
     if not text:
         raise PedigreeParseError(f"Pedigree file is empty: {path}")
 
-    return _parse_any(text, canrisk_names=canrisk_names)
+    return _parse_any(text, canrisk_names=canrisk_names, phenopacket_features=phenopacket_features)
 
 
-def parse_pedigree_from_string(text: str, *, canrisk_names: bool = False) -> Pedigree:
+def parse_pedigree_from_string(
+    text: str, *, canrisk_names: bool = False, phenopacket_features: bool = False
+) -> Pedigree:
     """Parse a pedigree from a string.
 
     Args:
         text: The pedigree data as a string.
         canrisk_names: As for `parse_pedigree`: a CanRisk file's ``Name`` as
             labels (#120).
+        phenopacket_features: As for `parse_pedigree`: a Phenopackets
+            ``Family``'s HPO terms as columns (#108).
 
     Returns:
         A Pedigree object.
@@ -1634,17 +1643,19 @@ def parse_pedigree_from_string(text: str, *, canrisk_names: bool = False) -> Ped
     text = text.strip()
     if not text:
         raise PedigreeParseError("Pedigree text is empty")
-    return _parse_any(text, canrisk_names=canrisk_names)
+    return _parse_any(text, canrisk_names=canrisk_names, phenopacket_features=phenopacket_features)
 
 
-def _parse_any(text: str, *, canrisk_names: bool = False) -> Pedigree:
+def _parse_any(
+    text: str, *, canrisk_names: bool = False, phenopacket_features: bool = False
+) -> Pedigree:
     """Parse a pedigree file, or a CanRisk file (#109) or a GA4GH Phenopackets
     v2 ``Family`` / ``Pedigree`` (#108) rewritten as one."""
     if is_canrisk(text):
         return _parse_text(canrisk_to_text(text, names=canrisk_names), header=True)
     packet = load_phenopacket(text)
     if packet is not None:
-        pedigree = _parse_text(phenopacket_to_text(packet), header=True)
+        pedigree = _parse_text(phenopacket_to_text(packet, phenopacket_features), header=True)
         mark_declared_consanguinity(pedigree, packet)
         return pedigree
     return _parse_text(text)

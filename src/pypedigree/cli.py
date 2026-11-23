@@ -133,8 +133,8 @@ def _reported_warnings() -> Iterator[None]:
     type=click.Choice(["auto", "quadrants", "bands"]),
     default=None,
     help="How phenotypes divide a symbol: four quadrants, one per column (up to "
-    "four), or horizontal bands. Default 'auto': quadrants up to four columns, "
-    "bands beyond.",
+    "four), or horizontal bands. Default 'auto': quadrants for two to four columns, "
+    "the whole symbol for one, bands beyond.",
 )
 @click.option(
     "--pgs-scale",
@@ -189,6 +189,12 @@ def _reported_warnings() -> Iterator[None]:
     help="Use circular (radial) layout with founders at the centre.",
 )
 @click.option(
+    "--hpo-features",
+    is_flag=True,
+    help="For a GA4GH Phenopackets Family: draw each HPO term of its phenopackets as a "
+    "binary column (observed, excluded, not recorded).",
+)
+@click.option(
     "--canrisk-names",
     is_flag=True,
     help="For a CanRisk file: label individuals with the Name column (left out by "
@@ -224,6 +230,7 @@ def main(
     responsive: bool,
     plink: bool,
     circular: bool,
+    hpo_features: bool,
     canrisk_names: bool,
 ) -> None:
     """Generate pedigree diagrams from pedigree files.
@@ -267,7 +274,9 @@ def main(
             elif plink:
                 pedigree = parse_plink_ped(pedigree_file)
             else:
-                pedigree = parse_pedigree(pedigree_file, canrisk_names=canrisk_names)
+                pedigree = parse_pedigree(
+                    pedigree_file, canrisk_names=canrisk_names, phenopacket_features=hpo_features
+                )
 
             # Apply external phenotype file if provided
             if pheno_file:

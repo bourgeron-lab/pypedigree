@@ -2,7 +2,7 @@
 
 ## Parsing
 
-### `parse_pedigree(file_path, *, canrisk_names=False)`
+### `parse_pedigree(file_path, *, canrisk_names=False, phenopacket_features=False)`
 
 Parse a pedigree from a file. Auto-detects separator (tab, comma, space) and header rows. When a header is present, columns are matched by name (not position), so phenotype columns can appear directly after Sex without needing the full 10-column format. The file is read as UTF-8 whatever the system's default encoding (cp1252 on most Windows systems); a byte order mark is ignored, and a file that is not UTF-8 raises `PedigreeParseError`. `parse_fam_file`, `parse_plink_ped`, `--pheno` and `--annotations` files are read the same way, and `export_fam` writes UTF-8 with `\n` line endings.
 
@@ -26,7 +26,7 @@ from pypedigree import parse_pedigree
 ped = parse_pedigree("family.ped")
 ```
 
-**Args**: `file_path` — Path to the pedigree file (str or Path). `canrisk_names` — for a CanRisk file, label individuals with its `Name` column instead of `IndivID`, where given and unique in the family (#120); ignored for other files.
+**Args**: `file_path` — Path to the pedigree file (str or Path). `phenopacket_features` — for a Phenopackets `Family`, each HPO term of its phenopackets as a binary column (observed 2, excluded 1, not recorded 0, no phenopacket no data; #108); ignored for other files. `canrisk_names` — for a CanRisk file, label individuals with its `Name` column instead of `IndivID`, where given and unique in the family (#120); ignored for other files.
 
 **Returns**: `Pedigree` object containing all families.
 
@@ -34,7 +34,7 @@ ped = parse_pedigree("family.ped")
 
 ---
 
-### `parse_pedigree_from_string(text, *, canrisk_names=False)`
+### `parse_pedigree_from_string(text, *, canrisk_names=False, phenopacket_features=False)`
 
 Parse a pedigree from a string (same format as file contents).
 
@@ -45,7 +45,7 @@ text = "FAM1\tfather\t0\t0\t1\t1\nFAM1\tmother\t0\t0\t2\t1\nFAM1\tchild\tfather\
 ped = parse_pedigree_from_string(text)
 ```
 
-**Args**: `text` — Pedigree data as a string. `canrisk_names` — as for `parse_pedigree`.
+**Args**: `text` — Pedigree data as a string. `canrisk_names`, `phenopacket_features` — as for `parse_pedigree`.
 
 **Returns**: `Pedigree` object.
 
@@ -715,7 +715,7 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `base_radius` | `3.0` | Radius of the innermost ring in circular layout |
 | `phenotype_colors` | `{}` | Map of phenotype name to hex color (e.g. `{"IQ": "#3498db"}`) |
 | `show_phenotype_labels` | `False` | Show YES/NO text labels inside binary phenotype bands |
-| `phenotype_layout` | `"auto"` | `"quadrants"` (the symbol cut in four, one quadrant per phenotype or `cr_` carrier source, at most four; more fall back to bands with a `PedigreeStyleWarning`), `"bands"` (one horizontal band per phenotype; the default before 0.5.0) or `"auto"` (quadrants up to four sources, bands beyond, without a warning). With carrier sources and no phenotype column nothing is cut: the symbol and the legend are drawn as with bands. Any other value raises `PedigreeError` |
+| `phenotype_layout` | `"auto"` | `"quadrants"` (the symbol cut in four, one quadrant per phenotype or `cr_` carrier source, at most four; more fall back to bands with a `PedigreeStyleWarning`), `"bands"` (one horizontal band per phenotype; the default before 0.5.0) or `"auto"` (quadrants for two to four sources, the whole symbol for a single one, bands beyond, without a warning). With carrier sources and no phenotype column nothing is cut: the symbol and the legend are drawn as with bands. Any other value raises `PedigreeError` |
 | `phenotype_quadrants` | `{}` | Column name → `"top-left"`, `"top-right"`, `"bottom-left"` or `"bottom-right"`, for the quadrant layout. Unlisted columns take their conventional quadrant (autism top left, ADHD top right, intellectual disability bottom left, epilepsy bottom right) or the next free one in column order. Two columns in one quadrant raise `PedigreeError` |
 | `show_na_labels` | `True` | Write "NA" in bands with no data (`-9`, `NA`, empty). When `False` they stay grey with no text, so they look like an "unknown" (`0`) band |
 | `band_text` | `"auto"` | Text in bands and quadrants. `"auto"`: "name: value", or the value alone, or the value smaller (down to `min_font_size`, or half `font_size`), whichever fits; else none. `"name_value"`: always "name: value" (before 0.7.0). `"value"`: the value alone. `"none"`: no value ("NA" still follows `show_na_labels`) |
