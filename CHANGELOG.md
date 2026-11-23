@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- pTDT deviations computed by pypedigree (#52, second step): style option `pgs_transmission`
+  (`--ptdt`) gives each child whose two parents have a value of a `PGS_*` column its deviation,
+  (PGS_child − PGS_mid-parent) / `ptdt_midparent_sd`, in a `pTDT_*` column drawn as the given ones
+  (0.9.0): the parents keep their PGS curve, the children get a pTDT curve. `ptdt_midparent_sd`
+  defaults to √½, for standardised scores and unrelated parents. A child missing a parent or a value
+  gets none; a `pTDT_*` column in the file is drawn as given, with a warning. New module
+  `pypedigree.transmission`.
+
 - GA4GH Phenopackets phenotypes (#108, second step): when the proband has exactly one disease
   (`diseases[].term`, not excluded), the affected status is also a binary column named after it, so
   the legend names the condition ("Invented syndrome"). With `parse_pedigree(...,

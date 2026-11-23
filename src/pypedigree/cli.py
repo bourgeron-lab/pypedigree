@@ -189,6 +189,14 @@ def _reported_warnings() -> Iterator[None]:
     help="Use circular (radial) layout with founders at the centre.",
 )
 @click.option(
+    "--ptdt",
+    "ptdt",
+    is_flag=True,
+    help="Compute each child's pTDT deviation from its parents' PGS columns, "
+    "(child - mid-parent) / SD; SD(mid-parent) from the style's ptdt_midparent_sd "
+    "(default sqrt(1/2), standardised scores and unrelated parents).",
+)
+@click.option(
     "--hpo-features",
     is_flag=True,
     help="For a GA4GH Phenopackets Family: draw each HPO term of its phenopackets as a "
@@ -230,6 +238,7 @@ def main(
     responsive: bool,
     plink: bool,
     circular: bool,
+    ptdt: bool,
     hpo_features: bool,
     canrisk_names: bool,
 ) -> None:
@@ -267,6 +276,8 @@ def main(
                 style.phenotype_layout = phenotype_layout
             if label_mode:
                 style.labels = label_mode
+            if ptdt:
+                style.pgs_transmission = True
 
             # Parse — auto-detect .fam or use --plink flag
             if input_path.suffix.lower() == ".fam":

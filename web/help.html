@@ -83,7 +83,9 @@
         values (<code>-9</code>, <code>NA</code>, empty) are drawn grey with “NA”;
         <code>N/A</code> (or <code>not_applicable</code>) marks a phenotype that cannot apply to that
         person, drawn white as for unaffected (the tooltip says so).</li>
-      <li><strong>Polygenic scores</strong>: columns whose name starts with <code>PGS</code>.</li>
+      <li><strong>Polygenic scores</strong>: columns whose name starts with <code>PGS</code>.
+        The children's pTDT deviations go in <code>pTDT</code> columns, or are computed from the
+        parents' scores with <code>{"pgs_transmission": true}</code> in <em>Advanced style</em>.</li>
       <li><strong>Carriers</strong>: a <code>carrier</code> column, or one <code>cr_</code>
         column per gene (<code>cr_CFTR</code>): 1 carrier, 2 obligate carrier (as declared; it is
         not inferred).</li>

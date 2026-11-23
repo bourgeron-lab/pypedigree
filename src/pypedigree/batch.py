@@ -26,6 +26,7 @@ from pypedigree.phenotypes import (
     check_phenotype_layout,
     validate_style_colors,
 )
+from pypedigree.transmission import check_transmission
 
 FORMATS = ("png", "pdf", "svg")
 
@@ -142,6 +143,7 @@ def render_families(
     check_band_text(style)
     check_legend(style)
     check_gradient_bins(style)
+    check_transmission(style)
     if interactive:
         from pypedigree.svg_renderer import check_id_prefix, render_interactive_svg, render_svg
 

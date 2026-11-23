@@ -274,6 +274,14 @@ class PedigreeStyle:
     # Zero-pad individual IDs to this width (0 = no padding)
     zero_pad_ids: int = 0
 
+    # pTDT deviations computed from the parents' PGS (#52): with
+    # `pgs_transmission`, each child whose two parents have a value of a PGS_*
+    # column gets (child - mid-parent) / `ptdt_midparent_sd` in a pTDT_*
+    # column. The SD is a cohort quantity: sqrt(1/2) for standardised scores
+    # and unrelated parents.
+    pgs_transmission: bool = False
+    ptdt_midparent_sd: float = 0.7071067811865476
+
     # What labels a symbol (#125): "id" its sample ID; "generation" its NSGC
     # number from the drawing, generation in Roman numerals from the top and
     # position from the left (I-1, II-3); "both" the number with the ID under

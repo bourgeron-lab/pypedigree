@@ -16,7 +16,7 @@ import bisect
 import math
 import re
 import warnings
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from difflib import get_close_matches
 from statistics import NormalDist
@@ -1408,10 +1408,16 @@ def active_pgs(
     return _active_curves(node, [n for n in pgs_names if not is_ptdt_column(n)], scale)
 
 
-def warn_mixed_curves(individuals: Iterable[_HasPhenotypes], names: Sequence[str]) -> None:
+def warn_mixed_curves(
+    individuals: Iterable[_HasPhenotypes],
+    names: Sequence[str],
+    computed: Collection[str] = (),
+) -> None:
     """Warn when some individual has both PGS and pTDT values (#52): its
-    curve shows the pTDT deviations only."""
-    ptdt = [n for n in names if is_ptdt_column(n)]
+    curve shows the pTDT deviations only. Columns pypedigree computed from
+    the parents (`computed`, ``pgs_transmission``) are left out: every child
+    has both, by design."""
+    ptdt = [n for n in names if is_ptdt_column(n) and n not in computed]
     pgs = [n for n in names if is_curve_column(n) and not is_ptdt_column(n)]
     if not ptdt or not pgs:
         return
