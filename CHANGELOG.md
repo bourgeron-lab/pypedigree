@@ -55,6 +55,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Stability (1.0.0): `docs/api.md` says what 1.x keeps stable under Semantic Versioning (the
+  exported names, style options, CLI options, input formats, SVG hooks, warning and error classes)
+  and what it does not (private names, the `symbols` / `phenotypes` / `carriers` helper modules,
+  the exact look of a figure; the circular layout is experimental). Classifier "Production/Stable".
 - The circular layout (`--circular`, `compute_layout_circular`) is documented as experimental: its
   structure is stable, but how it is drawn may change in a 1.x release (#151).
 - Under `phenotype_layout` "auto" (the default), a single phenotype column with no carrier column

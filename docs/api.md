@@ -1,5 +1,22 @@
 # API Reference
 
+## Stability
+
+From 1.0.0, pypedigree follows [Semantic Versioning](https://semver.org): a 1.x release does not
+remove or change what is listed here, except to fix a bug.
+
+- **Stable:** the names exported by `pypedigree` (`pypedigree.__all__`) and their arguments; the
+  `PedigreeStyle` options listed under "Configuration"; the command-line options; the input formats of
+  `docs/pedigree_standard.md` (PED and its extended columns, `.fam`, PLINK `.ped`, CanRisk,
+  Phenopackets); the SVG's hooks for host pages (`class="pypedigree"` root, `node` groups and their
+  `data-*` attributes, `id_prefix`); the `Pedigree*Warning` and `Pedigree*Error` classes.
+- **Not covered:** names starting with an underscore; the helper modules `pypedigree.symbols`,
+  `pypedigree.phenotypes` and `pypedigree.carriers` (they may change in a minor release); the style
+  fields `apply_pgs_spacing` sets (`pgs_box_room`, `pgs_box_width`); and exactly how a figure looks:
+  a minor release may move a mark to fix an overlap, so pin the version that drew a published figure.
+- **Experimental:** the circular layout (`compute_layout_circular`, `circular=True`, `--circular`):
+  its structure is stable, how it is drawn may change in a 1.x release.
+
 ## Parsing
 
 ### `parse_pedigree(file_path, *, canrisk_names=False, phenopacket_features=False)`
@@ -838,7 +855,7 @@ function is idempotent.
 
 ---
 
-### `apply_pgs_spacing(style, phenotype_names=None, values_width=0.0)`
+### `apply_pgs_spacing(style, phenotype_names=None, values_width=0.0, box_width=(0.0, 0.0))`
 
 Widen `couple_gap` and `sibling_gap` to leave room for PGS distribution
 curves drawn beside each node, and by `values_width` (layout units) for the
@@ -849,7 +866,7 @@ Unlike `resolve_style()` this is **not** idempotent — each call widens
 further. `render_pedigree()` is its only caller; do not apply it yourself
 before calling `render_pedigree()`.
 
-**Args**: `style` — `PedigreeStyle`. `phenotype_names` — ordered phenotype column names. `values_width` — room for the PGS values, in layout units.
+**Args**: `style` — `PedigreeStyle`. `phenotype_names` — ordered phenotype column names. `values_width` — room for the PGS values, in layout units. `box_width` — the boxes' width and how much wider than usual it is (`phenotypes.pgs_box_width`, #147); the extra widens the gaps, the width is kept in `style.pgs_box_width`.
 
 **Returns**: a new `PedigreeStyle`, or the input unchanged.
 
