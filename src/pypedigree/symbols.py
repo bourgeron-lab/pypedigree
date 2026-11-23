@@ -546,13 +546,11 @@ def bracket_lines(
 
     Symmetric top to bottom, so the same points serve both y directions.
     """
-    if triangle:
-        reach_x, reach_y = half * TRIANGLE_HALF_WIDTH, half
-    else:
-        # Square and circle reach `half` both ways; the diamond further.
-        reach_x = reach_y = shape_half_width(sex, half)
-    left = x - reach_x - BRACKET_GAP
-    right = x + reach_x + BRACKET_GAP
+    # Square and circle reach `half` both ways, the diamond further; the
+    # triangle `half` up and down (`bracket_offset` across).
+    reach_y = half if triangle else shape_half_width(sex, half)
+    offset = bracket_offset(half, sex, triangle)
+    left, right = x - offset, x + offset
     top = y + reach_y + BRACKET_OVERHANG
     bottom = y - reach_y - BRACKET_OVERHANG
     lt, rt = left + BRACKET_TICK, right - BRACKET_TICK
@@ -560,6 +558,13 @@ def bracket_lines(
         [(lt, top), (left, top), (left, bottom), (lt, bottom)],
         [(rt, top), (right, top), (right, bottom), (rt, bottom)],
     ]
+
+
+def bracket_offset(half: float, sex: Sex, triangle: bool = False) -> float:
+    """From a symbol's centre to the upright of either adoption bracket
+    (`bracket_lines`), in layout units."""
+    reach = half * TRIANGLE_HALF_WIDTH if triangle else shape_half_width(sex, half)
+    return reach + BRACKET_GAP
 
 
 def childless_depth(notation: Notation) -> float:
@@ -687,6 +692,7 @@ def pgs_box_near(
     struck: bool = False,
     ring: float = 0.0,
     line_width: float = 0.0,
+    bracket_width: float | None = None,
 ) -> float:
     """From a symbol's centre to the near edge of its PGS box, in layout units.
 
@@ -707,6 +713,9 @@ def pgs_box_near(
         struck: Whether the symbol is struck through (deceased).
         ring: Room the borders after the first take, in layout units.
         line_width: Width of the outermost outline, in points.
+        bracket_width: Stroke of the adoption brackets round the symbol, in
+            points, or None without brackets: the asterisk is then outside
+            the right one (`evaluation_mark_placement`).
     """
     grown = grown_half(sex, half, ring) if ring else half
     near = shape_half_width(sex, grown) + half * PGS_BOX_GAP
@@ -714,7 +723,14 @@ def pgs_box_near(
         near = max(near, ring + half * (1 + DECEASED_OVERSHOOT + PGS_DECEASED_MARGIN))
     if side == "right" and evaluated:
         mark_x, _ = evaluation_mark_position(
-            0.0, 0.0, grown, sex, mark_size, line_width, UNITS_PER_POINT
+            0.0,
+            0.0,
+            grown,
+            sex,
+            mark_size,
+            line_width,
+            UNITS_PER_POINT,
+            bracket_width=bracket_width,
         )
         mark_right = mark_x + EVALUATION_MARK_INK_HALF_W_EM * mark_size * UNITS_PER_POINT
         near = max(near, mark_right + half * PGS_BOX_GAP)
@@ -730,6 +746,7 @@ def evaluation_mark_placement(
     line_width: float,
     triangle: bool = False,
     up: float = 1.0,
+    bracket_width: float | None = None,
 ) -> tuple[float, float, float, float]:
     """Where the documented-evaluation asterisk goes, beside the lower right.
 
@@ -743,6 +760,12 @@ def evaluation_mark_placement(
     `EVALUATION_MARK_GAP_EM` (#110). The PNG draws it as an offset in points,
     the SVG converts it with its scale (`evaluation_mark_position`).
 
+    Round an adopted person's symbol, the asterisk goes outside the right
+    adoption bracket, level with where it would be without one: the point is
+    on the bracket's upright, level with the outline's, and the offset keeps
+    its height, with the same gap across from the bracket's stroke. Inside,
+    it touched the bracket (#134).
+
     Args:
         x: X of the symbol's centre.
         y: Y of the symbol's centre.
@@ -752,10 +775,12 @@ def evaluation_mark_placement(
         line_width: Width of the outline it sits beside, in points.
         triangle: Whether the symbol is a pregnancy-loss triangle.
         up: +1 with the y axis pointing up (PNG), -1 pointing down (SVG).
+        bracket_width: Stroke of the adoption brackets round the symbol, in
+            points, or None without brackets.
 
     Returns:
-        (x, y) on the outline, then (dx, dy) in points, in the same y
-        direction.
+        (x, y) on the outline (or the bracket), then (dx, dy) in points, in
+        the same y direction.
     """
     if triangle or sex == Sex.MALE:
         if triangle:
@@ -771,6 +796,10 @@ def evaluation_mark_placement(
         dy = -up * dy
         extent = (EVALUATION_MARK_INK_HALF_W_EM + EVALUATION_MARK_INK_HALF_H_EM) / math.sqrt(2)
     distance = line_width / 2 + (extent + EVALUATION_MARK_GAP_EM) * size
+    if bracket_width is not None:
+        # Straight out from the bracket's upright, at the same height.
+        across = bracket_width / 2 + (EVALUATION_MARK_INK_HALF_W_EM + EVALUATION_MARK_GAP_EM) * size
+        return x + bracket_offset(half, sex, triangle), py, across, dy * distance
     return px, py, dx * distance, dy * distance
 
 
@@ -784,6 +813,7 @@ def evaluation_mark_position(
     units_per_point: float,
     triangle: bool = False,
     up: float = 1.0,
+    bracket_width: float | None = None,
 ) -> tuple[float, float]:
     """Middle of the asterisk's ink at a given scale (`evaluation_mark_placement`).
 
@@ -791,7 +821,9 @@ def evaluation_mark_position(
         units_per_point: Layout units per point at the drawing's scale (the
             SVG's `UNITS_PER_POINT`).
     """
-    px, py, dx, dy = evaluation_mark_placement(x, y, half, sex, size, line_width, triangle, up)
+    px, py, dx, dy = evaluation_mark_placement(
+        x, y, half, sex, size, line_width, triangle, up, bracket_width
+    )
     return px + dx * units_per_point, py + dy * units_per_point
 
 

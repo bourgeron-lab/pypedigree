@@ -75,6 +75,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The documented-evaluation asterisk of an adopted person was drawn inside the right adoption
+  bracket, touching it: it now goes outside the bracket, at the same height, with the same gap in
+  ems from the bracket's stroke as from an outline (#134). A PGS box on that side clears it too.
+  `symbols.evaluation_mark_placement(..., bracket_width=)`, `symbols.bracket_offset`.
 - A long line of text under one partner of a couple crossed the couple's descent line (#130): the
   couple was spaced for the sum of the two partners' labels (#41), so they did not meet, but the
   descent line starts in the middle, and since #120 a CanRisk panel's gene line ("BRCA1, BRCA2,
