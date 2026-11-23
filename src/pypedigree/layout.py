@@ -357,10 +357,20 @@ class _HierarchicalPlacer:
         """Room beyond half the sibling gap that the label of ``sid`` needs."""
         return max(0.0, self.label_reach.get(sid, 0.0) - self.style.sibling_gap / 2)
 
-    def _couple_gap(self, left: str, right: str) -> float:
-        """Distance between partners: the couple gap, or more for marker or labels."""
+    def _couple_gap(self, left: str, right: str, ui: int | None = None) -> float:
+        """Distance between partners: the couple gap, or more for marker or labels.
+
+        The labels need the sum of both partners' reaches, so they do not meet
+        (#41). A couple with children also has its descent line in the middle
+        of the gap, so each partner's text must stay on its side of it: the
+        gap is then at least twice the larger reach (#130; a CanRisk panel's
+        gene line under one partner crossed the line).
+        """
         reach = self.label_reach
-        labels = reach.get(left, 0.0) + reach.get(right, 0.0)
+        left_reach, right_reach = reach.get(left, 0.0), reach.get(right, 0.0)
+        labels = left_reach + right_reach
+        if ui is not None and self.unions[ui].children_ids:
+            labels = max(labels, 2 * max(left_reach, right_reach))
         return max(self.style.couple_gap, self.marker_room.get(right, 0.0), labels)
 
     def _add(self, block: _Block, sid: str, x: float, gen: int, pgs_right: bool = False) -> None:
@@ -603,8 +613,8 @@ class _HierarchicalPlacer:
         gap, cg = style.sibling_gap, style.couple_gap
         # The partner on the right of each couple keeps room for their
         # proband marker from the one on the left, and both for their labels.
-        cg_l = self._couple_gap(left[0], sid) if left is not None else cg
-        cg_r = self._couple_gap(sid, right[0]) if right is not None else cg
+        cg_l = self._couple_gap(left[0], sid, left[1]) if left is not None else cg
+        cg_r = self._couple_gap(sid, right[0], right[1]) if right is not None else cg
         c_left = c_right = None
         if left is not None:
             group, center = self._children_group(left[1])

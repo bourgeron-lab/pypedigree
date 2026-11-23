@@ -138,7 +138,9 @@ src/pypedigree/
    labelled node. `_add` puts what reaches beyond half the sibling gap on both
    sides of the contour (the left side takes the larger of it and the marker
    margin) and `_couple_gap` widens a couple to the sum of both reaches, a
-   short one included (it once counted as nothing beside a long one). Labels
+   short one included (it once counted as nothing beside a long one), and a couple
+   with children to at least twice the larger reach, so each partner's text stays on
+   its side of the descent line from the middle of the gap (#130). Labels
    that fit change nothing: at 8 pt no fixture moves (IDs up to ~13
    characters). `compute_layout(..., labels=show_labels)`; the circular layout
    calls `_place_hierarchically(..., labels=False)` and is unchanged. The SVG's
