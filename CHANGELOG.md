@@ -82,6 +82,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - An adopted person's PGS box was drawn over the adoption bracket on its side, most visibly beside
   a circle: it keeps its gap (`PGS_BOX_GAP` half-sizes) from the bracket's stroke now, on either
   side, and the layout leaves room for it (#136). `symbols.pgs_box_near(..., bracket_width=)`.
+- The "?" of twins of unknown zygosity covered both of their lines when the pedigree was drawn small
+  (at 6 pt in a page-wide figure): it was placed 35% of the way down, in layout units, with a size in
+  points. It now goes between the lines, just far enough down for its ink to keep
+  `TWIN_MARK_GAP_EM` of its font from each, at any scale (#139). The SVG takes its size from the
+  style (`text_size`), as the PNG did; it was 0.3 layout units whatever `font_size`.
+  `symbols.twin_mark_offset`.
 - A long line of text under one partner of a couple crossed the couple's descent line (#130): the
   couple was spaced for the sum of the two partners' labels (#41), so they did not meet, but the
   descent line starts in the middle, and since #120 a CanRisk panel's gene line ("BRCA1, BRCA2,

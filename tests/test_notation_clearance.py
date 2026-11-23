@@ -566,3 +566,139 @@ class TestPgsBoxBesideBrackets:
             assert node.pgs_side == "left"
             box_left = pgs_box_left(node, style)
             assert box_left > left.x + symbols.bracket_offset(HALF, left.sex), node.individual_id
+
+
+def _seg_dist(p: tuple[float, float], a: tuple[float, float], b: tuple[float, float]) -> float:
+    """Distance from point p to segment ab."""
+    ax_, ay = a
+    dx, dy = b[0] - ax_, b[1] - ay
+    t = max(0.0, min(1.0, ((p[0] - ax_) * dx + (p[1] - ay) * dy) / (dx * dx + dy * dy)))
+    return math.hypot(p[0] - ax_ - t * dx, p[1] - ay - t * dy)
+
+
+def _box_line_gap(cx: float, cy: float, hw: float, hh: float, apex, end) -> float:
+    """Gap between an axis-aligned box and the infinite line through apex and end."""
+    ux, uy = end[0] - apex[0], end[1] - apex[1]
+    norm = math.hypot(ux, uy)
+    nx, ny = -uy / norm, ux / norm
+    centre = (cx - apex[0]) * nx + (cy - apex[1]) * ny
+    return abs(centre) - (hw * abs(nx) + hh * abs(ny))
+
+
+class TestTwinQuestionMark:
+    """The "?" of twins of unknown zygosity sits between their lines with a gap
+    in ems of its own font, at any scale (#139); it covered them at 6 pt."""
+
+    SIZE = PedigreeStyle().text_size(symbols.TWIN_MARK_FONT_SCALE)
+    LW = PedigreeStyle().line_width
+    TWINS = (
+        "FID\tID\tFather\tMother\tSex\tPhenotype\tTwins\n"
+        "1\tF\t0\t0\t1\t1\t0\n"
+        "1\tM\t0\t0\t2\t1\t0\n"
+        "1\tA\tF\tM\t1\t1\tTW:B\n"
+        "1\tB\tF\tM\t1\t1\tTW:A\n"
+    )
+
+    def _ink(self, apex, children, size=None, up=1.0):
+        size = size or self.SIZE
+        dx, dy = symbols.twin_mark_offset(apex, children, size, self.LW)
+        hw = symbols.TWIN_MARK_INK_HALF_W_EM * size
+        hh = symbols.TWIN_MARK_INK_HALF_H_EM * size
+        return dx, dy, hw, hh
+
+    @pytest.mark.parametrize("spread", [0.4, 0.75, 1.5, 3.0])
+    @pytest.mark.parametrize("up", [1.0, -1.0])
+    def test_gap_from_both_lines(self, spread, up):
+        """In points (offsets are), whatever the V's opening and the y direction."""
+        apex = (0.0, 0.0)
+        children = [(-spread, -up * 0.6), (spread, -up * 0.6)]
+        dx, dy, hw, hh = self._ink(apex, children)
+        assert dx == pytest.approx(0.0)
+        assert dy * up < 0  # below the apex
+        want = symbols.TWIN_MARK_GAP_EM * self.SIZE + self.LW / 2
+        gaps = [_box_line_gap(dx, dy, hw, hh, apex, c) for c in children]
+        assert min(gaps) == pytest.approx(want)
+        assert abs(dy) - hh >= want - 1e-9  # clear of the sibship line too
+
+    def test_mirrored_between_y_directions(self):
+        down = self._ink((0.0, 0.0), [(-0.75, -0.6), (0.75, -0.6)])
+        up = self._ink((0.0, 0.0), [(-0.75, 0.6), (0.75, 0.6)])
+        assert (up[0], up[1]) == pytest.approx((down[0], -down[1]))
+
+    def test_triplets_clear_the_middle_line(self):
+        """With a vertical line in the middle, it goes in one of the two gaps."""
+        apex = (0.0, 0.0)
+        children = [(-1.5, -0.6), (0.0, -0.6), (1.5, -0.6)]
+        dx, dy, hw, hh = self._ink(apex, children)
+        want = symbols.TWIN_MARK_GAP_EM * self.SIZE + self.LW / 2
+        assert min(_box_line_gap(dx, dy, hw, hh, apex, c) for c in children) >= want - 1e-9
+
+    def test_svg_size_from_the_style(self):
+        """The SVG's "?" follows font_size (it was 0.3 layout units whatever the style)."""
+        for font_size in (8.0, 12.0):
+            svg = render_interactive_svg(
+                parse_pedigree_from_string(self.TWINS), style=PedigreeStyle(font_size=font_size)
+            )
+            root = ET.fromstring(svg)
+            marks = [t for t in root.iter("{http://www.w3.org/2000/svg}text") if t.text == "?"]
+            assert len(marks) == 1
+            want = PedigreeStyle(font_size=font_size).text_size(symbols.TWIN_MARK_FONT_SCALE)
+            assert float(marks[0].get("font-size")) == pytest.approx(want * 0.02, abs=1e-3)
+
+    def test_svg_ink_clear_of_the_lines(self):
+        root = ET.fromstring(render_interactive_svg(parse_pedigree_from_string(self.TWINS)))
+        mark = next(t for t in root.iter("{http://www.w3.org/2000/svg}text") if t.text == "?")
+        size = float(mark.get("font-size"))
+        cx = float(mark.get("x"))
+        cy = float(mark.get("y")) - symbols.TWIN_MARK_INK_MIDDLE_EM * size  # baseline to middle
+        hw = symbols.TWIN_MARK_INK_HALF_W_EM * size
+        hh = symbols.TWIN_MARK_INK_HALF_H_EM * size
+        group = [
+            g for g in root.iter("{http://www.w3.org/2000/svg}g")
+            if any(t is mark for t in g.iter("{http://www.w3.org/2000/svg}text"))
+        ][-1]  # fmt: skip  # the innermost: the twins' own group
+        lines = group.findall("svg:line", SVG_NS)
+        assert len(lines) == 2
+        want = symbols.TWIN_MARK_GAP_EM * size
+        for line in lines:
+            apex = (float(line.get("x1")), float(line.get("y1")))
+            end = (float(line.get("x2")), float(line.get("y2")))
+            assert _box_line_gap(cx, cy, hw, hh, apex, end) >= want - 1e-3
+
+    def test_png_ink_clear_of_the_lines_when_drawn_small(self):
+        """At 6 pt in a 4 cm wide figure, as the paper's notation figure: the
+        ink of the "?" (the pixels it adds) keeps its gap from both lines."""
+        dpi = 600
+        ped = parse_pedigree_from_string(self.TWINS)
+        style = PedigreeStyle(font_size=6.0)
+
+        def draw(with_mark: bool):
+            fig = plt.figure(figsize=(4 / 2.54, 3 / 2.54), dpi=dpi)
+            ax = fig.add_axes((0, 0, 1, 1))
+            render_pedigree(ped, style=style, ax=ax, show_legend=False)
+            marks = [t for t in ax.texts if t.get_text() == "?"]
+            assert len(marks) == 1
+            marks[0].set_visible(with_mark)
+            fig.canvas.draw()
+            image = np.asarray(fig.canvas.buffer_rgba())[:, :, :3].mean(axis=2)
+            return fig, ax, image
+
+        fig, ax, with_mark = draw(True)
+        try:
+            _, _, without = draw(False)
+            height = with_mark.shape[0]
+            ink = np.argwhere((with_mark < 128) & (without >= 128))
+            assert len(ink) > 0
+            layout = compute_layout(ped.families["1"], style)
+            (tc,) = layout.twin_connectors
+            apex = ax.transData.transform(tc.convergence_point)
+            ends = [ax.transData.transform(c) for c in tc.child_positions]
+            px_per_pt = dpi / 72
+            want = symbols.TWIN_MARK_GAP_EM * style.text_size() * px_per_pt
+            stroke = style.line_width / 2 * px_per_pt
+            for row, col in ink:
+                p = (col + 0.5, height - row - 0.5)
+                for end in ends:
+                    assert _seg_dist(p, apex, end) - stroke >= 0.6 * want
+        finally:
+            plt.close("all")

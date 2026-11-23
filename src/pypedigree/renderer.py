@@ -1229,7 +1229,7 @@ def _draw_twin_connector(ax: Axes, tc: TwinConnector, style: PedigreeStyle) -> N
     - All types: V-lines from convergence point down to each twin's shape
     - MZ (monozygotic): horizontal bar across the V-lines
     - DZ (dizygotic): plain V-lines only
-    - Unknown: "?" mark above the convergence point
+    - Unknown: "?" between the lines, clear of them (`symbols.twin_mark_offset`)
 
     Args:
         ax: The Axes to draw on.
@@ -1266,21 +1266,21 @@ def _draw_twin_connector(ax: Axes, tc: TwinConnector, style: PedigreeStyle) -> N
             ax.plot(bar_xs, bar_ys, color=color, linewidth=lw, zorder=2)
 
     elif tc.twin_type == TwinType.UNKNOWN and len(tc.child_positions) >= 2:
-        # "?" mark in the center of the V, slightly below convergence
-        bar_frac = 0.35
-        avg_child_x = sum(p[0] for p in tc.child_positions) / len(tc.child_positions)
-        avg_child_y = sum(p[1] for p in tc.child_positions) / len(tc.child_positions)
-        q_x = cx + bar_frac * (avg_child_x - cx)
-        q_y = cy + bar_frac * (avg_child_y - cy)
-        ax.text(
-            q_x,
-            q_y,
-            "?",
-            fontsize=style.text_size(),
+        # "?" between the lines, placed in points from the apex so it keeps
+        # its gap from them at any scale (#139); the baseline goes below the
+        # ink's middle.
+        size = style.text_size(symbols.TWIN_MARK_FONT_SCALE)
+        dx, dy = symbols.twin_mark_offset(tc.convergence_point, tc.child_positions, size, lw)
+        ax.annotate(
+            symbols.TWIN_MARK,
+            xy=(cx, cy),
+            xytext=(dx, dy - symbols.TWIN_MARK_INK_MIDDLE_EM * size),
+            textcoords="offset points",
+            fontsize=size,
             fontfamily=style.font_family,
             fontweight="bold",
             ha="center",
-            va="center",
+            va="baseline",
             color=color,
             zorder=3,
         )

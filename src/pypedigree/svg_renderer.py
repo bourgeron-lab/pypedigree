@@ -1905,10 +1905,25 @@ def _svg_twin_connector(tc: TwinConnector, style: PedigreeStyle) -> str:
         )
 
     if tc.twin_type == TwinType.UNKNOWN and len(tc.child_positions) >= 2:
-        frac = 0.35
-        avg_y = sum(p[1] for p in tc.child_positions) / len(tc.child_positions)
-        qy = cy + frac * (avg_y - cy)
-        parts.append(_svg_text(cx, qy, "?", 0.3, style, color=style.line_color, weight="bold"))
+        # Mirrors `renderer._draw_twin_connector` (#139): y points down here.
+        mark_pt = style.text_size(symbols.TWIN_MARK_FONT_SCALE)
+        dx, dy = symbols.twin_mark_offset(
+            tc.convergence_point, tc.child_positions, mark_pt, style.line_width
+        )
+        size = mark_pt * _PT
+        qy = cy + dy * _PT + symbols.TWIN_MARK_INK_MIDDLE_EM * size
+        parts.append(
+            _svg_text(
+                cx + dx * _PT,
+                qy,
+                symbols.TWIN_MARK,
+                size,
+                style,
+                baseline="auto",
+                color=style.line_color,
+                weight="bold",
+            )
+        )
 
     parts.append("</g>")
     return "\n".join(parts)
