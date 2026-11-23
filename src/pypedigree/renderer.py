@@ -1185,31 +1185,8 @@ def _draw_edge(ax: Axes, edge: EdgeLayout, style: PedigreeStyle) -> None:
             ax.plot([x1 - gap, x2 - gap], [y1, y2], color=color, linewidth=lw, zorder=1)
 
     elif edge.line_style == LineStyle.BROKEN:
-        # Line with a gap in the middle and "//" marks
-        mid_x = (x1 + x2) / 2
-        mid_y = (y1 + y2) / 2
-        gap = style.broken_gap_size
-
-        # Left segment
-        ax.plot([x1, mid_x - gap], [y1, mid_y], color=color, linewidth=lw, zorder=1)
-        # Right segment
-        ax.plot([mid_x + gap, x2], [mid_y, y2], color=color, linewidth=lw, zorder=1)
-        # "//" marks
-        slash_h = gap * 0.6
-        ax.plot(
-            [mid_x - gap * 0.3, mid_x + gap * 0.3],
-            [mid_y - slash_h, mid_y + slash_h],
-            color=color,
-            linewidth=lw * 0.7,
-            zorder=2,
-        )
-        ax.plot(
-            [mid_x - gap * 0.6, mid_x],
-            [mid_y - slash_h, mid_y + slash_h],
-            color=color,
-            linewidth=lw * 0.7,
-            zorder=2,
-        )
+        # Two slashes across the line, beside the line of descent (#141).
+        _draw_separation(ax, edge, style)
 
     elif edge.line_style == LineStyle.DASHED:
         ax.plot(
@@ -1219,6 +1196,30 @@ def _draw_edge(ax: Axes, edge: EdgeLayout, style: PedigreeStyle) -> None:
             linewidth=lw,
             linestyle="--",
             zorder=1,
+        )
+
+
+def _draw_separation(ax: Axes, edge: EdgeLayout, style: PedigreeStyle) -> None:
+    """A separated couple's relationship line, stopped round its two slashes (#141).
+
+    The geometry is `symbols.separation_marks`'; the slashes carry the gid
+    "separation-mark".
+    """
+    line, slashes = symbols.separation_marks(
+        edge.start, edge.end, style.shape_size / 2, edge.has_descent
+    )
+    for (px0, py0), (px1, py1) in line:
+        ax.plot(
+            [px0, px1], [py0, py1], color=style.line_color, linewidth=style.line_width, zorder=1
+        )
+    for (px0, py0), (px1, py1) in slashes:
+        ax.plot(
+            [px0, px1],
+            [py0, py1],
+            color=style.line_color,
+            linewidth=style.line_width,
+            zorder=2,
+            gid="separation-mark",
         )
 
 

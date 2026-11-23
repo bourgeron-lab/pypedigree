@@ -1153,6 +1153,7 @@ def _compute_edges(
                 end=(right_x - half_shape, y),
                 edge_type=EdgeType.RELATIONSHIP,
                 line_style=line_style,
+                has_descent=bool(union.children_ids),
             )
         )
 
@@ -1771,6 +1772,12 @@ def _build_circular_nodes(
     return nodes
 
 
+def _circular_sex(family: Family, sid: str) -> Sex:
+    """The shape drawn for ``sid`` (a duplicate's is its original's)."""
+    ind = family.individuals[sid]
+    return symbols.symbol_sex(ind.sex, ind.notation)
+
+
 def _compute_circular_edges(
     family: Family,
     xy: dict[str, tuple[float, float]],
@@ -1828,16 +1835,26 @@ def _compute_circular_edges(
         elif union.is_broken:
             line_style = LineStyle.BROKEN
 
+        children = [cid for cid in union.children_ids if cid in xy]
+        start, end = (x1, y1), (x2, y2)
+        if line_style == LineStyle.BROKEN:
+            # From outline to outline, so the separation marks (#141), placed
+            # along the line, fall between the partners and not inside them.
+            direction = math.atan2(y2 - y1, x2 - x1)
+            r1 = symbols.shape_reach(_circular_sex(family, p1), half, direction)
+            r2 = symbols.shape_reach(_circular_sex(family, p2), half, direction + math.pi)
+            ux, uy = math.cos(direction), math.sin(direction)
+            start, end = (x1 + r1 * ux, y1 + r1 * uy), (x2 - r2 * ux, y2 - r2 * uy)
         edges.append(
             EdgeLayout(
-                start=(x1, y1),
-                end=(x2, y2),
+                start=start,
+                end=end,
                 edge_type=EdgeType.RELATIONSHIP,
                 line_style=line_style,
+                has_descent=bool(children),
             )
         )
 
-        children = [cid for cid in union.children_ids if cid in xy]
         if not children:
             continue
 

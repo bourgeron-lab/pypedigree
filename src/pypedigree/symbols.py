@@ -97,6 +97,20 @@ TWIN_MARK_INK_HALF_W_EM = 0.223
 TWIN_MARK_INK_HALF_H_EM = 0.371
 TWIN_MARK_INK_MIDDLE_EM = 0.371
 
+# Separation (a broken relationship): two parallel slashes across the
+# relationship line, which stops on either side of them (#141). In half
+# symbol sizes, as the other line notation, so they always fit between the
+# partner and the line of descent, whatever the drawing's scale: their height,
+# their lean (run per unit of height), the distance between them, and the gap
+# the line leaves beyond their ends. They shrink on a line too short for them.
+SEPARATION_MARK_HEIGHT = 0.6
+SEPARATION_MARK_SLANT = 0.3
+SEPARATION_MARK_SPACING = 0.35
+SEPARATION_MARK_PAD = 0.05
+# The share of their room (from the partner to the line of descent) the marks
+# and the line's gap may take at most; the line keeps the rest.
+SEPARATION_MARK_ROOM = 0.75
+
 # The "?" standing for an unknown child, relative to the style's font size.
 UNKNOWN_OFFSPRING_TEXT = "?"
 UNKNOWN_OFFSPRING_FONT_SCALE = 2.0
@@ -896,6 +910,64 @@ def twin_mark_offset(
         if across > 1e-9:
             reach = max(reach, (clear + extent) / across)
     return bx * reach, by * reach
+
+
+Segment = tuple[tuple[float, float], tuple[float, float]]
+
+
+def separation_marks(
+    start: tuple[float, float],
+    end: tuple[float, float],
+    half: float,
+    descent: bool,
+    up: float = 1.0,
+) -> tuple[list[Segment], list[Segment]]:
+    """A separated couple's relationship line and its two slashes (#141).
+
+    NSGC 2022 draws a separation as two slashes across the relationship line.
+    They go in the middle of the room between the partner at ``start`` and the
+    line of descent hanging from the line's middle (``descent``), or in the
+    middle of the line without one, so the line of descent never runs through
+    them; the line stops `SEPARATION_MARK_PAD` beyond their ends. Sized in
+    half symbol sizes (``half``) and shrunk to `SEPARATION_MARK_ROOM` of their
+    room, so they fit at any scale. Along an oblique line (circular layout)
+    they turn with it.
+
+    Args:
+        start: Start of the relationship line (a partner's outline).
+        end: Its end (the other partner's outline).
+        half: Half the symbol size.
+        descent: Whether a line of descent hangs from the middle.
+        up: +1 with the y axis pointing up (PNG), -1 pointing down (SVG), so
+            the slashes lean forward ("/") on the page.
+
+    Returns:
+        The pieces of the relationship line, then the two slashes, each a
+        (start, end) segment in layout units.
+    """
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    length = math.hypot(dx, dy)
+    ux, uy = (dx / length, dy / length) if length else (1.0, 0.0)
+    vx, vy = -uy * up, ux * up  # across the line, "up" on the page
+
+    def point(along: float, across: float = 0.0) -> tuple[float, float]:
+        return (start[0] + along * ux + across * vx, start[1] + along * uy + across * vy)
+
+    room = length / 2 if descent else length
+    centre = room / 2
+    rise = SEPARATION_MARK_HEIGHT * half / 2
+    spacing = SEPARATION_MARK_SPACING * half
+    pad = SEPARATION_MARK_PAD * half
+    run = SEPARATION_MARK_SLANT * rise
+    reach = spacing / 2 + run + pad
+    shrink = min(1.0, SEPARATION_MARK_ROOM * room / 2 / reach) if reach else 1.0
+    rise, spacing, run, reach = rise * shrink, spacing * shrink, run * shrink, reach * shrink
+    line = [(point(0.0), point(centre - reach)), (point(centre + reach), point(length))]
+    slashes = [
+        (point(c - run, -rise), point(c + run, rise))
+        for c in (centre - spacing / 2, centre + spacing / 2)
+    ]
+    return line, slashes
 
 
 def text_lines_below(ind: Individual) -> int:
