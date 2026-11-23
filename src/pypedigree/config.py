@@ -243,6 +243,11 @@ class PedigreeStyle:
     # hand: the layout keeps it right of a right-hand partner, whose box is
     # drawn on that side (#78). 0 without PGS curves.
     pgs_box_room: float = 0.0
+    # Width of the PGS boxes, in layout units, when wider than usual: set by
+    # `apply_pgs_spacing` to hold all of an individual's dots side by side
+    # (`phenotypes.pgs_box_width`, #147). 0: the usual width. Read through
+    # `phenotypes.box_width`.
+    pgs_box_width: float = 0.0
 
     # The legend's fixed wording (#79), by role: "key_note", "shared_binary",
     # "affected", "unaffected", "unknown", "pgs", "ptdt", "male", "female",
@@ -591,6 +596,7 @@ def apply_pgs_spacing(
     style: PedigreeStyle,
     phenotype_names: Sequence[str] | None = None,
     values_width: float = 0.0,
+    box_width: tuple[float, float] = (0.0, 0.0),
 ) -> PedigreeStyle:
     """Widen node spacing to make room for PGS distribution curves.
 
@@ -604,6 +610,9 @@ def apply_pgs_spacing(
         phenotype_names: Ordered phenotype column names of the pedigree.
         values_width: Room for the values written left of the curves, in
             layout units (`phenotypes.pgs_values_width`; 0 without them).
+        box_width: The boxes' width and how much wider than usual it is, in
+            layout units (`phenotypes.pgs_box_width`, #147); the extra is
+            added to the room.
 
     Returns:
         A new PedigreeStyle, widened if any PGS column is present, else
@@ -612,12 +621,14 @@ def apply_pgs_spacing(
     if not any(is_curve_column(n) for n in (phenotype_names or [])):
         return style
 
-    pgs_extra = style.shape_size * 0.55 + values_width
+    width, wider = box_width
+    pgs_extra = style.shape_size * 0.55 + values_width + wider
     return replace(
         style,
         couple_gap=style.couple_gap + pgs_extra,
         sibling_gap=style.sibling_gap + pgs_extra,
         pgs_box_room=pgs_extra,
+        pgs_box_width=width if wider > 0 else 0.0,
     )
 
 

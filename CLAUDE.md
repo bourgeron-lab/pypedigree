@@ -425,6 +425,12 @@ Multi-phenotype support:
   `active_pgs(node, names, scale)`, `pgs_position(z) = 0.5 + z * PGS_CURVE_SIGMA` on fixed scales,
   `pgs_tail_positions()` (±2 SD dotted lines), `pgs_value_text()` for the SVG tooltip. Curves (and the
   legend) are drawn even with no other phenotype column. `tests/test_pgs_scale.py`
+- PGS boxes and dots (#147): `phenotypes.pgs_box_width` widens the boxes to hold an individual's dots
+  (`pgs_dot_count`: the columns of the more numerous kind) side by side at full size at the style's
+  text scale; each renderer passes it to `apply_pgs_spacing`, which adds the extra to the room and
+  keeps the width in `style.pgs_box_width` (read through `phenotypes.box_width`, everywhere a box is
+  placed or drawn). Drawn smaller than planned, `pgs_dot_size` shrinks the dots to fit (not below
+  `PGS_DOT_MIN_PT`), at draw time in the PNG, at `pt` in the SVG; PNG dots have no edge, as SVG circles.
 - PGS markers (#54): dots closer than `PGS_DOT_PT` are set side by side (`phenotypes.spread_dots`,
   `PGS_DOT_SPREAD` diameters apart, closer when the group would pass the box's width, #89); with `show_pgs_values` each value (`pgs_marker_text`:
   "+2.1"/U+2212 minus, percentile, 3 significant digits) is written left of the box, right-aligned,

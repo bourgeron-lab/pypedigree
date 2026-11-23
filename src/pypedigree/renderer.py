@@ -115,10 +115,12 @@ from pypedigree.phenotypes import (
     outline_reach,
     outline_ring_offsets,
     pgs_box_left,
+    pgs_box_width,
     pgs_caption_above,
     pgs_caption_offset,
     pgs_curve_base,
     pgs_curve_x,
+    pgs_dot_size,
     pgs_marker_values,
     pgs_row_layout,
     pgs_tail_positions,
@@ -142,6 +144,7 @@ from pypedigree.phenotypes import (
     with_outline_rings,
     with_quadrants,
 )
+from pypedigree.phenotypes import box_width as pgs_box_w
 from pypedigree.transmission import with_transmission
 
 
@@ -203,7 +206,7 @@ def render_pedigree(
     warn_pgs_scale(pedigree.column_scope.individuals(), pgs_cols, style.pgs_scale)
     values_width = pgs_values_width(pedigree.individuals(), pgs_cols, style)
     # The only place the PGS spacing is applied (see `apply_pgs_spacing`).
-    style = apply_pgs_spacing(style, pheno_names, values_width)
+    style = apply_pgs_spacing(style, pheno_names, values_width, pgs_box_width(pgs_cols, style))
     # A subset is drawn as in the whole file (`Pedigree.column_scope`).
     scope = pedigree.column_scope
     pheno_render = resolve_phenotype_render(scope, pheno_names or [], display_modes, style)
@@ -2085,7 +2088,7 @@ def _draw_pgs_ridge(
     if not active:
         return
 
-    box_width = half * symbols.PGS_BOX_WIDTH
+    box_width = pgs_box_w(style)
     box_height = half * 2
     # Left of the symbol, or right of a right-hand partner (#78).
     box_left = pgs_box_left(node, style, ring)
@@ -2216,7 +2219,16 @@ class _PgsMarks(Artist):
         )
         for name, _value in active:
             color = style.pgs_colors.get(name, DEFAULT_PGS_COLOR)
-            dot = Line2D([], [], marker="o", color=color, markersize=PGS_DOT_PT, linestyle="none")
+            # No edge: the dot is its markersize across, as the SVG circle (#147).
+            dot = Line2D(
+                [],
+                [],
+                marker="o",
+                color=color,
+                markersize=PGS_DOT_PT,
+                markeredgewidth=0,
+                linestyle="none",
+            )
             dot.set_figure(ax.figure)
             dot.set_transform(ax.transData)
             self._dots.append(dot)
@@ -2242,10 +2254,13 @@ class _PgsMarks(Artist):
         origin, unit = self._ax.transData.transform([(0.0, 0.0), (1.0, 0.0)])
         pixels_per_unit = abs(unit[0] - origin[0]) or 1.0
         pt = renderer.points_to_pixels(1.0) / pixels_per_unit  # layout units per point
-        # Within the box, so no dot reaches the symbol (#89).
-        offsets = spread_dots(self._ys, PGS_DOT_PT * pt, box_width)
+        # Within the box, so no dot reaches the symbol (#89), and smaller when
+        # the box cannot hold them all side by side (#147).
+        size = pgs_dot_size(len(self._dots), box_width, pt)
+        offsets = spread_dots(self._ys, size, box_width)
         for dot, y, dx in zip(self._dots, self._ys, offsets, strict=True):
             dot.set_data([box_left + box_width / 2 + dx], [y])
+            dot.set_markersize(size / pt)
         step = PGS_VALUE_LINE_EM * self._size * pt
         top = box_bottom + box_height
         placed = spread_labels(self._ys, step, box_bottom + step / 2, top - step / 2)

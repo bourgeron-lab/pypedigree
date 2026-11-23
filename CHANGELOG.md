@@ -114,6 +114,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   large text the asterisk ran into the arrow's tail (#143). The arrow now keeps the asterisk's gap
   from the widest-reaching asterisk of the generation; at the default style nothing moves.
   `symbols.marker_clearance(..., neighbour_mark=)`, `symbols.evaluation_mark_reach`.
+- With several PGS per individual, the dots covered each other when the pedigree was drawn small
+  (four 3 pt dots set 2.5 pt apart in the paper's Fig. 1b) (#147). The PGS box now widens to hold all
+  of an individual's dots side by side at full size, at the style's text scale (`text_scale`, #145),
+  and the layout keeps room for it; drawn smaller than that, the dots shrink to fit (down to 1.5 pt).
+  The PNG's dots lose their 1 pt edge, which made them larger than the SVG's: goldens `ptdt`,
+  `legend_minimal`, `multi_phenotype_pgs` and `circular_test_all` change by their dots' rims.
+  `phenotypes.pgs_box_width`, `box_width`, `pgs_dot_size`, `pgs_dot_count`; `PedigreeStyle.pgs_box_width`
+  (set by `apply_pgs_spacing`).
 - A long line of text under one partner of a couple crossed the couple's descent line (#130): the
   couple was spaced for the sum of the two partners' labels (#41), so they did not meet, but the
   descent line starts in the middle, and since #120 a CanRisk panel's gene line ("BRCA1, BRCA2,

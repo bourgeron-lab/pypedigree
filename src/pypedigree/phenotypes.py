@@ -1333,7 +1333,7 @@ def pgs_box_left(node: NodeLayout, style: PedigreeStyle, ring: float = 0.0) -> f
     )
     if node.pgs_side == "right":
         return node.x + near
-    return node.x - near - half * symbols.PGS_BOX_WIDTH
+    return node.x - near - box_width(style)
 
 
 def pgs_values_x(node: NodeLayout, box_left: float, box_w: float, gap: float) -> tuple[float, str]:
@@ -1552,6 +1552,7 @@ def pgs_value_text(raw: float, scale: str) -> str:
 MINUS = "\u2212"  # the typographic minus of the values written beside the curve
 PGS_DOT_PT = 3.0  # diameter of a PGS marker's dot, in points
 PGS_DOT_SPREAD = 1.5  # distance between the centres of dots set side by side, in diameters
+PGS_DOT_MIN_PT = 1.5  # the smallest a dot is drawn to fit its box (#147), in points
 PGS_BOX_PAD = 0.02  # how far the curve's rounded box reaches past its edge, in layout units
 PGS_VALUE_GAP_EM = 0.4  # between a value and the curve's box, in ems of the value
 PGS_VALUE_LINE_EM = 1.15  # smallest distance between two values' centres, in ems
@@ -1606,6 +1607,60 @@ def pgs_values_width(
     if not widths:
         return 0.0
     return max(widths) + PGS_VALUE_GAP_EM * size * upp + PGS_BOX_PAD
+
+
+def pgs_dot_count(pgs_names: Sequence[str]) -> int:
+    """The most dots one individual's box can hold: the columns of the more
+    numerous kind, PGS or pTDT (`active_pgs` gives one kind per individual)."""
+    ptdt = sum(1 for n in pgs_names if is_ptdt_column(n))
+    return max(ptdt, len(pgs_names) - ptdt)
+
+
+def pgs_box_width(pgs_names: Sequence[str], style: PedigreeStyle) -> tuple[float, float]:
+    """Width of the PGS boxes, and how much wider than usual, in layout units (#147).
+
+    `symbols.PGS_BOX_WIDTH` half-sizes, or wider to hold all of an
+    individual's dots side by side at full size, `PGS_DOT_SPREAD` diameters
+    apart (`spread_dots`), at the style's text scale
+    (`symbols.units_per_point`): with several scores the usual box made them
+    cover each other when drawn small. Each renderer passes it to
+    `config.apply_pgs_spacing`, which keeps it in the style (`box_width`).
+    """
+    usual = style.shape_size / 2 * symbols.PGS_BOX_WIDTH
+    count = pgs_dot_count(pgs_names)
+    if count < 2:
+        return usual, 0.0
+    dot = PGS_DOT_PT * symbols.units_per_point(style.text_scale)
+    width = max(usual, dot * (1 + (count - 1) * PGS_DOT_SPREAD))
+    return width, width - usual
+
+
+def box_width(style: PedigreeStyle) -> float:
+    """Width of the PGS boxes, in layout units: set by `apply_pgs_spacing`
+    when wider than usual (#147), else `symbols.PGS_BOX_WIDTH` half-sizes."""
+    return style.pgs_box_width or style.shape_size / 2 * symbols.PGS_BOX_WIDTH
+
+
+def pgs_dot_size(count: int, width: float, pt: float) -> float:
+    """Diameter of an individual's PGS dots, in layout units (#147).
+
+    `PGS_DOT_PT`, or smaller when the box (inner ``width``) cannot hold all
+    ``count`` of the individual's dots side by side, `PGS_DOT_SPREAD`
+    diameters apart, as `spread_dots` sets them when their scores coincide:
+    drawn small, full-size dots covered each other. Never below
+    `PGS_DOT_MIN_PT`. Both renderers size the dots with this at the scale
+    they draw at (``pt`` layout units per point).
+
+    Args:
+        count: How many dots the individual has (one per score).
+        width: The box's inner width, in layout units.
+        pt: Layout units per point at the drawing's scale.
+    """
+    full = PGS_DOT_PT * pt
+    if count < 2:
+        return full
+    fit = width / (1 + (count - 1) * PGS_DOT_SPREAD)
+    return min(full, max(PGS_DOT_MIN_PT * pt, fit))
 
 
 def spread_dots(ys: Sequence[float], dot: float, width: float | None = None) -> list[float]:
