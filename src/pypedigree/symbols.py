@@ -135,6 +135,17 @@ MARKER_LETTER_GAP_EM = 0.2
 # it with this.
 UNITS_PER_POINT = 0.02
 
+
+def units_per_point(text_scale: float = 1.0) -> float:
+    """Layout units per point the layout plans text and marks at (#145).
+
+    `UNITS_PER_POINT` times ``PedigreeStyle.text_scale``: a pedigree drawn
+    smaller than that scale needs more room for what is sized in points.
+    The SVG draws at this scale; the PNG draws its own figures no smaller.
+    """
+    return UNITS_PER_POINT * text_scale
+
+
 # Text widths, in ems, for the room the proband marker needs: the bold "P"
 # (0.73 in DejaVu Sans Bold), one character of a label (digits are 0.64),
 # and the space kept between the "P" and the neighbour's label.
@@ -289,17 +300,21 @@ BAND_TEXT_SCALE = 0.75  # text inside a phenotype band
 NA_TEXT_SCALE = 0.85  # the single "NA" of a symbol with no data at all
 
 
-def text_width(text: str, font_size: float, *, bold: bool = False) -> float:
+def text_width(
+    text: str, font_size: float, *, bold: bool = False, upp: float = UNITS_PER_POINT
+) -> float:
     """Width of one line of text, in layout units.
 
-    Measured in DejaVu Sans (Bold with ``bold``) and converted with
-    `UNITS_PER_POINT`, the scale of the interactive SVG, where text takes
-    the most room.
+    Measured in DejaVu Sans (Bold with ``bold``) and converted with ``upp``
+    layout units per point: `UNITS_PER_POINT` by default, the scale of the
+    interactive SVG, where text takes the most room; the layout passes
+    `units_per_point` of its style (#145).
 
     Args:
         text: The line of text.
         font_size: Font size, in points.
         bold: Measure in DejaVu Sans Bold (band and quadrant text).
+        upp: Layout units per point.
     """
     table = _CHAR_EM_BOLD if bold else _CHAR_EM
     em = 0.0
@@ -314,7 +329,7 @@ def text_width(text: str, font_size: float, *, bold: bool = False) -> float:
             else:
                 width = _OTHER_CHAR_EM
         em += width
-    return em * font_size * UNITS_PER_POINT
+    return em * font_size * upp
 
 
 def below_label_offsets(
@@ -345,7 +360,11 @@ def below_label_offsets(
 
 
 def label_width(
-    label: str, below: list[str], font_size: float, below_size: float | None = None
+    label: str,
+    below: list[str],
+    font_size: float,
+    below_size: float | None = None,
+    upp: float = UNITS_PER_POINT,
 ) -> float:
     """Width of the text drawn under a symbol, in layout units.
 
@@ -357,13 +376,14 @@ def label_width(
         below_size: The size of the lines below, in points (default:
             `SMALL_TEXT_SCALE` times ``font_size``; the renderers pass
             `PedigreeStyle.text_size(SMALL_TEXT_SCALE)`).
+        upp: Layout units per point (`units_per_point`, #145).
     """
     if not label:
         return 0.0
     if below_size is None:
         below_size = font_size * SMALL_TEXT_SCALE
-    widths = [text_width(label, font_size)]
-    widths += [text_width(line, below_size) for line in below]
+    widths = [text_width(label, font_size, upp=upp)]
+    widths += [text_width(line, below_size, upp=upp) for line in below]
     return max(widths)
 
 
@@ -488,7 +508,12 @@ def marker_points(tip_x: float, tip_y: float, em: float, up: float = 1.0) -> tup
 
 
 def marker_clearance(
-    half: float, font_size: float, label_chars: int, letter: bool, neighbour_mark: float = 0.0
+    half: float,
+    font_size: float,
+    label_chars: int,
+    letter: bool,
+    neighbour_mark: float = 0.0,
+    upp: float = UNITS_PER_POINT,
 ) -> float:
     """Distance to the left neighbour that keeps the marker off their label.
 
@@ -508,8 +533,9 @@ def marker_clearance(
         neighbour_mark: How far the neighbour's asterisk reaches right of
             their centre, its gap included (`evaluation_mark_reach` +
             `EVALUATION_MARK_GAP_EM`), or 0 without one.
+        upp: Layout units per point (`units_per_point`, #145).
     """
-    em = font_size * UNITS_PER_POINT
+    em = font_size * upp
     tail = half + em * MARKER_ARROW_EM
     reach = tail
     if letter:
@@ -729,6 +755,7 @@ def pgs_box_near(
     ring: float = 0.0,
     line_width: float = 0.0,
     bracket_width: float | None = None,
+    upp: float = UNITS_PER_POINT,
 ) -> float:
     """From a symbol's centre to the near edge of its PGS box, in layout units.
 
@@ -754,6 +781,8 @@ def pgs_box_near(
             points, or None without brackets: the box keeps its gap from the
             bracket's stroke (#136), and the asterisk is outside the right
             bracket (`evaluation_mark_placement`).
+        upp: Layout units per point the marks are measured at
+            (`units_per_point`, #145).
     """
     grown = grown_half(sex, half, ring) if ring else half
     near = shape_half_width(sex, grown) + half * PGS_BOX_GAP
@@ -761,10 +790,10 @@ def pgs_box_near(
         near = max(near, ring + half * (1 + DECEASED_OVERSHOOT + PGS_DECEASED_MARGIN))
     if bracket_width is not None:
         # Brackets on both sides: the gap is from the bracket's stroke (#136).
-        outside = bracket_offset(grown, sex) + bracket_width / 2 * UNITS_PER_POINT
+        outside = bracket_offset(grown, sex) + bracket_width / 2 * upp
         near = max(near, outside + half * PGS_BOX_GAP)
     if side == "right" and evaluated:
-        mark_right = evaluation_mark_reach(grown, sex, mark_size, line_width, bracket_width)
+        mark_right = evaluation_mark_reach(grown, sex, mark_size, line_width, bracket_width, upp)
         near = max(near, mark_right + half * PGS_BOX_GAP)
     return near
 
@@ -841,14 +870,16 @@ def evaluation_mark_reach(
     size: float,
     line_width: float,
     bracket_width: float | None = None,
+    upp: float = UNITS_PER_POINT,
 ) -> float:
     """From a symbol's centre to the right edge of its asterisk's ink, in
-    layout units at the text scale (`UNITS_PER_POINT`), as the layout plans
-    room (`pgs_box_near`, `marker_clearance`)."""
+    layout units at ``upp`` units per point (the text scale by default,
+    `units_per_point`, #145), as the layout plans room (`pgs_box_near`,
+    `marker_clearance`)."""
     mark_x, _ = evaluation_mark_position(
-        0.0, 0.0, half, sex, size, line_width, UNITS_PER_POINT, bracket_width=bracket_width
+        0.0, 0.0, half, sex, size, line_width, upp, bracket_width=bracket_width
     )
-    return mark_x + EVALUATION_MARK_INK_HALF_W_EM * size * UNITS_PER_POINT
+    return mark_x + EVALUATION_MARK_INK_HALF_W_EM * size * upp
 
 
 def evaluation_mark_position(

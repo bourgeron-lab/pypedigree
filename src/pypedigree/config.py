@@ -134,6 +134,14 @@ class PedigreeStyle:
     # 6 pt at print size, which those fractions miss unless the labels are
     # made much larger (#51). See `text_size`.
     min_font_size: float | None = None
+    # How many times larger text and marks sized in points are, relative to
+    # the symbols, than at the default text scale (#145; see
+    # `symbols.units_per_point`). Set it for a pedigree drawn into axes of
+    # your own smaller than that scale: 2.0 for one drawn half as large. The
+    # layout keeps room for text and marks at that scale, the SVG draws them
+    # at it, and `render_pedigree` draws its own figures no smaller. 1.0
+    # changes nothing.
+    text_scale: float = 1.0
 
     # Layout spacing
     generation_gap: float = 2.0
@@ -560,6 +568,23 @@ def _lab_distance(a: tuple[float, float, float], b: tuple[float, float, float]) 
 
     la, lb = lab(a), lab(b)
     return float(sum((p - q) ** 2 for p, q in zip(la, lb, strict=True)) ** 0.5)
+
+
+def check_text_scale(style: PedigreeStyle) -> None:
+    """Reject a ``text_scale`` that is not a positive number, before any layout.
+
+    Raises:
+        PedigreeError: If ``style.text_scale`` is not a finite number above zero.
+    """
+    from pypedigree.errors import PedigreeError
+
+    value = style.text_scale
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not 0 < value < float("inf")
+    ):
+        raise PedigreeError(f"text_scale must be a number above zero; got {value!r}")
 
 
 def apply_pgs_spacing(

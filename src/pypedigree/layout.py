@@ -19,7 +19,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 
 from pypedigree import symbols
-from pypedigree.config import PedigreeStyle
+from pypedigree.config import PedigreeStyle, check_text_scale
 from pypedigree.errors import PedigreeError
 from pypedigree.models import (
     Adoption,
@@ -56,6 +56,7 @@ def compute_layout(
     if style is None:
         style = PedigreeStyle()
     check_labels(style)
+    check_text_scale(style)
 
     if not family.individuals:
         return FamilyLayout(family_id=family.family_id)
@@ -319,6 +320,7 @@ class _HierarchicalPlacer:
         style = self.style
         half = style.shape_size / 2
         mark_size = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
+        upp = symbols.units_per_point(style.text_scale)
         longest: dict[int, int] = {}
         # The asterisks of the generation, as far as they reach right of
         # their symbol, gap included (#143): any of them may be on the left.
@@ -331,9 +333,9 @@ class _HierarchicalPlacer:
                 brackets = style.line_width if ind.notation.adoption is not None else None
                 sex = symbols.symbol_sex(ind.sex, ind.notation)
                 reach = symbols.evaluation_mark_reach(
-                    half, sex, mark_size, style.shape_line_width, brackets
+                    half, sex, mark_size, style.shape_line_width, brackets, upp
                 )
-                reach += symbols.EVALUATION_MARK_GAP_EM * mark_size * symbols.UNITS_PER_POINT
+                reach += symbols.EVALUATION_MARK_GAP_EM * mark_size * upp
                 marks.setdefault(g, []).append((reach, sid))
         room: dict[str, float] = {}
         for sid, g in self.gen.items():
@@ -341,7 +343,7 @@ class _HierarchicalPlacer:
             if ind.is_proband or ind.notation.is_consultand:
                 mark = max((r for r, other in marks.get(g, []) if other != sid), default=0.0)
                 need = symbols.marker_clearance(
-                    half, style.text_size(), longest[g], ind.is_proband, neighbour_mark=mark
+                    half, style.text_size(), longest[g], ind.is_proband, mark, upp
                 )
                 if need > style.sibling_gap:
                     room[sid] = need
@@ -359,14 +361,15 @@ class _HierarchicalPlacer:
         """
         style = self.style
         size, small = style.text_size(), style.text_size(symbols.SMALL_TEXT_SCALE)
-        pad = symbols.LABEL_GAP_EM * size * symbols.UNITS_PER_POINT
+        upp = symbols.units_per_point(style.text_scale)
+        pad = symbols.LABEL_GAP_EM * size * upp
         reach: dict[str, float] = {}
         for sid in self.gen:
             ind = self.family.individuals[sid]
             label = _get_node_label(sid, ind, style)
             below = symbols.notes(ind) + [v for v in ind.annotations.values() if v]
             if label:
-                reach[sid] = (symbols.label_width(label, below, size, small) + pad) / 2
+                reach[sid] = (symbols.label_width(label, below, size, small, upp) + pad) / 2
         return reach
 
     def _label_room(self, sid: str) -> float:
@@ -428,6 +431,7 @@ class _HierarchicalPlacer:
             struck=symbols.is_struck_through(ind),
             line_width=style.shape_line_width,
             bracket_width=style.line_width if ind.notation.adoption is not None else None,
+            upp=symbols.units_per_point(style.text_scale),
         )
         # Measured from a square's box: a diamond reaches further (#111).
         return near - symbols.pgs_box_near(half, Sex.MALE, False, size, side)
@@ -1030,7 +1034,7 @@ def _room_below_labels(family: Family, style: PedigreeStyle, extra_lines: int = 
     """Extra generation gap for what sits below the symbols.
 
     Each line of notes or annotations takes its step below the line above
-    (`symbols.below_label_offsets`, at the SVG's scale: 0.25, more for text
+    (`symbols.below_label_offsets`, at the style's text scale: 0.25, more for text
     enlarged by ``min_font_size``, #66) plus `_LINE_BELOW_MARGIN`, and a
     childlessness marker its own depth, for the individual who needs the
     most room. `extra_lines` more for everyone (the ID under an NSGC number,
@@ -1041,7 +1045,8 @@ def _room_below_labels(family: Family, style: PedigreeStyle, extra_lines: int = 
     def text_room(lines: int) -> float:
         if not lines:
             return 0.0
-        offsets = symbols.below_label_offsets(size, [small] * lines, symbols.UNITS_PER_POINT)
+        upp = symbols.units_per_point(style.text_scale)
+        offsets = symbols.below_label_offsets(size, [small] * lines, upp)
         return offsets[-1] + lines * _LINE_BELOW_MARGIN
 
     return max(
@@ -1625,6 +1630,7 @@ def compute_layout_circular(
     # placement (the family may gain duplicate nodes there).
     family, generations, x_positions = _place_hierarchically(family, style, labels=False)
     check_labels(style)
+    check_text_scale(style)
 
     # Step 3: Angles and ring radii
     angles, radii = _circular_positions(family, generations, x_positions, style)
