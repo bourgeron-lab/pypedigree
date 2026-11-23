@@ -81,6 +81,7 @@ def compute_layout(
     twin_connectors = _compute_twin_connectors(family, x_positions, generations, style, twin_groups)
 
     edges += _childless_edges(nodes, style)
+    edges += _couple_childless_edges(family, nodes, style)
 
     # Step 7: Compute duplicate arcs
     positions = {
@@ -979,6 +980,33 @@ def _individual_line_style(family: Family, child_id: str) -> LineStyle:
     return LineStyle.SOLID
 
 
+def _couple_childless_edges(
+    family: Family, nodes: list[NodeLayout], style: PedigreeStyle, *, outward: bool = False
+) -> list[EdgeLayout]:
+    """A couple's childlessness marker (#104): from the middle of the line
+    between the partners, down (outward in the circular layout), one or two
+    bars."""
+    half = style.shape_size / 2
+    at = {n.individual_id: (n.x, n.y) for n in nodes}
+    edges = []
+    for union in family.unions:
+        if union.childlessness is None or union.children_ids:
+            continue
+        a, b = union.partner_ids
+        if a not in at or b not in at:
+            continue
+        x = (at[a][0] + at[b][0]) / 2
+        y = (at[a][1] + at[b][1]) / 2
+        direction = -math.pi / 2
+        if outward and (x or y):
+            direction = math.atan2(y, x)
+        for start, end in symbols.couple_childless_segments(
+            x, y, half, union.childlessness, direction
+        ):
+            edges.append(EdgeLayout(start=start, end=end, edge_type=EdgeType.CHILDLESS))
+    return edges
+
+
 def _childless_edges(nodes: list[NodeLayout], style: PedigreeStyle) -> list[EdgeLayout]:
     """Childlessness markers: a stem below the symbol and one or two bars.
 
@@ -989,8 +1017,8 @@ def _childless_edges(nodes: list[NodeLayout], style: PedigreeStyle) -> list[Edge
     edges = []
     for node in nodes:
         kind = node.notation.childlessness
-        if kind is None:
-            continue
+        if kind is None or node.notation.childless_partner is not None:
+            continue  # a couple's marker hangs from their line (#104)
         direction = node.label_angle if node.label_angle is not None else -math.pi / 2
         for start, end in symbols.childless_segments(
             node.x, node.y, node.sex, half, kind, direction
@@ -1532,6 +1560,7 @@ def compute_layout_circular(
         family, xy, angles, radii, generations, style, twin_groups
     )
     edges += _childless_edges(nodes, style)
+    edges += _couple_childless_edges(family, nodes, style, outward=True)
 
     return FamilyLayout(
         family_id=family.family_id,

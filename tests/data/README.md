@@ -28,7 +28,7 @@ reproduction case to a fabricated file that still shows the bug.
 | `extended/` | Deceased, proband, date-of-birth ordering, partial column sets |
 | `twins/` | Monozygotic, dizygotic, unknown zygosity, triplets, one-sided |
 | `consanguinity/` | First cousins, uncle–niece, sibling union |
-| `nomenclature/` | Pregnancies and pregnancy losses, adoption, childlessness, gamete donor, gender identity, consultand |
+| `nomenclature/` | Pregnancies and pregnancy losses, adoption, childlessness, gamete donor, gender identity, consultand; several individuals in one symbol, asymptomatic carriers and a childless couple (`group_carrier_couple.ped`) |
 | `multi_partner/` | Individuals with several partners, duplicate nodes |
 | `phenotype/` | Multi-phenotype bands, prefixes, PGS, annotations, carriers, the quadrant layout (`quadrants.ped`), several outline columns (`outline_rings.ped`), cancers that do not apply to one sex (`not_applicable.ped`, N/A cells), the minimal legend (`legend_minimal.ped` with `legend_minimal.json`), clinical thresholds (`gradient_bins.ped` with `gradient_bins.json`), pTDT deviations (`ptdt.ped` with `ptdt.json`) |
 | `plink/` | `.fam` files and PLINK `.ped` with genotype columns |

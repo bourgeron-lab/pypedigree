@@ -280,10 +280,12 @@ its 2022 revision).
 |--------|-------|----------|
 | `pregnancy` (`pregnancy_outcome`, `outcome`) | `P` ongoing pregnancy, `SAB` miscarriage, `TOP` termination, `ECT` ectopic, `SB` stillbirth | `P`: "P" inside the symbol (a diamond when the sex is unknown). `SAB`, `TOP`, `ECT`: a triangle, filled when affected, struck through for `TOP`, "ECT" below. `SB`: the symbol struck through, "SB" below |
 | `adopted` (`adoption`) | `in` (or `1`): the parents given are the adoptive parents; `out` (or `2`): they are the biological parents | Brackets around the symbol; the line to adoptive parents is dashed |
-| `childless` (`childlessness`, `infertility`) | `choice` (or `1`): no children by choice or for an unknown reason; `infertility` (or `2`) | A line below the symbol ending in one bar, or two for infertility. Write the reason in an `a_` column |
+| `childless` (`childlessness`, `infertility`) | `choice` (or `1`): no children by choice or for an unknown reason; `infertility` (or `2`); `choice:<ID>` / `infertility:<ID>` for a couple without children | A line below the symbol ending in one bar, or two for infertility. Write the reason in an `a_` column |
 | `art` (`assisted_reproduction`) | `D` gamete donor, `S` surrogate (also `GC`) | "D" or "S" inside the symbol |
 | `gender_identity` (`identity`) | `man`/`M`/`1`, `woman`/`F`/`W`/`2`, `nonbinary`/`NB`/`X`/`3` | The symbol follows the gender identity (square, circle, diamond) and the `sex` column is taken as the sex assigned at birth, written below as AMAB or AFAB when the two differ |
 | `consultand` | `1` | An arrow without "P" (the proband's arrow has one) |
+| `count` (`number`) | a number of 2 or more, or `n` | Several individuals in one symbol: the number written inside. Cannot be a parent |
+| `asymptomatic` (`presymptomatic`) | `1` | Asymptomatic or presymptomatic carrier: a vertical line through the symbol, past its top and bottom (a figure with one is drawn with bands under `phenotype_layout` "auto") |
 | `evaluated` | `1`, or a result such as `WGS: negative` | Documented evaluation: an asterisk at the lower right; a result is written below the symbol |
 
 A column named `gender` is the sex column, as before, unless the header also

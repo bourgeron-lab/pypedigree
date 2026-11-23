@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Three NSGC notations (#104). Several individuals in one symbol: a `count` column (alias
+  `number`; 2 or more, or `n`) writes the number inside the symbol; such a row cannot be a parent
+  and is left out of `.fam` and Phenopackets exports with a warning. An asymptomatic or
+  presymptomatic carrier: an `asymptomatic` column (alias `presymptomatic`) draws a vertical line
+  through the symbol, past its top and bottom, with a legend row; as it runs where quadrants
+  meet, `phenotype_layout` "auto" then draws bands, and "quadrants" warns; with carrier sections
+  it warns too. A couple's childlessness: `childless` `choice:<ID>` or `infertility:<ID>` makes a
+  union with no children, its marker hanging from the middle of the relationship line (outward
+  in the circular layout); `PedigreeBuilder.add_union(..., childless=...)` and
+  `add_individual(..., count=, asymptomatic=)` too. Reference images `several_individuals.png`,
+  `asymptomatic_carrier.png`, `childless_couple.png`; fixture
+  `nomenclature/group_carrier_couple.ped`.
+
 - GA4GH Phenopackets v2 pedigrees (#108). A JSON `Family` or `Pedigree` is read by the CLI,
   `parse_pedigree()`, `parse_pedigree_from_string()` and the web app: persons, sex, affected
   status, the proband and deaths from the phenopackets; camelCase or snake_case names, fields

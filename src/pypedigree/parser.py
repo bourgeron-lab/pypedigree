@@ -127,6 +127,10 @@ _COLUMN_ROLES: dict[str, str] = {
     "gender_identity": "gender_identity",
     "identity": "gender_identity",
     "consultand": "consultand",
+    "count": "count",
+    "number": "count",
+    "asymptomatic": "asymptomatic",
+    "presymptomatic": "asymptomatic",
     "evaluated": "evaluated",
     "documented_evaluation": "evaluated",
     "evaluation": "evaluated",
@@ -141,6 +145,8 @@ _NOTATION_ROLES = (
     "gender_identity",
     "consultand",
     "evaluated",
+    "count",
+    "asymptomatic",
 )
 
 # Standard structural columns (order matters for the fixed-position fallback)
@@ -849,6 +855,34 @@ def _notation_value(
     return value
 
 
+def _split_childless(value: object) -> tuple[object, str | None]:
+    """A ``childless`` value and the partner of ``choice:<ID>`` /
+    ``infertility:<ID>`` (a couple's childlessness, #104)."""
+    if isinstance(value, str) and ":" in value:
+        code, partner = value.split(":", 1)
+        return code, partner.strip() or None
+    return value, None
+
+
+def _count(value: object, where: str) -> str | None:
+    """Several individuals in one symbol (#104): a number of 2 or more, or "n"."""
+    if value is None or value is False:
+        return None
+    text = str(value).strip()
+    if _is_missing(text):
+        return None
+    if text.lower() == "n":
+        return "n"
+    if text.isdigit() and int(text) >= 2:
+        return str(int(text))
+    raise PedigreeParseError(f"{where}count must be 2 or more, or n; got {value!r}")
+
+
+def _yes(value: object) -> bool:
+    """A yes in a flag column or keyword: True, 1, yes, y, true."""
+    return value is True or (isinstance(value, str) and value.strip().lower() in _TRUE_VALUES)
+
+
 def _coerce_notation(value: _E | str | None, role: str, codes: dict[str, _E]) -> _E | None:
     """An enum value given as such, or as one of the column's codes."""
     if value is None or isinstance(value, Enum):
@@ -896,27 +930,36 @@ def build_notation(
     gender: Gender | str | None = None,
     consultand: bool = False,
     evaluated: bool | str = False,
+    count: int | str | None = None,
+    asymptomatic: bool | str = False,
 ) -> Notation:
     """Build a Notation from enum values or the codes of the ``.ped`` columns.
 
     Accepts the same codes as the ``pregnancy``, ``adopted``, ``childless``,
     ``art`` and ``gender_identity`` columns (case-insensitive). ``evaluated``
     is True for a documented evaluation (an asterisk), or the evaluation's
-    result as text, written below the symbol.
+    result as text, written below the symbol. ``childless`` may name a
+    partner, ``"choice:<ID>"``, for a couple without children; ``count``
+    is the number of individuals the symbol stands for (2 or more, or "n");
+    ``asymptomatic`` marks an asymptomatic or presymptomatic carrier (#104).
 
     Raises:
         PedigreeParseError: If a value is not one of the accepted codes.
     """
     is_evaluated, evaluation = _evaluation(evaluated)
+    childless_code, partner = _split_childless(childless)
     return Notation(
         pregnancy=_coerce_notation(pregnancy, "pregnancy", _PREGNANCY_CODES),
         adoption=_coerce_notation(adopted, "adopted", _ADOPTION_CODES),
-        childlessness=_coerce_notation(childless, "childless", _CHILDLESS_CODES),
+        childlessness=_coerce_notation(childless_code, "childless", _CHILDLESS_CODES),  # type: ignore[arg-type]
         reproductive_role=_coerce_notation(art, "art", _ART_CODES),
         gender=_coerce_notation(gender, "gender_identity", _GENDER_CODES),
         is_consultand=consultand,
         is_evaluated=is_evaluated,
         evaluation=evaluation,
+        count=_count(count, ""),
+        is_asymptomatic=_yes(asymptomatic) if isinstance(asymptomatic, str) else bool(asymptomatic),
+        childless_partner=partner,
     )
 
 
@@ -930,15 +973,21 @@ def _parse_notation(raw: dict[str, str], line_num: int) -> Notation:
         PedigreeParseError: If a value is not one of the codes of its column.
     """
     is_evaluated, evaluation = _evaluation(raw.get("evaluated"))
+    childless, partner = _split_childless(raw.get("childless", ""))
     return Notation(
         pregnancy=_notation_value(raw, "pregnancy", _PREGNANCY_CODES, line_num),
         adoption=_notation_value(raw, "adopted", _ADOPTION_CODES, line_num),
-        childlessness=_notation_value(raw, "childless", _CHILDLESS_CODES, line_num),
+        childlessness=_notation_value(
+            {"childless": str(childless)}, "childless", _CHILDLESS_CODES, line_num
+        ),
         reproductive_role=_notation_value(raw, "art", _ART_CODES, line_num),
         gender=_notation_value(raw, "gender_identity", _GENDER_CODES, line_num),
         is_consultand=raw.get("consultand", "").strip() == "1",
         is_evaluated=is_evaluated,
         evaluation=evaluation,
+        count=_count(raw.get("count"), f"Line {line_num}: "),
+        is_asymptomatic=_yes(raw.get("asymptomatic", "")),
+        childless_partner=partner,
     )
 
 
@@ -1019,6 +1068,59 @@ def _resolve_twin_relationships(family: Family) -> None:
             has_reciprocal = any(t.sibling_id == ind.sample_id for t in sibling.twin_info)
             if not has_reciprocal:
                 sibling.twin_info.append(TwinInfo(twin_type=ti.twin_type, sibling_id=ind.sample_id))
+
+
+def add_childless_unions(family: Family) -> None:
+    """Add the unions of couples declared without children (#104).
+
+    ``childless`` ``choice:<ID>`` or ``infertility:<ID>`` on either partner's
+    row (or both) makes a union with no children, drawn as any couple, whose
+    marker hangs from the middle of the relationship line. A couple that has
+    children after all keeps them, with a warning.
+
+    Raises:
+        PedigreeParseError: If the partner is not in the family.
+    """
+    for ind in list(family.individuals.values()):
+        partner = ind.notation.childless_partner
+        kind = ind.notation.childlessness
+        if partner is None or kind is None:
+            continue
+        if partner not in family.individuals:
+            raise PedigreeParseError(
+                f"{ind.sample_id}: childless partner {partner!r} is not in family "
+                f"{family.family_id!r}"
+            )
+        pair = frozenset((ind.sample_id, partner))
+        union = next((u for u in family.unions if frozenset(u.partner_ids) == pair), None)
+        if union is not None and union.children_ids:
+            warnings.warn(
+                f"{ind.sample_id} and {partner} are declared without children but have "
+                f"children in the file: no childlessness marker is drawn.",
+                PedigreeDataWarning,
+                stacklevel=3,
+            )
+            continue
+        if union is None:
+            first, second = sorted(
+                (ind.sample_id, partner),
+                key=lambda sid: family.individuals[sid].sex != Sex.MALE,
+            )
+            union = Union(partner_ids=(first, second))
+            family.unions.append(union)
+        union.childlessness = kind
+
+
+def _check_count_rows(family: Family) -> None:
+    """A row standing for several people (``count``, #104) cannot be a parent."""
+    groups = {sid for sid, ind in family.individuals.items() if ind.notation.count}
+    for ind in family.individuals.values():
+        for parent in (ind.father_id, ind.mother_id):
+            if parent in groups:
+                raise PedigreeParseError(
+                    f"{parent} stands for several individuals (count) and cannot be the "
+                    f"parent of {ind.sample_id}"
+                )
 
 
 def _infer_unions(family: Family) -> list[Union]:
@@ -1666,6 +1768,9 @@ def _parse_text(
 
         # Infer unions
         family.unions = _infer_unions(family)
+        # Couples declared without children (#104), and groups that cannot be parents
+        add_childless_unions(family)
+        _check_count_rows(family)
 
         # Detect consanguinous unions (shared ancestors)
         _detect_consanguinity(family)
@@ -1990,13 +2095,24 @@ def fam_rows(pedigree: Pedigree) -> Iterator[tuple[str, str, str, str, Individua
     when unknown) and the individual, without phantom parents or duplicates,
     whose IDs are resolved back to the original (`export_fam`,
     `phenopackets.export_phenopacket_pedigree`)."""
+    groups = []
     for family in pedigree.families.values():
         for ind in family.individuals.values():
             if ind.is_phantom or ind.is_duplicate:
                 continue
+            if ind.notation.count:
+                groups.append(ind.sample_id)  # several people in one row (#104)
+                continue
             father = _original_parent(family, ind.father_id)
             mother = _original_parent(family, ind.mother_id)
             yield ind.family_id, ind.sample_id, father, mother, ind
+    if groups:
+        warnings.warn(
+            f"{', '.join(groups)} stand(s) for several individuals (count) and are left out "
+            "of the export, which has one row per person.",
+            PedigreeDataWarning,
+            stacklevel=3,
+        )
 
 
 def export_fam(pedigree: Pedigree, file_path: str | Path) -> Path:

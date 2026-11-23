@@ -372,6 +372,9 @@ class PhenotypeRender:
             and labelled for that many.
         not_applicable: Whether some individual has a band column that does
             not apply to them (N/A, #107), which the legend explains.
+        asymptomatic: Whether some individual is an asymptomatic or
+            presymptomatic carrier (#104): a vertical line through the symbol,
+            which the legend explains and which quadrants would hide.
     """
 
     effective_modes: dict[str, str] = field(default_factory=dict)
@@ -379,6 +382,7 @@ class PhenotypeRender:
     quadrants: dict[str, str] = field(default_factory=dict)
     outline_rings: int = 0
     not_applicable: bool = False
+    asymptomatic: bool = False
 
     def effective(self, name: str) -> str:
         """Effective display mode of a column ("binary" if unknown)."""
@@ -520,7 +524,13 @@ def resolve_phenotype_render(
         for ind in individuals
         for name in ind.not_applicable
     )
-    return PhenotypeRender(effective_modes, categorical_colors, not_applicable=not_applicable)
+    asymptomatic = any(ind.notation.is_asymptomatic for ind in individuals)
+    return PhenotypeRender(
+        effective_modes,
+        categorical_colors,
+        not_applicable=not_applicable,
+        asymptomatic=asymptomatic,
+    )
 
 
 # --- Names shown (#56) --------------------------------------------------------
@@ -887,7 +897,40 @@ def with_quadrants(
     """
     if not band_names:
         return replace(render, quadrants={})
+    if render.asymptomatic and style.phenotype_layout != "bands":
+        # The asymptomatic carrier's line runs where the quadrants meet (#104):
+        # "auto" draws bands instead; "quadrants" keeps them, with a warning.
+        if style.phenotype_layout == "auto":
+            return replace(render, quadrants={})
+        warnings.warn(
+            "Some individuals are asymptomatic carriers: their vertical line runs along the "
+            "line between quadrants. Use phenotype_layout 'bands' (or 'auto') to tell them apart.",
+            PedigreeStyleWarning,
+            stacklevel=2,
+        )
     return replace(render, quadrants=assign_quadrants([*band_names, *carriers.keys], style))
+
+
+def warn_asymptomatic_sections(individuals: Iterable[Any], carriers: CarrierScheme) -> None:
+    """Warn when an asymptomatic carrier's line crosses carrier sections (#104).
+
+    The NSGC 2022 carrier sections also split a symbol vertically; the line
+    overshoots the symbol so it can still be told apart, but the reader
+    should know.
+    """
+    both = [
+        ind.sample_id
+        for ind in individuals
+        if ind.notation.is_asymptomatic and not carriers.legacy and carriers.marks(ind)
+    ]
+    if both:
+        shown = ", ".join(both[:5]) + (", ..." if len(both) > 5 else "")
+        warnings.warn(
+            f"{len(both)} asymptomatic carrier(s) ({shown}) also have carrier sections: the "
+            "vertical line is drawn across them.",
+            PedigreeDataWarning,
+            stacklevel=2,
+        )
 
 
 def quadrant_box(
@@ -1015,7 +1058,7 @@ def fit_text(
     room: Room,
     height: float,
     *,
-    letter: float | None = None,
+    letter: float | LetterBox | None = None,
     offset: tuple[float, float] = (0.0, 0.0),
 ) -> FittedText | None:
     """The text and size a band or quadrant shows, so that it fits (#55).
@@ -1077,11 +1120,26 @@ def fit_text(
     return FittedText(text, low, place(low * pt * _FIT_HEIGHT_EM)[1])
 
 
+@dataclass(frozen=True)
+class LetterBox:
+    """The text at a symbol's centre that band text keeps clear of (#105):
+    its font size in points, and how many characters it has ("P", "12")."""
+
+    size: float
+    chars: int = 1
+
+
+def letter_box(notation: Any, size: float) -> LetterBox | None:
+    """The box of a symbol's inner text (`symbols.inner_letter`), or None."""
+    text = symbols.inner_letter(notation)
+    return LetterBox(size, len(text)) if text else None
+
+
 def clear_of_letter(
     width: float,
     h: float,
     offset: tuple[float, float],
-    letter: float | None,
+    letter: float | LetterBox | None,
     pt: float,
 ) -> tuple[float, float]:
     """Room for a band's or quadrant's text, kept clear of the inner letter (#105).
@@ -1105,10 +1163,12 @@ def clear_of_letter(
     """
     if letter is None:
         return width, 0.0
+    box = letter if isinstance(letter, LetterBox) else LetterBox(letter)
     ox, oy = offset
-    half_w = symbols.LETTER_CLEAR_HALF_W_EM * letter * pt
-    half_h = symbols.LETTER_CLEAR_HALF_H_EM * letter * pt
-    gap = symbols.LETTER_CLEAR_GAP_EM * letter * pt
+    em = box.size * pt
+    half_w = (symbols.LETTER_CLEAR_HALF_W_EM + symbols.LETTER_CLEAR_CHAR_EM * (box.chars - 1)) * em
+    half_h = symbols.LETTER_CLEAR_HALF_H_EM * em
+    gap = symbols.LETTER_CLEAR_GAP_EM * em
     if abs(oy) >= h / 2 + half_h + gap:
         return width, 0.0
     if abs(ox) < 1e-9:
@@ -1684,6 +1744,7 @@ LEGEND_TEXT_DEFAULTS: dict[str, str] = {
     "low": "Low",
     "high": "High",
     "not_applicable": "Not applicable",
+    "asymptomatic": "Asymptomatic or presymptomatic carrier",
 }
 
 
@@ -2529,6 +2590,9 @@ def legend_rows(
     if render.not_applicable:
         # A white swatch crossed by the N/A stroke (#107).
         rows.append(LegendRow("not_applicable", legend_text(style, "not_applicable")))
+    if render.asymptomatic:
+        # A white swatch with the vertical line (#104).
+        rows.append(LegendRow("asymptomatic", legend_text(style, "asymptomatic")))
 
     outline_names = render.outline_names(names)
     if render.outline_rings > 1 and len(outline_names) > 1:

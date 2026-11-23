@@ -417,10 +417,36 @@ evaluation's result, when given, is written below the symbol, after the other
 notes; the 2022 revision dropped the "E" notation of 2008 (E+, E-), so the
 result is written as given.
 
-Not covered: several individuals in one symbol ("n"), the asymptomatic-carrier
-vertical line, and childlessness of a couple
-(drawn from the relationship line in the NSGC figures; here the marker hangs
-from one individual).
+**Several individuals in one symbol** (#104): a `count` column (alias `number`)
+holds their number, 2 or more, or `n` when it is unknown, written inside the
+symbol as "P" is (white on a filled symbol, on a white patch over bands). The
+symbol follows `sex`, so a group of mixed sexes is a diamond. Such a row stands
+for several people: it cannot be a parent (`PedigreeParseError`), its tooltip
+says "5 individuals", and `export_fam` and `export_phenopacket_pedigree` leave it
+out with a warning.
+
+![Several individuals](imgs/several_individuals.png)
+
+**Asymptomatic or presymptomatic carrier** (#104): an `asymptomatic` column
+(alias `presymptomatic`; `1`, `yes`, `true`) draws a vertical line through the
+middle of the symbol, past its top and bottom so it is not taken for the line
+between quadrants, in the outline color, with a legend row. Since that line
+runs where quadrants meet, a figure with an asymptomatic carrier is drawn with
+bands under `phenotype_layout` "auto"; "quadrants" keeps them, with a warning.
+An asymptomatic carrier with NSGC 2022 carrier sections draws a warning too.
+
+![Asymptomatic carrier](imgs/asymptomatic_carrier.png)
+
+**Childlessness of a couple** (#104): `childless` names the partner,
+`choice:<ID>` or `infertility:<ID>`, on either partner's row (or both). This
+makes a union with no children, placed and joined like any couple, and the
+marker's stem leaves the middle of their relationship line, where a descent line
+would start, ending in one or two bars. A bare `choice` / `infertility` keeps the
+marker under the individual. A couple that has children in the file keeps them,
+with a warning. `PedigreeBuilder.add_union(..., childless="infertility")` does
+the same.
+
+![Childless couple](imgs/childless_couple.png)
 
 ## Families with only the parents
 

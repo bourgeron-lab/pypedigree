@@ -45,8 +45,10 @@ from pypedigree.models import (
 )
 from pypedigree.parser import (
     NOT_APPLICABLE_VALUES,
+    _check_count_rows,
     _create_phantom_parents,
     _strip_display_prefix,
+    add_childless_unions,
     build_data_attributes,
     build_notation,
     parse_css_classes,
@@ -145,6 +147,8 @@ class PedigreeBuilder:
         gender: Gender | str | None = None,
         consultand: bool = False,
         evaluated: bool | str = False,
+        count: int | str | None = None,
+        asymptomatic: bool = False,
         twin_of: str | Sequence[str] | None = None,
         twin_type: TwinType | str = TwinType.UNKNOWN,
         css_class: str | Sequence[str] | None = None,
@@ -186,6 +190,11 @@ class PedigreeBuilder:
             evaluated: Documented evaluation, records reviewed: True draws
                 an asterisk at the lower right of the symbol; text (e.g.
                 "WGS: negative") draws it and writes the result below.
+            count: Several individuals in one symbol (#104): their number (2
+                or more) or "n", written inside. Such an individual cannot be
+                a parent.
+            asymptomatic: An asymptomatic or presymptomatic carrier (#104):
+                a vertical line through the symbol.
             twin_of: Sample ID of this individual's twin, or a list of them
                 for triplets and more. The twins may be added before or
                 after; see also `add_twins`.
@@ -246,6 +255,8 @@ class PedigreeBuilder:
                 gender=gender,
                 consultand=consultand,
                 evaluated=evaluated,
+                count=count,
+                asymptomatic=asymptomatic,
             ),
             "css_classes": css_classes,
             "data_attributes": data_attributes,
@@ -272,6 +283,7 @@ class PedigreeBuilder:
         *,
         consanguineous: bool = False,
         broken: bool = False,
+        childless: Childlessness | str | None = None,
     ) -> PedigreeBuilder:
         """Explicitly add a union between two individuals.
 
@@ -283,6 +295,8 @@ class PedigreeBuilder:
             partner2: Sample ID of second partner.
             consanguineous: Whether this is a consanguineous union.
             broken: Whether this relationship is dissolved.
+            childless: A couple without children (#104): "choice" (one bar)
+                or "infertility" (two), hanging from their relationship line.
 
         Returns:
             Self for method chaining.
@@ -293,6 +307,7 @@ class PedigreeBuilder:
                 "partner2": partner2,
                 "consanguineous": consanguineous,
                 "broken": broken,
+                "childless": build_notation(childless=childless).childlessness,
             }
         )
         return self
@@ -497,8 +512,12 @@ class PedigreeBuilder:
                                 children_ids=[],
                                 is_consanguinous=u_data["consanguineous"],
                                 is_broken=u_data["broken"],
+                                childlessness=u_data["childless"],
                             )
                         )
+            # Couples declared childless on an individual (#104)
+            add_childless_unions(fam)
+            _check_count_rows(fam)
 
         return Pedigree(
             families=families,

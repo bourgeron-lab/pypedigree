@@ -347,7 +347,16 @@ Extended format adds:
   draws it with `annotate(..., textcoords="offset points")`, the SVG with
   `evaluation_mark_position(..., _PT)`), `gender_identity` (man/woman/nonbinary; `gender` means this only when
   a `sex` column is also present, otherwise it is the sex column), `consultand` (1).
-  `build_notation()` accepts the same codes (used by `PedigreeBuilder`). The inner letter
+  `build_notation()` accepts the same codes (used by `PedigreeBuilder`). #104 adds `count` (`number`;
+  2+ or "n", `Notation.count`, written inside as the inner text, `symbols.inner_letter`; `_check_count_rows`:
+  not a parent; left out of `fam_rows` exports with a warning), `asymptomatic` (`presymptomatic`;
+  `symbols.asymptomatic_line`, overshooting by `ASYMPTOMATIC_OVERSHOOT`; `PhenotypeRender.asymptomatic`:
+  `with_quadrants` draws bands under "auto", warns under "quadrants"; `warn_asymptomatic_sections`; legend
+  row "asymptomatic") and a couple's childlessness (`childless` `choice:<ID>`, `Notation.childless_partner`;
+  `parser.add_childless_unions` makes a `Union(childlessness=...)` with no children, also from
+  `PedigreeBuilder.add_union(..., childless=)`; `layout._couple_childless_edges` with
+  `symbols.couple_childless_segments` from the middle of the relationship line, outward in the circular
+  layout; no individual marker or `marker_depth` then). `tests/test_nsgc_additions.py`. The inner letter
   "P"/"D"/"S" is always at the centre (#105), on a white backing over bands, quadrants or carrier
   sections; band and quadrant text keeps clear of it through `fit_text(..., letter=, offset=)` /
   `phenotypes.clear_of_letter` (a band's text moves right of it, `FittedText.dx`; a quadrant's gets
@@ -637,6 +646,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
   PGS box, tooltip, legend row, PNG borders in points, warning above three
 - `tests/test_fixtures.py` — Fixture provenance: reproducibility and identifier scan
 - `tests/test_deceased_pgs.py` — The deceased line clear of the PGS box (#80)
+- `tests/test_nsgc_additions.py` — Several individuals in one symbol, asymptomatic carriers, a childless couple (#104)
 - `tests/test_phenopackets.py` — Phenopackets v2 Family / Pedigree read, Pedigree written (#108)
 - `tests/test_canrisk.py` — CanRisk files v1-v4 (#109): structure, target, cancers and N/A, annotations, PRS, errors
 - `tests/test_not_applicable.py` — Not applicable (N/A) values: parsing, cells, stroke, legend row, tooltip (#107)

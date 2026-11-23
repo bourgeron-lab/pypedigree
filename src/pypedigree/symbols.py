@@ -400,7 +400,10 @@ def is_struck_through(ind: Individual) -> bool:
 
 
 def inner_letter(notation: Notation) -> str | None:
-    """Letter written inside the symbol: "P" (pregnancy), "D" or "S"."""
+    """Text written inside the symbol: the number of individuals it stands
+    for ("5", "n", #104), else "P" (pregnancy), "D" or "S"."""
+    if notation.count:
+        return notation.count
     if notation.pregnancy == Pregnancy.ONGOING:
         return "P"
     if notation.reproductive_role is not None:
@@ -416,6 +419,9 @@ def inner_letter(notation: Notation) -> str | None:
 LETTER_CLEAR_HALF_W_EM = 0.55
 LETTER_CLEAR_HALF_H_EM = 0.75
 LETTER_CLEAR_GAP_EM = 0.15
+# Each character after the first ("12" individuals in one symbol, #104)
+# widens it by this much on each side.
+LETTER_CLEAR_CHAR_EM = 0.32
 
 
 def triangle_points(x: float, y: float, half: float, up: float = 1.0) -> list[tuple[float, float]]:
@@ -557,8 +563,12 @@ def bracket_lines(
 
 
 def childless_depth(notation: Notation) -> float:
-    """Room the childlessness marker takes below the symbol, label gap included."""
-    if notation.childlessness is None:
+    """Room the childlessness marker takes below the symbol, label gap included.
+
+    None for a couple's childlessness, which hangs from the relationship line
+    (#104).
+    """
+    if notation.childlessness is None or notation.childless_partner is not None:
         return 0.0
     depth = CHILDLESS_STEM + CHILDLESS_LABEL_GAP
     if notation.childlessness == Childlessness.INFERTILITY:
@@ -593,6 +603,48 @@ def childless_segments(
         d = end + CHILDLESS_BAR_GAP
         segments.append((at(d, -w), at(d, w)))
     return segments
+
+
+def couple_childless_segments(
+    x: float,
+    y: float,
+    half: float,
+    childlessness: Childlessness,
+    direction: float = -math.pi / 2,
+) -> list[tuple[tuple[float, float], tuple[float, float]]]:
+    """A couple's childlessness marker (#104): from the middle of their
+    relationship line at (``x``, ``y``), where a descent line would start, a
+    stem ending in one or two bars, as `childless_segments` draws it under
+    one symbol."""
+    c, s = math.cos(direction), math.sin(direction)
+    end = CHILDLESS_STEM
+    w = half * CHILDLESS_BAR_HALF_WIDTH
+
+    def at(d: float, across: float) -> tuple[float, float]:
+        return (x + d * c - across * s, y + d * s + across * c)
+
+    segments = [(at(0.0, 0.0), at(end, 0.0)), (at(end, -w), at(end, w))]
+    if childlessness == Childlessness.INFERTILITY:
+        d = end + CHILDLESS_BAR_GAP
+        segments.append((at(d, -w), at(d, w)))
+    return segments
+
+
+# The asymptomatic or presymptomatic carrier's line (#104): vertical, through
+# the symbol's centre, and past its top and bottom by this many half-sizes,
+# so it is not taken for the line between two quadrants or carrier sections.
+ASYMPTOMATIC_OVERSHOOT = 0.2
+
+
+def asymptomatic_line(
+    x: float, y: float, half: float, sex: Sex
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """The vertical line of an asymptomatic or presymptomatic carrier (#104).
+
+    Symmetric top to bottom, so the same points serve both y directions.
+    """
+    reach = shape_half_width(sex, half) + half * ASYMPTOMATIC_OVERSHOOT
+    return (x, y - reach), (x, y + reach)
 
 
 def unknown_offspring_anchor(

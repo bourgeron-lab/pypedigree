@@ -112,6 +112,7 @@ from pypedigree.phenotypes import (
     legend_rows,
     legend_sex_items,
     legend_slot_count,
+    letter_box,
     not_applicable_stroke,
     outline_colors,
     outline_columns,
@@ -138,6 +139,7 @@ from pypedigree.phenotypes import (
     text_color_on,
     to_hex,
     validate_style_colors,
+    warn_asymptomatic_sections,
     warn_mixed_curves,
     warn_pgs_scale,
     with_outline_rings,
@@ -257,6 +259,7 @@ def _render(
         scope.individuals(), carrier_columns(names, modes), style.carrier_notation
     )
     render = resolve_phenotype_render(scope, names, modes, style)
+    warn_asymptomatic_sections(pedigree.individuals(), carriers)
     check_phenotype_layout(style)
     check_pgs_scale(style)
     check_min_font_size(style)
@@ -832,9 +835,16 @@ def _tooltip(
     if notation.adoption is not None:
         lines.append(f"Adopted {notation.adoption.value}")
     if notation.childlessness is not None:
-        lines.append(_CHILDLESS_LABELS[notation.childlessness.value])
+        label = _CHILDLESS_LABELS[notation.childlessness.value]
+        if notation.childless_partner:
+            label += f" (with {notation.childless_partner})"  # a couple (#104)
+        lines.append(label)
     if notation.reproductive_role is not None:
         lines.append(_ROLE_LABELS[notation.reproductive_role.value])
+    if notation.count:
+        lines.append(f"{notation.count} individuals")  # #104
+    if notation.is_asymptomatic:
+        lines.append("Asymptomatic or presymptomatic carrier")
     if notation.is_consultand:
         lines.append("Consultand")
     if node.is_inferred:
@@ -1035,6 +1045,16 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
                 cls="documented-evaluation",
             )
         )
+    if node.notation.is_asymptomatic and not triangle:
+        # A vertical line through the symbol, past its top and bottom (#104).
+        (x1, y1), (x2, y2) = symbols.asymptomatic_line(
+            node.x, node.y, style.shape_size / 2, node.sex
+        )
+        out.append(
+            f'<line class="asymptomatic" x1="{x1:.3f}" y1="{y1:.3f}" x2="{x2:.3f}" '
+            f'y2="{y2:.3f}" stroke="{html.escape(style.outline_color)}" '
+            f'stroke-width="{style.shape_line_width * _PT:.3f}"/>'
+        )
     letter = symbols.inner_letter(node.notation)
     if letter is not None and not triangle:
         # At the centre, on a white backing over bands, quadrants or
@@ -1047,9 +1067,11 @@ def _svg_notation(node: NodeLayout, ctx: _SvgContext, banded: bool) -> str:
         color = style.line_color
         size = style.text_size() * _PT
         if divided:
+            # Wider for a number of two digits or more (#104).
+            half_w = size * (0.55 + symbols.LETTER_CLEAR_CHAR_EM * (len(letter) - 1))
             out.append(
-                f'<rect class="symbol-letter-backing" x="{node.x - size * 0.55:.3f}" '
-                f'y="{node.y - size * 0.6:.3f}" width="{size * 1.1:.3f}" '
+                f'<rect class="symbol-letter-backing" x="{node.x - half_w:.3f}" '
+                f'y="{node.y - size * 0.6:.3f}" width="{2 * half_w:.3f}" '
                 f'height="{size * 1.2:.3f}" rx="{size * 0.25:.3f}" fill="white" '
                 f'fill-opacity="0.9"/>'
             )
@@ -1109,7 +1131,7 @@ def _svg_banded_body(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
     band_fs = style.text_size(symbols.BAND_TEXT_SCALE)
 
     # The letter at the centre, which band text keeps clear of (#105).
-    letter = style.text_size() if symbols.inner_letter(node.notation) else None
+    letter = letter_box(node.notation, style.text_size())
 
     def fitted(texts: tuple[str, ...], yc: float, size: float, color: str) -> str | None:
         """The text of a band, fitted to its width at the SVG's scale (#55)."""
@@ -1246,7 +1268,7 @@ def _svg_quadrants(node: NodeLayout, ctx: _SvgContext, clip_attr: str) -> tuple[
     all_na = not has_carriers and all_bands_na(node, columns)
     fs = style.text_size(QUADRANT_FONT_SCALE)
     # The letter at the centre, which quadrant text keeps clear of (#105).
-    letter = style.text_size() if symbols.inner_letter(node.notation) else None
+    letter = letter_box(node.notation, style.text_size())
     out: list[str] = []
     for name, position in ctx.render.quadrants.items():
         x, y, w, h = quadrant_box(position, cx, cy, half, up=-1.0)
@@ -1712,6 +1734,16 @@ def _svg_legend(
                 swatch(m.swatch_x(k), vc, m.sw_w, m.sw_h, fill)
         elif row.kind == "outline":
             swatch(LEG_X0, vc, m.sw_w, m.sw_h, "white", stroke=row.color, width_pt=2.5)
+        elif row.kind == "asymptomatic":
+            # A white swatch with the carrier's vertical line (#104).
+            swatch(LEG_X0, vc, m.sw_w, m.sw_h, "white", stroke=style.outline_color, width_pt=0.5)
+            reach = m.sw_h / 2 * (1 + symbols.ASYMPTOMATIC_OVERSHOOT)
+            u = LEG_X0 + m.sw_w / 2
+            body.append(
+                f'<line class="asymptomatic" x1="{X(u):.3f}" y1="{Y(vc - reach):.3f}" '
+                f'x2="{X(u):.3f}" y2="{Y(vc + reach):.3f}" '
+                f'stroke="{html.escape(style.outline_color)}" stroke-width="{1.0 * _PT:.3f}"/>'
+            )
         elif row.kind == "not_applicable":
             # A white swatch crossed by the N/A stroke (#107).
             swatch(LEG_X0, vc, m.sw_w, m.sw_h, NOT_APPLICABLE_FILL)

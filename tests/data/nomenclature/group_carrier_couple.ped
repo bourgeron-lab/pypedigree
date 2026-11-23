@@ -1,0 +1,10 @@
+FID	IID	Father	Mother	Sex	Phenotype	count	asymptomatic	childless	b_autism
+FAM1	I-1	0	0	1	1	0	0	0	1
+FAM1	I-2	0	0	2	2	0	0	0	2
+FAM1	II-1	I-1	I-2	1	1	0	1	infertility:II-2	1
+FAM1	II-2	0	0	2	1	0	0	0	1
+FAM1	II-3	I-1	I-2	0	1	5	0	0	1
+FAM1	II-4	I-1	I-2	2	2	n	0	0	2
+FAM1	II-5	I-1	I-2	2	1	0	0	choice:II-6	1
+FAM1	II-6	0	0	1	1	0	1	0	1
+FAM1	II-7	I-1	I-2	2	1	0	0	choice	1

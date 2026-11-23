@@ -333,10 +333,12 @@ Add an individual to the pedigree.
 | `annotations` | `list[str] \| None` | `None` | Annotation lines displayed below the ID label (italic grey text) |
 | `pregnancy` | `str \| Pregnancy \| None` | `None` | `"P"` ongoing pregnancy, `"SAB"` miscarriage, `"TOP"` termination, `"ECT"` ectopic, `"SB"` stillbirth |
 | `adopted` | `str \| Adoption \| None` | `None` | `"in"` (`father`/`mother` are the adoptive parents; dashed line) or `"out"` (they are the biological parents); brackets around the symbol |
-| `childless` | `str \| Childlessness \| None` | `None` | `"choice"` (one bar) or `"infertility"` (two bars) below the symbol |
+| `childless` | `str \| Childlessness \| None` | `None` | `"choice"` (one bar) or `"infertility"` (two bars) below the symbol; `"choice:<ID>"` for a couple without children, the marker hanging from their line (#104) |
 | `art` | `str \| ReproductiveRole \| None` | `None` | `"D"` gamete donor or `"S"` surrogate, written inside the symbol |
 | `gender` | `str \| Gender \| None` | `None` | Gender identity `"man"`, `"woman"`, `"nonbinary"`: the symbol follows it and `sex` is the sex assigned at birth (AMAB/AFAB below when they differ) |
 | `consultand` | `bool` | `False` | Arrow without "P" |
+| `count` | `int \| str \| None` | `None` | Several individuals in one symbol (2 or more, or `"n"`), written inside; cannot be a parent (#104) |
+| `asymptomatic` | `bool` | `False` | Asymptomatic or presymptomatic carrier: a vertical line through the symbol (#104) |
 | `evaluated` | `bool \| str` | `False` | Documented evaluation: `True` draws an asterisk at the lower right; text (e.g. `"WGS: negative"`) is the result, written below |
 | `twin_of` | `str \| list[str] \| None` | `None` | Sample ID of this individual's twin (a list for triplets and more); the twin may be added before or after |
 | `css_class` | `str \| list[str] \| None` | `None` | Extra classes on the individual's node in the interactive SVG (`"flagged"`, several separated by spaces, or a list) |
@@ -371,6 +373,7 @@ Explicitly add a union. Only needed for childless couples or consanguineous/brok
 | `partner2` | `str` | required | Second partner's sample_id |
 | `consanguineous` | `bool` | `False` | Double-line (shared ancestors) |
 | `broken` | `bool` | `False` | Broken-line (dissolved) |
+| `childless` | `str \| Childlessness \| None` | `None` | A couple without children: `"choice"` (one bar) or `"infertility"` (two), hanging from their relationship line (#104) |
 
 ### `set_style(style)` / `build()` / `render(output=None, ...)` / `render_interactive_svg(output=None, ...)` / `render_svg(output=None, ...)`
 
@@ -620,6 +623,9 @@ to note". How each is drawn is decided in `pypedigree.symbols`.
 | `is_consultand` | `bool` | Arrow without "P" |
 | `is_evaluated` | `bool` | Documented evaluation, records reviewed: an asterisk at the lower right of the symbol |
 | `evaluation` | `str \| None` | The evaluation's result, written below the symbol (no "E" prefix, as in the 2022 revision) |
+| `count` | `str \| None` | Several individuals in one symbol: their number, or `"n"` (#104) |
+| `is_asymptomatic` | `bool` | Asymptomatic or presymptomatic carrier: a vertical line through the symbol (#104) |
+| `childless_partner` | `str \| None` | With `childlessness`, the partner of a couple without children (#104) |
 
 ### `Union`
 
@@ -631,6 +637,7 @@ Represents a mating pair and their children.
 | `children_ids` | `list[str]` | Children of this union |
 | `is_consanguinous` | `bool` | Auto-detected shared ancestry |
 | `is_broken` | `bool` | Separated/divorced (API-only) |
+| `childlessness` | `Childlessness \| None` | A couple declared without children: the marker hangs from their relationship line (#104) |
 
 ### `Family`
 
