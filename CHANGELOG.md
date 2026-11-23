@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- PGS values are read as z-scores by default (`pgs_scale` "zscore", #106): polygenic scores are
+  almost always given standardised in a reference population (CanRisk, the PGS Catalog's
+  calculator, pTDT), and on "minmax" a family's scores were spread over the whole curve whatever
+  they were. Every figure with a PGS column and no `pgs_scale` changes: markers where the person
+  stands in the population, ±2 SD tails drawn, z and percentile in the SVG tooltip. Use
+  `pgs_scale: "minmax"` (`--pgs-scale minmax`, or the web app's "Min–max in the pedigree") for
+  raw scores. On "zscore", a PGS column that does not look like z-scores (a value beyond ±5;
+  with at least 5 values, a standard deviation under 0.05; with at least 20, a mean beyond ±2)
+  draws a `PedigreeDataWarning` suggesting "minmax", once per file (`phenotypes.warn_pgs_scale`).
+  The CLI and the web app list z-score first.
+
 ## [0.9.2] - 2026-11-23
 
 ### Fixed

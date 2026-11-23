@@ -135,6 +135,7 @@ from pypedigree.phenotypes import (
     to_hex,
     validate_style_colors,
     warn_mixed_curves,
+    warn_pgs_scale,
     with_outline_rings,
     with_quadrants,
 )
@@ -240,6 +241,7 @@ def _render(
     style = resolve_style(style, names)
     pgs_cols = [n for n in names if is_curve_column(n)]
     warn_mixed_curves(pedigree.individuals(), pgs_cols)
+    warn_pgs_scale(pedigree.column_scope.individuals(), pgs_cols, style.pgs_scale)
     values_width = pgs_values_width(pedigree.individuals(), pgs_cols, style)
     # The only place the PGS spacing is applied (see `apply_pgs_spacing`).
     style = apply_pgs_spacing(style, names, values_width)

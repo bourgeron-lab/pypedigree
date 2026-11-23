@@ -371,7 +371,9 @@ Multi-phenotype support:
   (`phenotypes.all_bands_na`, per band `band_has_no_data`: -9/NA, a missing category or no value at
   all; a 0 "unknown" or a category is a value. `tests/test_na_label.py`)
 - Continuous phenotypes → color gradient bands
-- PGS scale: `pgs_scale` ("minmax" default, "zscore", "percentile") decides the position on the curve:
+- PGS scale: `pgs_scale` ("zscore" default since 0.10.0, #106; "minmax", "percentile") decides the position on the curve
+  (`phenotypes.warn_pgs_scale`: on "zscore", a PGS column with a value beyond `ZSCORE_MAX_ABS`, a spread under
+  `ZSCORE_MIN_SD` or a mean beyond `ZSCORE_MAX_MEAN` warns, over `pedigree.column_scope` so every family gets one message):
   `active_pgs(node, names, scale)`, `pgs_position(z) = 0.5 + z * PGS_CURVE_SIGMA` on fixed scales,
   `pgs_tail_positions()` (±2 SD dotted lines), `pgs_value_text()` for the SVG tooltip. Curves (and the
   legend) are drawn even with no other phenotype column. `tests/test_pgs_scale.py`
@@ -506,7 +508,7 @@ pypedigree INPUT.ped [OPTIONS]
 --no-legend              Hide the phenotype legend
 --show-phenotype-labels  Show YES/NO text inside binary phenotype bands
 --no-na-labels           Do not write "NA" in bands with no data (style `show_na_labels`)
---pgs-scale [minmax|zscore|percentile]  PGS position: min-max over the pedigree (default), z-score or percentile
+--pgs-scale [zscore|minmax|percentile]  PGS position: z-score (default), min-max over the pedigree (raw scores) or percentile
 --show-pgs-values        Write each PGS value beside its marker (style `show_pgs_values`)
 --phenotype-layout [auto|quadrants|bands]  Quadrants up to four phenotypes, bands beyond (auto, default), or one of them
 --interactive            Generate interactive SVG with tooltips and click highlighting

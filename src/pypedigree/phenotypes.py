@@ -30,6 +30,7 @@ from pypedigree.config import (
     PedigreeStyle,
     curve_trait,
     is_curve_column,
+    is_pgs_column,
     is_ptdt_column,
     known_phenotype,
 )
@@ -1332,6 +1333,61 @@ def warn_mixed_curves(individuals: Iterable[_HasPhenotypes], names: Sequence[str
             f"{len(both)} individual(s) have both PGS and pTDT values ({shown}): their curve "
             "shows the pTDT deviations only. Give the PGS to the parents and the pTDT "
             "deviation to the children.",
+            PedigreeDataWarning,
+            stacklevel=2,
+        )
+
+
+# On "zscore" (the default since 0.10.0, #106), a PGS column whose values do
+# not look like z-scores draws a warning: any value beyond this, ...
+ZSCORE_MAX_ABS = 5.0
+# ... values spread over less than this standard deviation (raw scores such
+# as PLINK's, often around 1e-4; equal values say nothing), with at least
+# this many values, ...
+ZSCORE_MIN_SD = 0.05
+ZSCORE_SD_MIN_VALUES = 5
+# ... or a mean this far from 0 over at least this many values.
+ZSCORE_MAX_MEAN = 2.0
+ZSCORE_MEAN_MIN_VALUES = 20
+
+
+def warn_pgs_scale(individuals: Iterable[_HasPhenotypes], names: Sequence[str], scale: str) -> None:
+    """Warn when a PGS column drawn on "zscore" does not look like z-scores (#106).
+
+    On "zscore" a value is placed on the standard normal and clipped to the
+    curve's ends, so raw scores would all land at one end (or, if tiny, at
+    the centre) without a word. pTDT columns are always z-scores and are not
+    checked. Callers pass the whole file's individuals (`Pedigree.column_scope`),
+    so every family drawn from it gets the same message.
+    """
+    if scale != "zscore":
+        return
+    people = list(individuals)
+    odd = []
+    for name in names:
+        if not is_pgs_column(name) or is_ptdt_column(name):
+            continue
+        values = [
+            float(raw)
+            for ind in people
+            if (raw := ind.extra_phenotypes_raw.get(name)) is not None and not is_na_value(raw)
+        ]
+        if not values:
+            continue
+        mean = sum(values) / len(values)
+        sd = math.sqrt(sum((v - mean) ** 2 for v in values) / len(values))
+        largest = max(values, key=abs)
+        if abs(largest) > ZSCORE_MAX_ABS:
+            odd.append(f"{name} (a value of {largest:g})")
+        elif len(values) >= ZSCORE_SD_MIN_VALUES and 0 < sd < ZSCORE_MIN_SD:
+            odd.append(f"{name} (spread {sd:.2g})")
+        elif len(values) >= ZSCORE_MEAN_MIN_VALUES and abs(mean) > ZSCORE_MAX_MEAN:
+            odd.append(f"{name} (mean {mean:.2f})")
+    if odd:
+        warnings.warn(
+            f"PGS column(s) {', '.join(odd)} do not look like z-scores, but are drawn on the "
+            "z-score scale (pgs_scale 'zscore', the default). For raw scores, use pgs_scale "
+            "'minmax' (--pgs-scale minmax).",
             PedigreeDataWarning,
             stacklevel=2,
         )

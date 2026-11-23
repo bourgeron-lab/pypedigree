@@ -71,6 +71,7 @@ class TestDisplayName:
             phenotype_layout="bands",
             band_text="name_value",
             phenotype_labels={"SRS": "SRS T-score", "PGS_school_years": "EA"},
+            pgs_scale="minmax",  # the raw value in the tooltip
         )
         svg = pp.render_interactive_svg(ped, style=style)
         assert ">SRS T-score: 78</text>" in svg
@@ -150,7 +151,7 @@ class TestPgsKey:
     def test_key_rows(self):
         rows, style = _rows(SCORES)
         pgs = next(r for r in rows if r.kind == "pgs")
-        assert pgs.label == "PGS distribution:"
+        assert pgs.label == "PGS distribution, z-score, \u00b12\u00a0SD marked:"
         assert [name for name, _ in pgs.key] == ["autism", "school years"]
         assert [color for _, color in pgs.key] == [
             style.pgs_colors["PGS_autism"],

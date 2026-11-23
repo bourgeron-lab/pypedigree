@@ -130,10 +130,11 @@ def _reported_warnings() -> Iterator[None]:
 )
 @click.option(
     "--pgs-scale",
-    type=click.Choice(["minmax", "zscore", "percentile"]),
+    type=click.Choice(["zscore", "minmax", "percentile"]),
     default=None,
-    help="How PGS values are placed on their curve: between the pedigree's lowest and "
-    "highest score (minmax, default), as z-scores, or as population percentiles.",
+    help="How PGS values are placed on their curve: as z-scores (zscore, default), between "
+    "the pedigree's lowest and highest score (minmax, for raw scores), or as population "
+    "percentiles.",
 )
 @click.option(
     "--show-pgs-values",

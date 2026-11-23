@@ -1,10 +1,12 @@
-"""PGS on a fixed scale (issue #7).
+"""PGS on a fixed scale (issue #7), z-scores by default (#106).
 
-``pgs_scale="minmax"`` (the default) places a PGS value between the
-pedigree's lowest and highest score. ``"zscore"`` and ``"percentile"`` place
-it on the drawn standard normal, the same for every pedigree, mark the
-+/-2 SD tails and give z and percentile in the SVG tooltip. PGS curves are
-drawn even when the pedigree has no other phenotype column.
+``pgs_scale="zscore"`` (the default since 0.10.0) and ``"percentile"`` place
+a value on the drawn standard normal, the same for every pedigree, mark the
++/-2 SD tails and give z and percentile in the SVG tooltip; ``"minmax"``
+places it between the pedigree's lowest and highest score, for raw scores.
+A PGS column drawn as z-scores that does not look like z-scores draws a
+warning. PGS curves are drawn even when the pedigree has no other phenotype
+column.
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ from click.testing import CliRunner
 
 from pypedigree import PedigreeStyle, parse_pedigree_from_string, render_pedigree
 from pypedigree.cli import main
-from pypedigree.errors import PedigreeError
+from pypedigree.errors import PedigreeDataWarning, PedigreeError
 from pypedigree.phenotypes import (
     PGS_CURVE_SIGMA,
     active_pgs,
@@ -112,7 +114,7 @@ class TestText:
 
 class TestRendering:
     def test_png_curves_without_other_phenotypes_and_tails(self):
-        for style, tails in ((PedigreeStyle(), 0), (ZSCORE, 2 * 3)):
+        for style, tails in ((PedigreeStyle(pgs_scale="minmax"), 0), (ZSCORE, 2 * 3)):
             fig = render_pedigree(parse_pedigree_from_string(TRIO), style=style)
             try:
                 ax = fig.axes[0]
@@ -129,7 +131,9 @@ class TestRendering:
         assert svg.count('class="pgs-tail"') == 6
         assert "PGS autism: z = +2.50, 99th percentile" in svg
         assert "z-score, ±2\u00a0SD marked" in svg
-        minmax = render_interactive_svg(parse_pedigree_from_string(TRIO))
+        minmax = render_interactive_svg(
+            parse_pedigree_from_string(TRIO), style=PedigreeStyle(pgs_scale="minmax")
+        )
         assert 'class="pgs-tail"' not in minmax
         assert re.search(r"PGS autism: 2\.5\b", minmax)
 
@@ -142,3 +146,69 @@ class TestRendering:
         assert result.exit_code == 0, result.output
         assert 'class="pgs-tail"' in out.read_text(encoding="utf-8")
         assert PedigreeStyle.from_dict({"pgs_scale": "percentile"}).pgs_scale == "percentile"
+
+
+# Raw scores, as a PLINK --score run writes them: not z-scores.
+RAW = (
+    "FID\tIID\tFather\tMother\tSex\tPhenotype\tPGS_height\n"
+    "F\tdad\t0\t0\t1\t1\t120.5\n"
+    "F\tmum\t0\t0\t2\t1\t131.0\n"
+    "F\tkid\tdad\tmum\t1\t2\t127.2\n"
+)
+TINY = (
+    "FID\tIID\tFather\tMother\tSex\tPhenotype\tPGS_x\n"
+    "F\ta\t0\t0\t1\t1\t0.00012\n"
+    "F\tb\t0\t0\t2\t1\t0.00031\n"
+    "F\tc\ta\tb\t1\t2\t0.00020\n"
+    "F\td\ta\tb\t2\t1\t0.00025\n"
+    "F\te\ta\tb\t1\t1\t0.00009\n"
+)
+
+
+class TestZscoreDefault:
+    """#106: z-scores by default, with a warning for values that are not."""
+
+    def test_default_is_zscore(self):
+        assert PedigreeStyle().pgs_scale == "zscore"
+        default = render_interactive_svg(parse_pedigree_from_string(TRIO))
+        assert default == render_interactive_svg(parse_pedigree_from_string(TRIO), style=ZSCORE)
+        result = CliRunner().invoke(main, ["--help"])
+        assert "zscore, default" in " ".join(result.output.split())
+
+    @pytest.mark.parametrize(("text", "detail"), [(RAW, "a value of 131"), (TINY, "spread")])
+    def test_raw_scores_warn(self, text, detail):
+        with pytest.warns(PedigreeDataWarning, match="do not look like z-scores") as record:
+            render_interactive_svg(parse_pedigree_from_string(text))
+        message = str(record[0].message)
+        assert detail in message and "minmax" in message
+
+    @pytest.mark.parametrize("text", [RAW, TINY])
+    def test_no_warning_with_minmax(self, text, recwarn):
+        render_interactive_svg(
+            parse_pedigree_from_string(text), style=PedigreeStyle(pgs_scale="minmax")
+        )
+        assert not [w for w in recwarn if "z-scores" in str(w.message)]
+
+    def test_no_warning_for_z_scores(self, recwarn):
+        fig = render_pedigree(parse_pedigree_from_string(TRIO))
+        plt.close(fig)
+        assert not [w for w in recwarn if "z-scores" in str(w.message)]
+
+    def test_ptdt_not_checked(self, recwarn):
+        text = TINY.replace("PGS_x", "pTDT_x")
+        render_interactive_svg(parse_pedigree_from_string(text))
+        assert not [w for w in recwarn if "z-scores" in str(w.message)]
+
+    def test_png_warns_too(self):
+        with pytest.warns(PedigreeDataWarning, match="do not look like z-scores"):
+            plt.close(render_pedigree(parse_pedigree_from_string(RAW)))
+
+    def test_one_message_for_every_family(self, tmp_path):
+        """--output-dir: each family is checked against the whole file, so the
+        message is the same and the CLI writes it once."""
+        ped = tmp_path / "two.ped"
+        ped.write_text(RAW + RAW.split("\n", 1)[1].replace("F\t", "G\t"), encoding="utf-8")
+        out = tmp_path / "out"
+        result = CliRunner().invoke(main, [str(ped), "--output-dir", str(out), "--format", "svg"])
+        assert result.exit_code == 0, result.output
+        assert result.output.count("do not look like z-scores") == 1

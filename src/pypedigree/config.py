@@ -167,12 +167,13 @@ class PedigreeStyle:
     # the next free one, in column order.
     phenotype_quadrants: dict[str, str] = field(default_factory=dict)
 
-    # How a PGS column's value is placed on its curve: "minmax" (between the
-    # pedigree's lowest and highest score), "zscore" (the value is a z-score,
-    # e.g. ancestry-matched, placed on the standard normal) or "percentile"
-    # (a population percentile, 0-100). With a fixed scale the curve's
-    # +/-2 SD tails are marked and the tooltip gives z and percentile.
-    pgs_scale: str = "minmax"
+    # How a PGS column's value is placed on its curve: "zscore" (the default
+    # since 0.10.0, #106: the value is a z-score, e.g. ancestry-matched,
+    # placed on the standard normal), "minmax" (between the pedigree's lowest
+    # and highest score, for raw scores) or "percentile" (a population
+    # percentile, 0-100). With a fixed scale the curve's +/-2 SD tails are
+    # marked and the tooltip gives z and percentile.
+    pgs_scale: str = "zscore"
 
     # Write "NA" in bands with no data (-9 / NA / empty). Without it, a band
     # with no data is the same plain grey as an "unknown" (0) one.
