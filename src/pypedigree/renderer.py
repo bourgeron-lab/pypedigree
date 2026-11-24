@@ -122,6 +122,7 @@ from pypedigree.phenotypes import (
     pgs_curve_base,
     pgs_curve_x,
     pgs_dot_size,
+    pgs_icon_geometry,
     pgs_marker_values,
     pgs_row_layout,
     pgs_tail_positions,
@@ -3004,25 +3005,31 @@ def _draw_legend_pgs_row(
     m: LegendMetrics,
     style: PedigreeStyle,
 ) -> None:
-    """Draw the shared distribution-curve icon and its marker lines."""
-    xs = np.linspace(0, 1, 30)
-    dens = np.exp(-0.5 * ((xs - 0.5) / PGS_CURVE_SIGMA) ** 2)
-    dens = dens / dens.max() * m.sw_h * 0.9
-    plot_x = LEG_X0 + xs * 0.9
-    baseline = y_center - m.sw_h / 2
-    plot_y = baseline + dens
-
-    ax.plot(plot_x, plot_y, color="#aaaaaa", linewidth=0.6)
-    ax.fill_between(plot_x, baseline, plot_y, alpha=0.08, color=FALLBACK_COLOR)
-
-    for k, color in enumerate(row.pgs.values()):
-        marker_x = LEG_X0 + (0.3 + k * 0.2) * 0.9
-        ax.plot(
-            [marker_x, marker_x],
-            [baseline, y_center + m.sw_h / 2],
-            color=color,
-            linewidth=PGS_MARKER_LINE_PT,
-            solid_capstyle="butt",
+    """Draw the PGS icon, upright as in the figure (#159), its caption and key."""
+    g = pgs_icon_geometry(row, m, y_center)
+    left, bottom, w, h = g.box
+    ax.add_patch(
+        mpatches.Rectangle(
+            (left, bottom), w, h, facecolor="white", edgecolor=SEPARATOR_COLOR, linewidth=0.5
+        )
+    )
+    xs = [x for x, _y in g.curve]
+    ys = [y for _x, y in g.curve]
+    ax.fill_betweenx(ys, g.base_x, xs, alpha=0.08, color=FALLBACK_COLOR, linewidth=0)
+    ax.plot(xs, ys, color="#aaaaaa", linewidth=0.6, gid="pgs-legend-curve")
+    for y in g.tails:
+        ax.plot([left, left + w], [y, y], color="#aaaaaa", linewidth=0.5, linestyle=":")
+    for x, y, text, anchor in g.labels:
+        ax.text(
+            x,
+            y,
+            text,
+            fontsize=g.size,
+            fontfamily=style.font_family,
+            color=LEG_CATEGORY_COLOR,
+            ha="center" if anchor == "middle" else "left",
+            va="center",
+            gid="pgs-legend-label",
         )
 
     # The caption, then the key: each score's name after a line of its color
@@ -3030,7 +3037,7 @@ def _draw_legend_pgs_row(
     # below when the row is too long for one (#68).
     layout = pgs_row_layout(row, m.icon_text_x, m)
     for k, caption in enumerate(layout.captions):
-        _legend_row_label(ax, y_center - k * m.line_h, caption, m.icon_text_x, m, style)
+        _legend_row_label(ax, y_center - k * m.line_h, caption, layout.text_x, m, style)
     for item in layout.items:
         y = y_center - item.line * m.line_h
         ax.plot(

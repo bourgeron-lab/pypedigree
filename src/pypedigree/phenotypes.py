@@ -1765,6 +1765,13 @@ LEG_RING_INSET_PT = 2.2  # its inner border, inside the outer one
 LEG_KEY_DASH_EM = 1.4  # a PGS score's line in the legend's key (dot in its middle), in ems
 LEG_KEY_GAP_EM = 0.3  # between a dash and its score's name
 LEG_KEY_SPACE_EM = 0.9  # between one score's name and the next dash
+# The PGS row's icon (#159): the box drawn beside a symbol, upright as in the
+# figure, in ems of the legend's font, with "high" above, "low" below and the
+# ±2 SD lines named on its right, `LEG_PGS_TEXT_GAP_EM` (ems of that text) away.
+LEG_PGS_BOX_W_EM = 1.45
+LEG_PGS_BOX_H_EM = 3.4
+LEG_PGS_TEXT_GAP_EM = 0.3
+LEG_PGS_ICON_GAP = 0.3  # between the icon's labels and the row's text, in legend units
 # The header (#67), before `legend_spacing`: the margin above it (smaller with
 # neither title nor sex symbols), the title's line, and the sex symbols' row
 # (above its centre when it comes first, below it).
@@ -1795,6 +1802,9 @@ LEG_WRAP_LINE_EM = 1.25  # between the lines of a wrapped PGS row (#68), in ems 
 LEG_WIDTH_UNITS = {"cm": 1 / 2.54, "mm": 1 / 25.4, "in": 1.0}  # `legend_max_width` -> inches
 KEY_ROW_KINDS = ("quadrants", "key_note")  # drawn first, above the binary captions
 
+# Words a wrapped legend row keeps together (#68): joined by a no-break space.
+NBSP = "\u00a0"
+
 # The legend's fixed wording, by role (#79): ``legend_text`` overrides any of
 # it. "pgs" and "ptdt" have no fixed default: their caption is built from the
 # scale (`pgs_legend_description`, `ptdt_legend_description`).
@@ -1810,6 +1820,11 @@ LEGEND_TEXT_DEFAULTS: dict[str, str] = {
     "female": "Female",
     "low": "Low",
     "high": "High",
+    # Beside the PGS / pTDT icon (#159).
+    "pgs_high": "high",
+    "pgs_low": "low",
+    "pgs_plus_2sd": f"+2{NBSP}SD",
+    "pgs_minus_2sd": f"{MINUS}2{NBSP}SD",
     # Still accepted, unused since 0.10.1: N/A is drawn white with no legend row (#120).
     "not_applicable": "Not applicable",
     "asymptomatic": "Asymptomatic or presymptomatic carrier",
@@ -2087,8 +2102,10 @@ class LegendRow:
         colors: Gradient bar, left to right ("gradient"); the columns'
             colors, side by side in the "affected" swatch ("binary_shared");
             the two borders of the icon, inner first ("outline_rings").
-        low: Caption under the left end of a gradient bar.
-        high: Caption under the right end of a gradient bar.
+        low: Caption under the left end of a gradient bar; below the icon
+            of a "pgs" row (#159).
+        high: Caption under the right end of a gradient bar; above the icon
+            of a "pgs" row.
         categories: Category value → color ("categorical").
         pgs: PGS column → marker color ("pgs").
         pattern: Carrier pattern name ("carrier").
@@ -2110,6 +2127,8 @@ class LegendRow:
         wrap_right: Where a "pgs" row's text must end, in legend units, or
             None: one line whatever its length (#68). Set by `legend_layout`.
         lines: Lines of text the row takes (more than one when wrapped).
+        tails: The ±2 SD lines of a "pgs" row's icon: (position on the
+            curve's [0, 1] axis, name), none on the "minmax" scale (#159).
 
     A "key_note" row is a caption under the quadrant key, saying how to read
     its binary columns (legend "minimal").
@@ -2134,6 +2153,7 @@ class LegendRow:
     extra_h: float = 0.0
     wrap_right: float | None = None
     lines: int = 1
+    tails: tuple[tuple[float, str], ...] = ()
 
     @property
     def slots(self) -> int:
@@ -2247,11 +2267,13 @@ class PgsRowLayout:
     """The text of a PGS row: its caption's lines, then its key (#68).
 
     Attributes:
+        text_x: Where its text starts: past the icon's labels (#159).
         captions: The caption, one entry per line (one when it fits).
         items: The key's scores, each with the line it is on.
         lines: Lines the row takes.
     """
 
+    text_x: float
     captions: tuple[str, ...]
     items: tuple[LegendKeyItem, ...]
     lines: int
@@ -2274,7 +2296,8 @@ def _wrap_words(text: str, x: float, right: float, m: LegendMetrics) -> list[str
 
 
 def pgs_row_layout(row: LegendRow, label_x: float, m: LegendMetrics) -> PgsRowLayout:
-    """Where a PGS row's caption and key go, its text starting at ``label_x``.
+    """Where a PGS row's caption and key go, its text starting at ``label_x``,
+    or further right when the icon's labels reach past it (#159).
 
     On one line when it ends before `LegendRow.wrap_right` (or that is
     None): the caption, then each score's name after a line of its color
@@ -2285,6 +2308,7 @@ def pgs_row_layout(row: LegendRow, label_x: float, m: LegendMetrics) -> PgsRowLa
     (`symbols.text_width`), so both renderers break at the same places.
     """
     em = m.fs / 72 / m.unit_x  # one em of the row's text, in legend units
+    label_x = max(label_x, pgs_icon_geometry(row, m, 0.0).right + LEG_PGS_ICON_GAP)
 
     def place(x: float, name: str, color: str, line: int) -> LegendKeyItem:
         dash_x1 = x + LEG_KEY_DASH_EM * em
@@ -2302,7 +2326,7 @@ def pgs_row_layout(row: LegendRow, label_x: float, m: LegendMetrics) -> PgsRowLa
         x = end(items[-1])
     right = row.wrap_right
     if right is None or x <= right:
-        return PgsRowLayout((row.label,), tuple(items), 1)
+        return PgsRowLayout(label_x, (row.label,), tuple(items), 1)
 
     captions = _wrap_words(row.label, label_x, right, m)
     line = len(captions)
@@ -2315,7 +2339,7 @@ def pgs_row_layout(row: LegendRow, label_x: float, m: LegendMetrics) -> PgsRowLa
             item = place(label_x, name, color, line)
         items.append(item)
         x = end(item) + LEG_KEY_SPACE_EM * em
-    return PgsRowLayout(tuple(captions), tuple(items), line + 1 if items else line)
+    return PgsRowLayout(label_x, tuple(captions), tuple(items), line + 1 if items else line)
 
 
 def legend_key_items(row: LegendRow, label_x: float, m: LegendMetrics) -> list[LegendKeyItem]:
@@ -2324,6 +2348,109 @@ def legend_key_items(row: LegendRow, label_x: float, m: LegendMetrics) -> list[L
     See `pgs_row_layout`, which also gives the caption's lines.
     """
     return list(pgs_row_layout(row, label_x, m).items)
+
+
+@dataclass(frozen=True)
+class PgsIconGeometry:
+    """The PGS row's icon (#159): the box as drawn beside a symbol, upright.
+
+    Positions are in legend units (y up). The curve's peak is on the left,
+    high values at the top, as in the figure (#126); "high" is written above
+    the box, "low" below it, and each ±2 SD line's name on its right.
+
+    Attributes:
+        box: (left, bottom, width, height) of the box.
+        curve: The curve's points, bottom to top.
+        base_x: x of the curve's baseline (the shaded area runs to it).
+        tails: y of each ±2 SD line, across the box.
+        labels: (x, y, text, anchor) per label, ``y`` its centre; anchor is
+            "middle" (centred on x) or "start".
+        size: Size of the labels, in points.
+        right: Where the icon and its labels end.
+        height: Height of the icon with "high" and "low".
+    """
+
+    box: tuple[float, float, float, float]
+    curve: tuple[tuple[float, float], ...]
+    base_x: float
+    tails: tuple[float, ...]
+    labels: tuple[tuple[float, float, str, str], ...]
+    size: float
+    right: float
+    height: float
+
+
+def pgs_icon_geometry(row: LegendRow, m: LegendMetrics, y_center: float) -> PgsIconGeometry:
+    """Where the parts of a "pgs" row's icon go (#159).
+
+    ``y_center`` is the row's centre from `legend_row_centers` (its first
+    line's, when the row is wrapped): the icon is centred on the row's text.
+    Sizes are in ems of the legend's font, so the icon scales with it as the
+    swatches do; its labels are captions (`LegendMetrics.caption_fs`).
+    """
+    w = LEG_PGS_BOX_W_EM / LEG_UNIT_X_EM
+    h = LEG_PGS_BOX_H_EM / LEG_UNIT_Y_EM
+    size = m.caption_fs()
+    line = LEG_LINE_EM * size / (LEG_UNIT_Y_EM * m.font)
+    gap_y = LEG_PGS_TEXT_GAP_EM * size / (LEG_UNIT_Y_EM * m.font)
+    gap_x = LEG_PGS_TEXT_GAP_EM * size / 72 / m.unit_x
+    left = LEG_X0
+    bottom = y_center - (row.lines - 1) * m.line_h / 2 - h / 2
+    curve = tuple((pgs_curve_x(left, w, d), bottom + t * h) for t, d in pgs_curve(30))
+
+    def width(text: str) -> float:
+        return _legend_text_width(text, size, m)
+
+    labels: list[tuple[float, float, str, str]] = []
+    right = left + w
+    # "high" and "low" centred on the box, never past the frame's left edge.
+    for text, y in (
+        (row.high, bottom + h + gap_y + line / 2),
+        (row.low, bottom - gap_y - line / 2),
+    ):
+        if text:
+            x = max(left + w / 2, LEG_FRAME_INSET + LEG_BOTTOM_PAD + width(text) / 2)
+            labels.append((x, y, text, "middle"))
+            right = max(right, x + width(text) / 2)
+    tails = []
+    for position, text in row.tails:
+        y = bottom + position * h
+        tails.append(y)
+        labels.append((left + w + gap_x, y, text, "start"))
+        right = max(right, left + w + gap_x + width(text))
+    return PgsIconGeometry(
+        box=(left, bottom, w, h),
+        curve=curve,
+        base_x=pgs_curve_base(left, w),
+        tails=tuple(tails),
+        labels=tuple(labels),
+        size=size,
+        right=right,
+        height=h + 2 * (gap_y + line),
+    )
+
+
+def caption_overhang(row: LegendRow, m: LegendMetrics) -> float:
+    """How far the captions under a row's swatch (a gradient's ends, category
+    names, a binned row's limits) reach into the row below it."""
+    n = legend_caption_lines(row)
+    if not n:
+        return 0.0
+    caption_h = LEG_LINE_EM * m.label_fs / (LEG_UNIT_Y_EM * m.font)
+    first = m.row_h / 2 if row.lines > 1 else row.slots * m.row_h / 2
+    reach = m.sw_h / 2 + LEG_CAPTION_GAP + caption_h + (n - 1) * m.line_h
+    return max(0.0, reach - first - (row.lines - 1) * m.line_h - row.extra_h / 2)
+
+
+def pgs_row_extra_h(row: LegendRow, m: LegendMetrics, above: LegendRow | None = None) -> float:
+    """Room a "pgs" row takes beyond its text (#159): its icon with "high" and
+    "low", the margin a swatch has above and below it in its row, and, twice
+    (the icon is centred), what the captions of the row ``above`` reach into
+    it, so "high" keeps from them the distance a swatch keeps from its row's top."""
+    text_h = m.row_h + (row.lines - 1) * m.line_h
+    margin = m.row_h - m.sw_h
+    hang = caption_overhang(above, m) if above is not None else 0.0
+    return max(0.0, pgs_icon_geometry(row, m, 0.0).height + margin + 2 * hang - text_h)
 
 
 LEG_BIN_GAP_EM = 0.6  # between two steps' limits, in ems of the caption
@@ -2400,7 +2527,7 @@ def legend_row_right(row: LegendRow, m: LegendMetrics) -> float:
         return right
     if row.kind == "pgs":
         layout = pgs_row_layout(row, m.icon_text_x, m)
-        ends = [m.icon_text_x + _legend_text_width(c, m.fs, m) for c in layout.captions]
+        ends = [layout.text_x + _legend_text_width(c, m.fs, m) for c in layout.captions]
         ends += [i.text_x + _legend_text_width(i.name, m.fs, m) for i in layout.items]
         return max(ends)
     return m.icon_text_x + _legend_text_width(row.label, m.fs, m)
@@ -2469,14 +2596,18 @@ def legend_layout(
         # Never narrower than the other rows, which do not wrap: the panel
         # would be as wide, only taller.
         right = max(max_in / m.unit_x - LEG_X0 - 0.1, right or 0.0)
-    if right is None:
-        return rows, m
     out = []
     for row in rows:
         if row.kind == "pgs":
-            row = replace(row, wrap_right=right)
-            row = replace(row, lines=pgs_row_layout(row, m.icon_text_x, m).lines)
+            if right is not None:
+                row = replace(row, wrap_right=right)
+                row = replace(row, lines=pgs_row_layout(row, m.icon_text_x, m).lines)
+            # As tall as its icon (#159), half above its text and half below.
+            above = out[-1] if out else None
+            row = replace(row, extra_h=pgs_row_extra_h(row, m, above))
         out.append(row)
+    if out == rows:
+        return rows, m
     return out, with_name_column(with_bar_width(metrics(out), out, style), out)
 
 
@@ -2523,32 +2654,32 @@ def legend_caption_lines(row: LegendRow) -> int:
     return 1 if row.kind in CAPTIONED_ROW_KINDS else 0
 
 
-# Words a wrapped legend row keeps together (#68): joined by a no-break space.
-NBSP = "\u00a0"
-TWO_SD = f"\u00b12{NBSP}SD"
-
-
 def ptdt_legend_description() -> str:
-    """Caption of the pTDT row (#52), followed by its key."""
-    return f"pTDT deviation, (child{NBSP}{MINUS}{NBSP}mid-parent){NBSP}/{NBSP}SD, {TWO_SD} marked:"
+    """Caption of the pTDT row (#52), followed by its key; the icon names
+    its ±2 SD lines (#159)."""
+    return f"pTDT deviation, (child{NBSP}{MINUS}{NBSP}mid-parent){NBSP}/{NBSP}SD:"
 
 
 def pgs_legend_description(pgs_names: Sequence[str], scale: str = "minmax") -> str:
     """Caption of the PGS row, from its column names and the scale.
 
-    A single column named "PGS" is described in words; otherwise the caption
-    ends with a colon, and the row's key (`LegendRow.key`) follows it: each
-    score's name after a line of its color (#56).
+    The caption ends with a colon, and the row's key (`LegendRow.key`)
+    follows it: each score's name after a line of its color (#56). The icon
+    shows which way is high and names the ±2 SD lines (#159).
     """
-    if len(pgs_names) == 1 and pgs_names[0].upper() == "PGS":
-        caption, keyed = "PGS distribution (vertical) with individual score", False
-    else:
-        caption, keyed = "PGS distribution", True
+    caption = "PGS distribution"
     if scale == "zscore":
-        caption += f", z-score, {TWO_SD} marked"
+        caption += ", z-score"
     elif scale == "percentile":
-        caption += f", population percentile, {TWO_SD} marked"
-    return f"{caption}:" if keyed else caption
+        caption += ", population percentile"
+    return f"{caption}:"
+
+
+def pgs_icon_tails(style: PedigreeStyle, scale: str) -> tuple[tuple[float, str], ...]:
+    """The ±2 SD lines of the legend's PGS icon on ``scale``, with their
+    names (#159): none on "minmax", which marks no tails."""
+    names = (legend_text(style, "pgs_minus_2sd"), legend_text(style, "pgs_plus_2sd"))
+    return tuple(zip(pgs_tail_positions(scale), names, strict=False))
 
 
 def legend_rows(
@@ -2678,15 +2809,15 @@ def legend_rows(
     ptdt_names = [n for n in curve_names if is_ptdt_column(n)]
     if pgs_names:
         colors = {n: style.pgs_colors.get(n, DEFAULT_PGS_COLOR) for n in pgs_names}
-        plain = len(pgs_names) == 1 and pgs_names[0].upper() == "PGS"
         rows.append(
             LegendRow(
                 "pgs",
                 legend_text(style, "pgs") or pgs_legend_description(pgs_names, style.pgs_scale),
                 pgs=colors,
-                key=()
-                if plain
-                else tuple((pgs_trait_name(n, style), colors[n]) for n in pgs_names),
+                key=tuple((pgs_trait_name(n, style), colors[n]) for n in pgs_names),
+                high=legend_text(style, "pgs_high"),
+                low=legend_text(style, "pgs_low"),
+                tails=pgs_icon_tails(style, style.pgs_scale),
             )
         )
     if ptdt_names:
@@ -2698,6 +2829,9 @@ def legend_rows(
                 legend_text(style, "ptdt") or ptdt_legend_description(),
                 pgs=colors,
                 key=tuple((pgs_trait_name(n, style), colors[n]) for n in ptdt_names),
+                high=legend_text(style, "pgs_high"),
+                low=legend_text(style, "pgs_low"),
+                tails=pgs_icon_tails(style, "zscore"),
             )
         )
 

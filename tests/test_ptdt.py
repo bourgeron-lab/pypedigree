@@ -162,7 +162,7 @@ class TestLegend:
         assert rows[1].key == (("autism", rows[1].pgs["pTDT_autism"]),)
         description = ptdt_legend_description()
         assert description.startswith("pTDT deviation")
-        assert "mid-parent" in description and "SD marked" in description
+        assert "mid-parent" in description and description.endswith("/\u00a0SD:")
 
     def test_row_on_the_z_scale_whatever_pgs_scale(self):
         for scale in ("minmax", "zscore", "percentile"):
