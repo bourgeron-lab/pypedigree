@@ -96,8 +96,8 @@ class TestLegendMetrics:
 
 class TestPgsLegendDescription:
     def test_single_plain_pgs_column(self):
-        text = pgs_legend_description(["PGS"])
-        assert text == "PGS distribution (vertical) with individual score"
+        """The icon shows the curve upright (#159): no "(vertical)" in words."""
+        assert pgs_legend_description(["PGS"]) == "PGS distribution:"
 
     def test_named_columns_are_keyed(self):
         """The scores follow in the row's key, each after a dash of its color (#56)."""

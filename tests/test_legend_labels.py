@@ -151,7 +151,7 @@ class TestPgsKey:
     def test_key_rows(self):
         rows, style = _rows(SCORES)
         pgs = next(r for r in rows if r.kind == "pgs")
-        assert pgs.label == "PGS distribution, z-score, \u00b12\u00a0SD marked:"
+        assert pgs.label == "PGS distribution, z-score:"
         assert [name for name, _ in pgs.key] == ["autism", "school years"]
         assert [color for _, color in pgs.key] == [
             style.pgs_colors["PGS_autism"],
@@ -195,7 +195,9 @@ class TestPgsKey:
         assert {style.pgs_colors["PGS_autism"].lower()} <= keys
         assert "school years" in texts
 
-    def test_single_pgs_column_described_in_words(self):
+    def test_single_pgs_column_keyed_by_its_name(self):
+        """A lone "PGS" column is keyed like the others (#159): the icon has no
+        marker, so the key gives the marker's color."""
         text = (
             "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tPGS\n"
             "F1\tfa\t0\t0\t1\t1\t0.2\n"
@@ -203,7 +205,7 @@ class TestPgsKey:
         )
         rows, _ = _rows(text)
         pgs = next(r for r in rows if r.kind == "pgs")
-        assert pgs.key == ()
+        assert [name for name, _ in pgs.key] == ["PGS"]
 
 
 def test_style_json_round_trip():

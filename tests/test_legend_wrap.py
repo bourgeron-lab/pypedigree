@@ -80,12 +80,13 @@ class TestWrapping:
     def test_long_key_wraps_below_the_caption(self):
         rows, m = _layout(FOUR, **SIX_PT)
         layout = pgs_row_layout(_pgs(rows), m.icon_text_x, m)
-        assert layout.captions == ("PGS distribution, z-score, ±2\u00a0SD marked:",)
+        assert layout.captions == ("PGS distribution, z-score:",)
         assert layout.lines >= 2
         # The key starts on the line below the caption, under its text.
         assert {i.line for i in layout.items} >= {1}
         first = layout.items[0]
-        assert first.line == 1 and first.dash_x0 == pytest.approx(m.icon_text_x)
+        assert first.line == 1 and first.dash_x0 == pytest.approx(layout.text_x)
+        assert layout.text_x >= m.icon_text_x  # past the icon's labels (#159)
         assert [i.name for i in layout.items] == ["autism", "ADHD", "intelligence", "epilepsy"]
 
     def test_no_wider_than_the_other_rows(self):
@@ -102,7 +103,7 @@ class TestWrapping:
         assert row.wrap_right is not None
         for item in layout.items:
             assert item.dash_x0 < item.dash_x1 < item.text_x
-            if item.dash_x0 > m.icon_text_x:  # not the first on its line
+            if item.dash_x0 > layout.text_x:  # not the first on its line
                 width = symbols.text_width(item.name, m.fs) / symbols.UNITS_PER_POINT
                 assert item.text_x + width / 72 / m.unit_x <= row.wrap_right + 1e-9
 

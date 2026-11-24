@@ -289,7 +289,12 @@ src/pypedigree/
     its `lines`, and counts the extra lines (`legend_metrics(..., extra_lines)`, `m.line_h`).
     `pgs_row_layout` gives the caption's lines and each key item's `line`: one line when it fits,
     else caption first (wrapped between words if too long), then the key under its text, broken
-    between scores. `legend_row_centers` returns a wrapped row's first-line centre.
+    between scores. `legend_row_centers` returns a wrapped row's first-line centre. The PGS row's
+    icon (#159) is the figure's box, upright: `pgs_icon_geometry` (box in ems of the legend font,
+    `LEG_PGS_BOX_*_EM`; "high" / "low" from `LegendRow.high` / `.low`, the ±2 SD names from
+    `LegendRow.tails`, none on "minmax", `legend_text` roles `pgs_high`, `pgs_low`, `pgs_plus_2sd`,
+    `pgs_minus_2sd`), centred on the row's text; `PgsRowLayout.text_x` starts the text past its
+    labels; `pgs_row_extra_h` makes the row as tall (plus twice `caption_overhang` of the row above).
 
 14. **Every text size comes from `PedigreeStyle.text_size(scale)`** (#51): `font_size`
     times the text's fraction, never below `min_font_size`. Fractions are named

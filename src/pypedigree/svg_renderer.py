@@ -124,6 +124,7 @@ from pypedigree.phenotypes import (
     pgs_curve_base,
     pgs_curve_x,
     pgs_dot_size,
+    pgs_icon_geometry,
     pgs_marker_values,
     pgs_row_layout,
     pgs_tail_positions,
@@ -1789,24 +1790,39 @@ def _svg_legend(
                 width_pt=LEG_RING_WIDTH_PT,
             )
         elif row.kind == "pgs":
-            baseline = vc - m.sw_h / 2
-            curve = [(LEG_X0 + t * 0.9, baseline + d * m.sw_h * 0.9) for t, d in pgs_curve(30)]
-            pts = " ".join(f"{X(u):.3f},{Y(w):.3f}" for u, w in curve)
+            # Upright, as beside a symbol in the figure (#159).
+            g = pgs_icon_geometry(row, m, vc)
+            left, bottom, w, h = g.box
             body.append(
-                f'<polygon points="{X(LEG_X0):.3f},{Y(baseline):.3f} {pts} '
-                f'{X(LEG_X0 + 0.9):.3f},{Y(baseline):.3f}" fill="{FALLBACK_COLOR}" '
+                f'<rect class="pgs-legend-box" x="{X(left):.3f}" y="{Y(bottom + h):.3f}" '
+                f'width="{w * ux:.3f}" height="{h * uy:.3f}" fill="white" '
+                f'stroke="{SEPARATOR_COLOR}" stroke-width="{0.5 * pt:.3f}"/>'
+            )
+            pts = " ".join(f"{X(u):.3f},{Y(v):.3f}" for u, v in g.curve)
+            body.append(
+                f'<polygon points="{X(g.base_x):.3f},{Y(bottom):.3f} {pts} '
+                f'{X(g.base_x):.3f},{Y(bottom + h):.3f}" fill="{FALLBACK_COLOR}" '
                 f'fill-opacity="0.08"/>'
             )
             body.append(
-                f'<polyline points="{pts}" fill="none" stroke="#aaaaaa" '
-                f'stroke-width="{0.6 * pt:.3f}"/>'
+                f'<polyline class="pgs-legend-curve" points="{pts}" fill="none" '
+                f'stroke="#aaaaaa" stroke-width="{0.6 * pt:.3f}"/>'
             )
-            for k, color in enumerate(row.pgs.values()):
-                u = LEG_X0 + (0.3 + k * 0.2) * 0.9
+            for v in g.tails:
                 body.append(
-                    f'<line x1="{X(u):.3f}" y1="{Y(baseline):.3f}" x2="{X(u):.3f}" '
-                    f'y2="{Y(vc + m.sw_h / 2):.3f}" stroke="{html.escape(color)}" '
-                    f'stroke-width="{PGS_MARKER_LINE_PT * pt:.3f}"/>'
+                    f'<line class="pgs-legend-tail" x1="{X(left):.3f}" y1="{Y(v):.3f}" '
+                    f'x2="{X(left + w):.3f}" y2="{Y(v):.3f}" stroke="#aaaaaa" '
+                    f'stroke-width="{0.5 * pt:.3f}" stroke-dasharray="0.02 0.03"/>'
+                )
+            for u, v, label, anchor in g.labels:
+                text(
+                    u,
+                    v,
+                    label,
+                    g.size * pt,
+                    anchor=anchor,
+                    baseline="central",
+                    color=LEG_CATEGORY_COLOR,
                 )
         elif row.kind == "legacy_carrier":
             big = 9 * m.scale * pt
@@ -1840,7 +1856,7 @@ def _svg_legend(
         # lines below when too long for one (#68).
         layout = pgs_row_layout(row, label_u, m)
         for k, line in enumerate(layout.captions):
-            text(label_u, vc - k * m.line_h, line, fs, baseline="central")
+            text(layout.text_x, vc - k * m.line_h, line, fs, baseline="central")
         for item in layout.items:
             v = vc - item.line * m.line_h
             color = html.escape(item.color)
