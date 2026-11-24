@@ -9,8 +9,9 @@ name: Web app
 
 on:
   push:
-    # Not for a release candidate (v1.0.0rc1): the public app keeps drawing
-    # with the last final release.
+    # Not automatically for a release candidate (v1.0.0rc2): to put one
+    # online for testing, run this workflow by hand on its tag
+    # (gh workflow run pages.yml --ref v1.0.0rc2), as for 1.0.0rc1 and rc2.
     tags: ["v*", "!v*rc*"]
   workflow_dispatch:
 

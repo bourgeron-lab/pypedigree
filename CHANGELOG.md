@@ -5,7 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0rc2] - 2026-11-24
+
+Second release candidate: how polygenic scores are drawn, after a first reading of 1.0.0rc1.
+Nothing else changes; figures without PGS or pTDT columns are drawn as by 1.0.0rc1.
 
 ### Changed
 

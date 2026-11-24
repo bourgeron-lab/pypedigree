@@ -1791,35 +1791,35 @@ def _svg_legend(
             )
         elif row.kind == "pgs":
             # Upright, as beside a symbol in the figure (#159).
-            g = pgs_icon_geometry(row, m, vc)
-            left, bottom, w, h = g.box
+            icon = pgs_icon_geometry(row, m, vc)
+            left, bottom, w, h = icon.box
             body.append(
                 f'<rect class="pgs-legend-box" x="{X(left):.3f}" y="{Y(bottom + h):.3f}" '
                 f'width="{w * ux:.3f}" height="{h * uy:.3f}" fill="white" '
                 f'stroke="{SEPARATOR_COLOR}" stroke-width="{0.5 * pt:.3f}"/>'
             )
-            pts = " ".join(f"{X(u):.3f},{Y(v):.3f}" for u, v in g.curve)
+            pts = " ".join(f"{X(u):.3f},{Y(v):.3f}" for u, v in icon.curve)
             body.append(
-                f'<polygon points="{X(g.base_x):.3f},{Y(bottom):.3f} {pts} '
-                f'{X(g.base_x):.3f},{Y(bottom + h):.3f}" fill="{FALLBACK_COLOR}" '
+                f'<polygon points="{X(icon.base_x):.3f},{Y(bottom):.3f} {pts} '
+                f'{X(icon.base_x):.3f},{Y(bottom + h):.3f}" fill="{FALLBACK_COLOR}" '
                 f'fill-opacity="0.08"/>'
             )
             body.append(
                 f'<polyline class="pgs-legend-curve" points="{pts}" fill="none" '
                 f'stroke="#aaaaaa" stroke-width="{0.6 * pt:.3f}"/>'
             )
-            for v in g.tails:
+            for v in icon.tails:
                 body.append(
                     f'<line class="pgs-legend-tail" x1="{X(left):.3f}" y1="{Y(v):.3f}" '
                     f'x2="{X(left + w):.3f}" y2="{Y(v):.3f}" stroke="#aaaaaa" '
                     f'stroke-width="{0.5 * pt:.3f}" stroke-dasharray="0.02 0.03"/>'
                 )
-            for u, v, label, anchor in g.labels:
+            for u, v, label, anchor in icon.labels:
                 text(
                     u,
                     v,
                     label,
-                    g.size * pt,
+                    icon.size * pt,
                     anchor=anchor,
                     baseline="central",
                     color=LEG_CATEGORY_COLOR,

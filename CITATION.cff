@@ -18,8 +18,8 @@ authors:
     email: freddy.cliquet@pasteur.fr
     affiliation: "Human Genetics and Cognitive Functions, Institut Pasteur, Université Paris Cité, CNRS UMR 3571, Paris, France"
     orcid: "https://orcid.org/0000-0002-9989-0685"
-version: 1.0.0rc1
-date-released: "2026-11-23"
+version: 1.0.0rc2
+date-released: "2026-11-24"
 # Concept DOI: every release, resolving to the latest. Each release also
 # gets its own version DOI on Zenodo (0.4.4: 10.5281/zenodo.24289472).
 doi: 10.5281/zenodo.24289471

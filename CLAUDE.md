@@ -39,6 +39,9 @@ uv run ruff check src/ tests/ web/
 
 # Format
 uv run ruff format src/ tests/ web/
+
+# Type-check (CI's lint job runs it too)
+uv run mypy
 ```
 
 ## Architecture
