@@ -74,7 +74,10 @@ curl -s -o /dev/null -w '%{http_code}\n' https://pypi.org/pypi/pypedigree/json
    `v1.0.0rc1`, with its own CHANGELOG section `## [1.0.0rc1] - date`. PyPI
    treats it as a pre-release (`pip install pypedigree` keeps the last final
    version; `pip install pypedigree==1.0.0rc1` gets it), the GitHub release is
-   marked as a pre-release, and the web app is not republished for it.
+   marked as a pre-release, and the web app is not republished for it
+   automatically. To put a release candidate online for testing (as for
+   1.0.0rc1 and rc2), run the web app's workflow by hand on its tag once it is
+   pushed: `gh workflow run pages.yml --ref v1.0.0rc2`.
 
    A tag that was pushed is never reused, even if nothing was published:
    bump to the next version instead (0.4.0 and 0.4.1 were withdrawn this
