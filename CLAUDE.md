@@ -289,7 +289,12 @@ src/pypedigree/
     its `lines`, and counts the extra lines (`legend_metrics(..., extra_lines)`, `m.line_h`).
     `pgs_row_layout` gives the caption's lines and each key item's `line`: one line when it fits,
     else caption first (wrapped between words if too long), then the key under its text, broken
-    between scores. `legend_row_centers` returns a wrapped row's first-line centre.
+    between scores. `legend_row_centers` returns a wrapped row's first-line centre. The PGS row's
+    icon (#159) is the figure's box, upright: `pgs_icon_geometry` (box in ems of the legend font,
+    `LEG_PGS_BOX_*_EM`; "high" / "low" from `LegendRow.high` / `.low`, the ±2 SD names from
+    `LegendRow.tails`, none on "minmax", `legend_text` roles `pgs_high`, `pgs_low`, `pgs_plus_2sd`,
+    `pgs_minus_2sd`), centred on the row's text; `PgsRowLayout.text_x` starts the text past its
+    labels; `pgs_row_extra_h` makes the row as tall (plus twice `caption_overhang` of the row above).
 
 14. **Every text size comes from `PedigreeStyle.text_size(scale)`** (#51): `font_size`
     times the text's fraction, never below `min_font_size`. Fractions are named
@@ -435,7 +440,8 @@ Multi-phenotype support:
   keeps the width in `style.pgs_box_width` (read through `phenotypes.box_width`, everywhere a box is
   placed or drawn). Drawn smaller than planned, `pgs_dot_size` shrinks the dots to fit (not below
   `PGS_DOT_MIN_PT`), at draw time in the PNG, at `pt` in the SVG; PNG dots have no edge, as SVG circles.
-- PGS markers (#54): dots closer than `PGS_DOT_PT` are set side by side (`phenotypes.spread_dots`,
+- PGS markers (#54): each score a solid line `PGS_MARKER_LINE_PT` wide across the box (#158, dashed
+  before; the legend's key the same, a line with a dot in its middle) and a dot. Dots closer than `PGS_DOT_PT` are set side by side (`phenotypes.spread_dots`,
   `PGS_DOT_SPREAD` diameters apart, closer when the group would pass the box's width, #89); with `show_pgs_values` each value (`pgs_marker_text`:
   "+2.1"/U+2212 minus, percentile, 3 significant digits) is written left of the box, right-aligned,
   in the marker's color with a white halo (`PGS_VALUE_HALO_PT`; SVG `paint-order="stroke"`, PNG

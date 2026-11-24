@@ -107,7 +107,7 @@ class TestText:
 
     def test_legend_caption_names_the_scale(self):
         caption = pgs_legend_description(["PGS_autism"], "zscore")
-        assert caption == "PGS distribution, z-score, ±2\u00a0SD marked:"
+        assert caption == "PGS distribution, z-score:"
         assert "percentile" in pgs_legend_description(["PGS_autism"], "percentile")
         assert pgs_legend_description(["PGS_autism"]) == "PGS distribution:"
 
@@ -130,7 +130,7 @@ class TestRendering:
         assert svg.count('<g class="pgs">') == 3
         assert svg.count('class="pgs-tail"') == 6
         assert "PGS autism: z = +2.50, 99th percentile" in svg
-        assert "z-score, ±2\u00a0SD marked" in svg
+        assert "PGS distribution, z-score:" in svg
         minmax = render_interactive_svg(
             parse_pedigree_from_string(TRIO), style=PedigreeStyle(pgs_scale="minmax")
         )

@@ -77,6 +77,7 @@ from pypedigree.phenotypes import (
     PGS_BOX_PAD,
     PGS_CURVE_SIGMA,
     PGS_DOT_PT,
+    PGS_MARKER_LINE_PT,
     PGS_VALUE_GAP_EM,
     PGS_VALUE_HALO_PT,
     PGS_VALUE_LINE_EM,
@@ -121,6 +122,7 @@ from pypedigree.phenotypes import (
     pgs_curve_base,
     pgs_curve_x,
     pgs_dot_size,
+    pgs_icon_geometry,
     pgs_marker_values,
     pgs_row_layout,
     pgs_tail_positions,
@@ -2089,7 +2091,7 @@ def _draw_pgs_ridge(
     """Draw a single gaussian distribution with multiple colored markers.
 
     One shared curve, each PGS trait's individual score shown as a colored
-    dashed line + dot at the corresponding y-position. The box moves `ring`
+    thin solid line + dot at the corresponding y-position (#158). The box moves `ring`
     further left, clear of the symbol's outer borders (#46).
     """
     half = style.shape_size / 2
@@ -2151,8 +2153,8 @@ def _draw_pgs_ridge(
             zorder=4,
         )
 
-    # One colored marker per PGS trait: a dashed line at its exact height,
-    # and a dot, set beside the others' when they would hide each other (#54).
+    # One colored marker per PGS trait: a thin solid line at its exact height
+    # (#158), and a dot, set beside the others' when they would hide each other (#54).
     for pgs_name, norm_val in active:
         marker_color = style.pgs_colors.get(pgs_name, DEFAULT_PGS_COLOR)
         marker_y = box_bottom + norm_val * box_height
@@ -2160,9 +2162,10 @@ def _draw_pgs_ridge(
             [box_left, box_left + box_width],
             [marker_y, marker_y],
             color=marker_color,
-            linewidth=1.0,
-            linestyle="--",
+            linewidth=PGS_MARKER_LINE_PT,
+            solid_capstyle="butt",
             zorder=5,
+            gid="pgs-marker",
         )
     ax.add_artist(_PgsMarks(ax, node, active, style, box_left, box_width, box_bottom, box_height))
 
@@ -3002,40 +3005,58 @@ def _draw_legend_pgs_row(
     m: LegendMetrics,
     style: PedigreeStyle,
 ) -> None:
-    """Draw the shared distribution-curve icon and its marker lines."""
-    xs = np.linspace(0, 1, 30)
-    dens = np.exp(-0.5 * ((xs - 0.5) / PGS_CURVE_SIGMA) ** 2)
-    dens = dens / dens.max() * m.sw_h * 0.9
-    plot_x = LEG_X0 + xs * 0.9
-    baseline = y_center - m.sw_h / 2
-    plot_y = baseline + dens
-
-    ax.plot(plot_x, plot_y, color="#aaaaaa", linewidth=0.6)
-    ax.fill_between(plot_x, baseline, plot_y, alpha=0.08, color=FALLBACK_COLOR)
-
-    for k, color in enumerate(row.pgs.values()):
-        marker_x = LEG_X0 + (0.3 + k * 0.2) * 0.9
-        ax.plot(
-            [marker_x, marker_x],
-            [baseline, y_center + m.sw_h / 2],
-            color=color,
-            linewidth=0.8,
-            linestyle="--",
+    """Draw the PGS icon, upright as in the figure (#159), its caption and key."""
+    g = pgs_icon_geometry(row, m, y_center)
+    left, bottom, w, h = g.box
+    ax.add_patch(
+        mpatches.Rectangle(
+            (left, bottom), w, h, facecolor="white", edgecolor=SEPARATOR_COLOR, linewidth=0.5
+        )
+    )
+    xs = [x for x, _y in g.curve]
+    ys = [y for _x, y in g.curve]
+    ax.fill_betweenx(ys, g.base_x, xs, alpha=0.08, color=FALLBACK_COLOR, linewidth=0)
+    ax.plot(xs, ys, color="#aaaaaa", linewidth=0.6, gid="pgs-legend-curve")
+    for y in g.tails:
+        ax.plot([left, left + w], [y, y], color="#aaaaaa", linewidth=0.5, linestyle=":")
+    for x, y, text, anchor in g.labels:
+        ax.text(
+            x,
+            y,
+            text,
+            fontsize=g.size,
+            fontfamily=style.font_family,
+            color=LEG_CATEGORY_COLOR,
+            ha="center" if anchor == "middle" else "left",
+            va="center",
+            gid="pgs-legend-label",
         )
 
-    # The caption, then the key: each score's name after a dash of its color
-    # (#56), on the lines below when the row is too long for one (#68).
+    # The caption, then the key: each score's name after a line of its color
+    # with a dot, as it is marked in the figure (#56, #158), on the lines
+    # below when the row is too long for one (#68).
     layout = pgs_row_layout(row, m.icon_text_x, m)
     for k, caption in enumerate(layout.captions):
-        _legend_row_label(ax, y_center - k * m.line_h, caption, m.icon_text_x, m, style)
+        _legend_row_label(ax, y_center - k * m.line_h, caption, layout.text_x, m, style)
     for item in layout.items:
         y = y_center - item.line * m.line_h
         ax.plot(
             [item.dash_x0, item.dash_x1],
             [y, y],
             color=item.color,
-            linewidth=1.0,
-            linestyle="--",
+            linewidth=PGS_MARKER_LINE_PT,
+            solid_capstyle="butt",
+            gid="pgs-key-line",
+        )
+        ax.plot(
+            (item.dash_x0 + item.dash_x1) / 2,
+            y,
+            marker="o",
+            markersize=PGS_DOT_PT * m.scale,
+            markerfacecolor=item.color,
+            markeredgecolor="none",
+            linestyle="none",
+            gid="pgs-key-dot",
         )
         _legend_row_label(ax, y, item.name, item.text_x, m, style)
 

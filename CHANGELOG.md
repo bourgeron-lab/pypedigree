@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- A PGS or pTDT score is marked across its box by a thin solid line (0.6 pt) instead of a dashed
+  line 1 pt wide, with its dot as before (#158): at a figure's scale the dashes got in the way, and
+  a dashed line could be read as an interval. In the legend's key each score's name follows a short
+  line of its color with a dot in its middle, as in the figure.
+- The legend's PGS and pTDT rows draw the curve's box as it stands beside a symbol: upright, peak
+  on the left, "high" above it and "low" below it, and on the z-score and percentile scales the
+  ±2 SD lines named "+2 SD" and "−2 SD" on its right (#159). The small horizontal bell drawn before
+  had to be turned in the reader's head and did not say which way was high. The captions drop
+  "±2 SD marked" ("PGS distribution, z-score:", "pTDT deviation, (child − mid-parent) / SD:"), and a
+  lone `PGS` column is keyed like the others ("PGS distribution, z-score: —•— PGS") instead of
+  "PGS distribution (vertical) with individual score". The row is as tall as the icon, and keeps
+  clear of a gradient's captions above it. New `legend_text` roles: `pgs_high`, `pgs_low`,
+  `pgs_plus_2sd`, `pgs_minus_2sd`.
+
 ## [1.0.0rc1] - 2026-11-23
 
 ### Added

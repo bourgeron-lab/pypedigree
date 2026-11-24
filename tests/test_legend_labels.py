@@ -151,7 +151,7 @@ class TestPgsKey:
     def test_key_rows(self):
         rows, style = _rows(SCORES)
         pgs = next(r for r in rows if r.kind == "pgs")
-        assert pgs.label == "PGS distribution, z-score, \u00b12\u00a0SD marked:"
+        assert pgs.label == "PGS distribution, z-score:"
         assert [name for name, _ in pgs.key] == ["autism", "school years"]
         assert [color for _, color in pgs.key] == [
             style.pgs_colors["PGS_autism"],
@@ -176,23 +176,28 @@ class TestPgsKey:
         for name, column in (("autism", "PGS_autism"), ("school years", "PGS_school_years")):
             color = style.pgs_colors[column]
             dash = re.search(
-                rf'<line x1="[-0-9.]+" [^>]*x2="([-0-9.]+)"[^>]*stroke="{color}"', legend
+                rf'<line class="pgs-key-line" x1="[-0-9.]+" [^>]*x2="([-0-9.]+)"[^>]*'
+                rf'stroke="{color}"',
+                legend,
             )
             text = re.search(rf'<text x="([-0-9.]+)"[^>]*>{name}</text>', legend)
             assert dash and text
             assert float(dash.group(1)) < float(text.group(1))
 
-    def test_png_dashes(self):
+    def test_png_key_lines(self):
         ped = pp.parse_pedigree_from_string(SCORES)
         style = pp.resolve_style(None, ped.phenotype_names)
         fig = pp.render_pedigree(ped)
         legend = fig.axes[1]
-        dashed = {to_hex(line.get_color()) for line in legend.lines if line.get_linestyle() == "--"}
+        keys = {to_hex(ln.get_color()) for ln in legend.lines if ln.get_gid() == "pgs-key-line"}
         texts = {t.get_text() for t in legend.texts}
         plt.close(fig)
-        assert {style.pgs_colors["PGS_autism"].lower(), "school years"} <= dashed | texts
+        assert {style.pgs_colors["PGS_autism"].lower()} <= keys
+        assert "school years" in texts
 
-    def test_single_pgs_column_described_in_words(self):
+    def test_single_pgs_column_keyed_by_its_name(self):
+        """A lone "PGS" column is keyed like the others (#159): the icon has no
+        marker, so the key gives the marker's color."""
         text = (
             "FID\tIID\tPAT\tMAT\tSEX\tPHENO\tPGS\n"
             "F1\tfa\t0\t0\t1\t1\t0.2\n"
@@ -200,7 +205,7 @@ class TestPgsKey:
         )
         rows, _ = _rows(text)
         pgs = next(r for r in rows if r.kind == "pgs")
-        assert pgs.key == ()
+        assert [name for name, _ in pgs.key] == ["PGS"]
 
 
 def test_style_json_round_trip():
