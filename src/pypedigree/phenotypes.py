@@ -2596,7 +2596,7 @@ def legend_layout(
         # Never narrower than the other rows, which do not wrap: the panel
         # would be as wide, only taller.
         right = max(max_in / m.unit_x - LEG_X0 - 0.1, right or 0.0)
-    out = []
+    out: list[LegendRow] = []
     for row in rows:
         if row.kind == "pgs":
             if right is not None:
