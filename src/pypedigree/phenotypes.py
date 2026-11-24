@@ -1551,6 +1551,9 @@ def pgs_value_text(raw: float, scale: str) -> str:
 
 MINUS = "\u2212"  # the typographic minus of the values written beside the curve
 PGS_DOT_PT = 3.0  # diameter of a PGS marker's dot, in points
+# A score's line across its box (#158): solid, as thin as the grey curve, so it
+# reads as one value (dashes looked like an interval); the dot gives its color.
+PGS_MARKER_LINE_PT = 0.6
 PGS_DOT_SPREAD = 1.5  # distance between the centres of dots set side by side, in diameters
 PGS_DOT_MIN_PT = 1.5  # the smallest a dot is drawn to fit its box (#147), in points
 PGS_BOX_PAD = 0.02  # how far the curve's rounded box reaches past its edge, in layout units
@@ -1670,7 +1673,7 @@ def spread_dots(ys: Sequence[float], dot: float, width: float | None = None) -> 
     side by side, centred on the curve's axis, `PGS_DOT_SPREAD` diameters
     apart, or closer when the group would pass the box (#89): within
     ``width``, its dots may then overlap a little, each keeping its color
-    and its dashed line. A dot alone keeps offset 0.
+    and its line. A dot alone keeps offset 0.
 
     Args:
         ys: Height of each dot, in any unit.
@@ -1759,7 +1762,7 @@ LEG_SEX_ITEM_GAP = 0.6  # between "= Male" and the female symbol, when the text 
 LEG_OUTLINE_RINGS_LABEL = "Several borders: one per column, inner first"
 LEG_RING_WIDTH_PT = 1.6  # each border of the "outline_rings" icon
 LEG_RING_INSET_PT = 2.2  # its inner border, inside the outer one
-LEG_KEY_DASH_EM = 1.4  # length of a PGS score's dash in the legend's key, in ems
+LEG_KEY_DASH_EM = 1.4  # a PGS score's line in the legend's key (dot in its middle), in ems
 LEG_KEY_GAP_EM = 0.3  # between a dash and its score's name
 LEG_KEY_SPACE_EM = 0.9  # between one score's name and the next dash
 # The header (#67), before `legend_spacing`: the margin above it (smaller with
@@ -2225,7 +2228,8 @@ def quadrant_key_geometry(row: LegendRow, m: LegendMetrics, y_center: float) -> 
 
 @dataclass(frozen=True)
 class LegendKeyItem:
-    """One score of the PGS row's key: a dash of its color, then its name.
+    """One score of the PGS row's key: a line of its color with a dot in its
+    middle, as the score is marked in the figure (#158), then its name.
 
     Positions are in legend units (see `LEG_UNIT_X_EM`).
     """
@@ -2273,7 +2277,7 @@ def pgs_row_layout(row: LegendRow, label_x: float, m: LegendMetrics) -> PgsRowLa
     """Where a PGS row's caption and key go, its text starting at ``label_x``.
 
     On one line when it ends before `LegendRow.wrap_right` (or that is
-    None): the caption, then each score's name after a dash of its color
+    None): the caption, then each score's name after a line of its color
     (#56). Otherwise (#68) the caption on the first line, wrapped between
     words if it is itself too long, and the key on the lines below,
     starting under the caption's text and wrapped between scores, never
@@ -2534,7 +2538,7 @@ def pgs_legend_description(pgs_names: Sequence[str], scale: str = "minmax") -> s
 
     A single column named "PGS" is described in words; otherwise the caption
     ends with a colon, and the row's key (`LegendRow.key`) follows it: each
-    score's name after a dash of its color (#56).
+    score's name after a line of its color (#56).
     """
     if len(pgs_names) == 1 and pgs_names[0].upper() == "PGS":
         caption, keyed = "PGS distribution (vertical) with individual score", False

@@ -76,6 +76,8 @@ from pypedigree.phenotypes import (
     NA_FILL,
     NA_TEXT_COLOR,
     OUTLINE_WIDTH_SCALE,
+    PGS_DOT_PT,
+    PGS_MARKER_LINE_PT,
     PGS_VALUE_GAP_EM,
     PGS_VALUE_HALO_PT,
     PGS_VALUE_LINE_EM,
@@ -1351,7 +1353,7 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
     """PGS distribution curve beside a symbol, one marker per score.
 
     Mirrors `renderer._draw_pgs_ridge`: the curve runs bottom to top, with
-    each score's position on [0, 1] marked by a dashed line and a dot.
+    each score's position on [0, 1] marked by a thin solid line and a dot (#158).
     """
     pt = symbols.units_per_point(ctx.style.text_scale)  # layout units per point (#145)
     style = ctx.style
@@ -1394,8 +1396,8 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
     for (name, _value), y, dx in zip(active, ys, offsets, strict=True):
         color = html.escape(style.pgs_colors.get(name, DEFAULT_PGS_COLOR))
         out.append(
-            f'<line x1="{left:.3f}" y1="{y:.3f}" x2="{left + box_w:.3f}" y2="{y:.3f}" '
-            f'stroke="{color}" stroke-width="{pt:.3f}" stroke-dasharray="0.06 0.03"/>'
+            f'<line class="pgs-marker" x1="{left:.3f}" y1="{y:.3f}" x2="{left + box_w:.3f}" '
+            f'y2="{y:.3f}" stroke="{color}" stroke-width="{PGS_MARKER_LINE_PT * pt:.3f}"/>'
         )
         cx = left + box_w / 2 + dx
         out.append(f'<circle cx="{cx:.3f}" cy="{y:.3f}" r="{dot / 2:.3f}" fill="{color}"/>')
@@ -1804,7 +1806,7 @@ def _svg_legend(
                 body.append(
                     f'<line x1="{X(u):.3f}" y1="{Y(baseline):.3f}" x2="{X(u):.3f}" '
                     f'y2="{Y(vc + m.sw_h / 2):.3f}" stroke="{html.escape(color)}" '
-                    f'stroke-width="{0.8 * pt:.3f}" stroke-dasharray="0.04 0.02"/>'
+                    f'stroke-width="{PGS_MARKER_LINE_PT * pt:.3f}"/>'
                 )
         elif row.kind == "legacy_carrier":
             big = 9 * m.scale * pt
@@ -1833,17 +1835,23 @@ def _svg_legend(
         if row.kind != "pgs":
             text(label_u, vc, row.label, fs, baseline="central")
             continue
-        # The caption, then the PGS key: each score's name after a dash of its
-        # color (#56), on the lines below when too long for one (#68).
+        # The caption, then the PGS key: each score's name after a line of its
+        # color with a dot, as it is marked in the figure (#56, #158), on the
+        # lines below when too long for one (#68).
         layout = pgs_row_layout(row, label_u, m)
         for k, line in enumerate(layout.captions):
             text(label_u, vc - k * m.line_h, line, fs, baseline="central")
         for item in layout.items:
             v = vc - item.line * m.line_h
+            color = html.escape(item.color)
             body.append(
-                f'<line x1="{X(item.dash_x0):.3f}" y1="{Y(v):.3f}" x2="{X(item.dash_x1):.3f}" '
-                f'y2="{Y(v):.3f}" stroke="{html.escape(item.color)}" '
-                f'stroke-width="{pt:.3f}" stroke-dasharray="0.06 0.03"/>'
+                f'<line class="pgs-key-line" x1="{X(item.dash_x0):.3f}" y1="{Y(v):.3f}" '
+                f'x2="{X(item.dash_x1):.3f}" y2="{Y(v):.3f}" stroke="{color}" '
+                f'stroke-width="{PGS_MARKER_LINE_PT * pt:.3f}"/>'
+            )
+            body.append(
+                f'<circle class="pgs-key-dot" cx="{X((item.dash_x0 + item.dash_x1) / 2):.3f}" '
+                f'cy="{Y(v):.3f}" r="{PGS_DOT_PT * m.scale * pt / 2:.3f}" fill="{color}"/>'
             )
             text(item.text_x, v, item.name, fs, baseline="central")
 

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- A PGS or pTDT score is marked across its box by a thin solid line (0.6 pt) instead of a dashed
+  line 1 pt wide, with its dot as before (#158): at a figure's scale the dashes got in the way, and
+  a dashed line could be read as an interval. In the legend's key each score's name follows a short
+  line of its color with a dot in its middle, as in the figure.
+
 ## [1.0.0rc1] - 2026-11-23
 
 ### Added

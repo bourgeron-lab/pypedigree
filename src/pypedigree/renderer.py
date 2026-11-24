@@ -77,6 +77,7 @@ from pypedigree.phenotypes import (
     PGS_BOX_PAD,
     PGS_CURVE_SIGMA,
     PGS_DOT_PT,
+    PGS_MARKER_LINE_PT,
     PGS_VALUE_GAP_EM,
     PGS_VALUE_HALO_PT,
     PGS_VALUE_LINE_EM,
@@ -2089,7 +2090,7 @@ def _draw_pgs_ridge(
     """Draw a single gaussian distribution with multiple colored markers.
 
     One shared curve, each PGS trait's individual score shown as a colored
-    dashed line + dot at the corresponding y-position. The box moves `ring`
+    thin solid line + dot at the corresponding y-position (#158). The box moves `ring`
     further left, clear of the symbol's outer borders (#46).
     """
     half = style.shape_size / 2
@@ -2151,8 +2152,8 @@ def _draw_pgs_ridge(
             zorder=4,
         )
 
-    # One colored marker per PGS trait: a dashed line at its exact height,
-    # and a dot, set beside the others' when they would hide each other (#54).
+    # One colored marker per PGS trait: a thin solid line at its exact height
+    # (#158), and a dot, set beside the others' when they would hide each other (#54).
     for pgs_name, norm_val in active:
         marker_color = style.pgs_colors.get(pgs_name, DEFAULT_PGS_COLOR)
         marker_y = box_bottom + norm_val * box_height
@@ -2160,9 +2161,10 @@ def _draw_pgs_ridge(
             [box_left, box_left + box_width],
             [marker_y, marker_y],
             color=marker_color,
-            linewidth=1.0,
-            linestyle="--",
+            linewidth=PGS_MARKER_LINE_PT,
+            solid_capstyle="butt",
             zorder=5,
+            gid="pgs-marker",
         )
     ax.add_artist(_PgsMarks(ax, node, active, style, box_left, box_width, box_bottom, box_height))
 
@@ -3019,12 +3021,13 @@ def _draw_legend_pgs_row(
             [marker_x, marker_x],
             [baseline, y_center + m.sw_h / 2],
             color=color,
-            linewidth=0.8,
-            linestyle="--",
+            linewidth=PGS_MARKER_LINE_PT,
+            solid_capstyle="butt",
         )
 
-    # The caption, then the key: each score's name after a dash of its color
-    # (#56), on the lines below when the row is too long for one (#68).
+    # The caption, then the key: each score's name after a line of its color
+    # with a dot, as it is marked in the figure (#56, #158), on the lines
+    # below when the row is too long for one (#68).
     layout = pgs_row_layout(row, m.icon_text_x, m)
     for k, caption in enumerate(layout.captions):
         _legend_row_label(ax, y_center - k * m.line_h, caption, m.icon_text_x, m, style)
@@ -3034,8 +3037,19 @@ def _draw_legend_pgs_row(
             [item.dash_x0, item.dash_x1],
             [y, y],
             color=item.color,
-            linewidth=1.0,
-            linestyle="--",
+            linewidth=PGS_MARKER_LINE_PT,
+            solid_capstyle="butt",
+            gid="pgs-key-line",
+        )
+        ax.plot(
+            (item.dash_x0 + item.dash_x1) / 2,
+            y,
+            marker="o",
+            markersize=PGS_DOT_PT * m.scale,
+            markerfacecolor=item.color,
+            markeredgecolor="none",
+            linestyle="none",
+            gid="pgs-key-dot",
         )
         _legend_row_label(ax, y, item.name, item.text_x, m, style)
 

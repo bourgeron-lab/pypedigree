@@ -176,21 +176,24 @@ class TestPgsKey:
         for name, column in (("autism", "PGS_autism"), ("school years", "PGS_school_years")):
             color = style.pgs_colors[column]
             dash = re.search(
-                rf'<line x1="[-0-9.]+" [^>]*x2="([-0-9.]+)"[^>]*stroke="{color}"', legend
+                rf'<line class="pgs-key-line" x1="[-0-9.]+" [^>]*x2="([-0-9.]+)"[^>]*'
+                rf'stroke="{color}"',
+                legend,
             )
             text = re.search(rf'<text x="([-0-9.]+)"[^>]*>{name}</text>', legend)
             assert dash and text
             assert float(dash.group(1)) < float(text.group(1))
 
-    def test_png_dashes(self):
+    def test_png_key_lines(self):
         ped = pp.parse_pedigree_from_string(SCORES)
         style = pp.resolve_style(None, ped.phenotype_names)
         fig = pp.render_pedigree(ped)
         legend = fig.axes[1]
-        dashed = {to_hex(line.get_color()) for line in legend.lines if line.get_linestyle() == "--"}
+        keys = {to_hex(ln.get_color()) for ln in legend.lines if ln.get_gid() == "pgs-key-line"}
         texts = {t.get_text() for t in legend.texts}
         plt.close(fig)
-        assert {style.pgs_colors["PGS_autism"].lower(), "school years"} <= dashed | texts
+        assert {style.pgs_colors["PGS_autism"].lower()} <= keys
+        assert "school years" in texts
 
     def test_single_pgs_column_described_in_words(self):
         text = (
