@@ -9,8 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 Third release candidate, after a family drawn in the web app showed a son of founders married into
 a younger generation drawn a row away from his own copy. With the defaults, a figure changes only
-where founders stood above a child who married into a younger generation, or where a person was
-drawn twice in different rows; every figure of the test suite and of the documentation is drawn as
+where founders stood above a child who married into a younger generation, where a person was
+drawn twice in different rows, or where a proband stands on the right of a couple with children
+(the couple a little wider apart, the "P" off their line of descent); every figure of the test suite and of the documentation is drawn as
 by 1.0.0rc2, except those with several kinds of curves. New options draw siblings strictly in birth
 order, draw loops with crossing lines instead of duplicates, and draw any normally distributed
 trait (IQ...) on a curve as a polygenic score is.
