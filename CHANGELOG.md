@@ -44,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   family (12) was drawn twice as well. The families on the top rows are now placed first, so
   founders lowered to a child who married into a younger generation join from the side, and the
   only copy is that child's, in his row, whatever the order of the rows.
+- The dotted line between two copies of a person in different rows (a man whose second partner
+  is from a younger generation, drawn again on her row) ran in the band above the upper copy only
+  and stopped a row short of the other. It now runs across the band above the lower copy, up
+  through the gap beside the upper one (not a couple's gap, which holds their line of descent)
+  and across the band above the upper row, onto each copy's top.
 
 ## [1.0.0rc2] - 2026-11-24
 

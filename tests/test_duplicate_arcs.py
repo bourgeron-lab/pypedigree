@@ -23,6 +23,7 @@ from pypedigree import (
     PedigreeStyle,
     compute_layout,
     parse_pedigree,
+    parse_pedigree_from_string,
     render_interactive_svg,
     render_pedigree,
 )
@@ -134,6 +135,69 @@ class TestRoute:
         for e in layout.edges:
             if e.edge_type == EdgeType.SIBSHIP:
                 assert round(e.start[1] - STYLE.generation_gap / 2, 6) in rows
+
+
+# A man whose second partner is his niece: the parser draws him a second
+# time for that partnership, on her row, a generation below him.
+ROWS_APART = (
+    "FID\tIID\tPAT\tMAT\tSEX\tPHENO\n"
+    "FAM1\tg1\t0\t0\t1\t1\n"
+    "FAM1\tg2\t0\t0\t2\t1\n"
+    "FAM1\ta\tg1\tg2\t1\t2\n"
+    "FAM1\tb\tg1\tg2\t2\t1\n"
+    "FAM1\tbh\t0\t0\t1\t1\n"
+    "FAM1\tc\tbh\tb\t2\t1\n"
+    "FAM1\td\tbh\tb\t1\t1\n"
+    "FAM1\tw1\t0\t0\t2\t1\n"
+    "FAM1\tx\ta\tw1\t1\t1\n"
+    "FAM1\ty\ta\tc\t2\t2\n"
+)
+
+
+class TestCopiesInTwoRows:
+    """The line between copies a generation apart reaches both (the line
+    once ran in the upper copy's band only and stopped a row short)."""
+
+    @pytest.fixture(scope="class")
+    def layout(self):
+        family = parse_pedigree_from_string(ROWS_APART).get_family("FAM1")
+        return compute_layout(family, STYLE)
+
+    def test_copies_in_two_rows(self, layout):
+        (arc,) = layout.duplicate_arcs
+        assert arc.from_pos[1] - arc.to_pos[1] == pytest.approx(STYLE.generation_gap)
+
+    def test_ends_on_both_tops(self, layout):
+        (arc,) = layout.duplicate_arcs
+        (sx, sy), (ex, ey) = arc.waypoints[0], arc.waypoints[-1]
+        assert sy == pytest.approx(arc.from_pos[1] + HALF)
+        assert ey == pytest.approx(arc.to_pos[1] + HALF)
+        assert abs(sx - arc.from_pos[0]) < HALF and abs(ex - arc.to_pos[0]) < HALF
+
+    def test_no_symbol_crossed(self, layout):
+        assert _crossed(layout) == 0
+
+    def test_not_up_a_couples_line_of_descent(self, layout):
+        """It goes up between w1 and bh, not between a and his wife w1."""
+        (arc,) = layout.duplicate_arcs
+        x = {n.individual_id: n.x for n in layout.nodes if not n.is_duplicate}
+        risers = [p[0] for p, q in _segments(arc.waypoints) if abs(p[0] - q[0]) < 1e-9]
+        tall = [
+            p[0]
+            for p, q in _segments(arc.waypoints)
+            if abs(p[0] - q[0]) < 1e-9 and abs(p[1] - q[1]) > STYLE.generation_gap / 2
+        ]
+        assert risers and tall
+        assert x["w1"] < tall[0] < x["bh"]
+
+    def test_drawn_in_both_outputs(self, layout):
+        family = parse_pedigree_from_string(ROWS_APART)
+        svg = render_interactive_svg(family)
+        root = ET.fromstring(svg)
+        links = [e for e in root.iter(f"{SVG}polyline") if "duplicate-link" in e.get("class", "")]
+        assert len(links) == 1
+        fig = render_pedigree(family)
+        plt.close(fig)
 
 
 class TestDrawn:

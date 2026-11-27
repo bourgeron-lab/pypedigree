@@ -117,11 +117,15 @@ src/pypedigree/
    `_MAX_LOOP_BREAKING_PASSES`. Don't add passes that move nodes individually
    after placement (the old sweep / barycenter / refinement passes broke
    this). `TestSibshipSeparation` checks it; `TestLoopDuplicates` guards the
-   duplicate count. The dotted line joining the two copies (always in one row) is routed by
+   duplicate count. The dotted line joining the two copies is routed by
    `_route_duplicate_arcs` (#149): up from the top of each copy (`_ARC_EXIT` half-sizes off centre),
    across the band between the row's tops and its sibship lines, which holds no symbol, and down,
    with rounded corners (`DuplicateArc.waypoints`); overlapping lines of a row get separate lanes,
-   the shorter lower. The circular layout keeps the curve (`curvature`). `tests/test_duplicate_arcs.py`. A partner normally takes the side given by the
+   the shorter lower. Copies in two rows (a parser copy for a partner from a younger generation)
+   are joined through the gap beside the upper copy facing the lower one, the first not between a
+   couple (`couples`, their descent line) and clear of the rows between, else past the row's end:
+   across the lower band, up, across the upper band (`TestCopiesInTwoRows`). Corners by `_rounded`.
+   The circular layout keeps the curve (`curvature`). `tests/test_duplicate_arcs.py`. A partner normally takes the side given by the
    partnership's order, but the end twins of a twin group take theirs on the
    group's outer side (`_twin_outer_sides`), so no spouse sits between twins
    under the twin connector; loop partners keep their forced right side.
