@@ -328,6 +328,12 @@ class PedigreeStyle:
     # it. The interactive SVG keeps the ID in the tooltip and `data-id`.
     labels: str = "id"
 
+    # Order of siblings: "auto" by date of birth (then file order), except
+    # that the children leading to a loop are moved to the end of their
+    # sibship facing the other branch; "birth" keeps the birth order
+    # strictly, so such a loop is drawn with a duplicate (or crossing lines).
+    sibling_order: str = "auto"
+
     # Circular layout parameters
     radial_gap: float = 2.5
     base_radius: float = 3.0

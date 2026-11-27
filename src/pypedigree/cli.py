@@ -173,6 +173,14 @@ def _export(pedigree: Pedigree, path: str) -> None:
     help="What labels a symbol: its sample ID (default), its NSGC number from the "
     "drawing, generation and position (I-1, II-3), or both, the ID under the number.",
 )
+@click.option(
+    "--sibling-order",
+    type=click.Choice(["auto", "birth"]),
+    default=None,
+    help="Order of siblings: by date of birth, then file order, except where a loop "
+    "is closed by moving a child to the end of their sibship (auto, default); or strictly "
+    "in that order, loops drawn with a duplicate instead (birth).",
+)
 @click.option("--no-legend", is_flag=True, help="Hide the phenotype legend.")
 @click.option(
     "--show-phenotype-labels",
@@ -280,6 +288,7 @@ def main(
     text_scale: float | None,
     no_labels: bool,
     label_mode: str | None,
+    sibling_order: str | None,
     no_legend: bool,
     show_phenotype_labels: bool,
     no_na_labels: bool,
@@ -334,6 +343,8 @@ def main(
                 style.phenotype_layout = phenotype_layout
             if label_mode:
                 style.labels = label_mode
+            if sibling_order is not None:
+                style.sibling_order = sibling_order
             if ptdt:
                 style.pgs_transmission = True
 

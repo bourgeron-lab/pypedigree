@@ -56,6 +56,7 @@ def compute_layout(
     if style is None:
         style = PedigreeStyle()
     check_labels(style)
+    check_sibling_order(style)
     check_text_scale(style)
 
     if not family.individuals:
@@ -673,6 +674,18 @@ class _HierarchicalPlacer:
                 # untangles the rest: break that one, and lay out again.
                 widest = max(stretched, key=lambda u: (width[u], -u))
                 fixes[self.loops[widest][0]] = None
+        if self.style.sibling_order == "birth":
+            # A child drawn next to their partner in another family stands
+            # out of birth order unless that happens to be their place: then
+            # they are drawn again, among their siblings.
+            for ui, entries in self.loops.items():
+                union = self.unions[ui]
+                order = [c for c in _order_children(self.family, union.children_ids) if c in x]
+                drawn = sorted(order, key=lambda c: x[c])
+                for entry in entries:
+                    cid = entry[1]
+                    if cid in order and drawn.index(cid) != order.index(cid):
+                        fixes[entry] = None
         return [(self.unions[ui], pid) for ui, pid in fixes]
 
     def _place(self, sid: str) -> list[_Block]:
@@ -817,7 +830,9 @@ class _HierarchicalPlacer:
                 and q not in line
             ]
 
-        movable = [c for c in children if c not in twins]
+        # In strict birth order nothing moves: a loop that ordering would
+        # have closed is broken with a duplicate instead.
+        movable = [c for c in children if c not in twins and self.style.sibling_order != "birth"]
         first = [c for c in movable if any(d in self.attached_by for d in lines[c])]
         partners = {c: loop_partners(c) for c in movable if c not in first}
         last = [c for c, qs in partners.items() if any(q not in inside for q in qs)]
@@ -1072,6 +1087,23 @@ def _pgs_right_side(family: Family, positions: Mapping[str, float]) -> set[str]:
             left.add(lo)
             right.add(hi)
     return right - left
+
+
+#: Values of `PedigreeStyle.sibling_order`.
+SIBLING_ORDERS = ("auto", "birth")
+
+
+def check_sibling_order(style: PedigreeStyle) -> None:
+    """Reject an unknown ``sibling_order`` before anything is laid out.
+
+    Raises:
+        PedigreeError: If ``style.sibling_order`` is not one of `SIBLING_ORDERS`.
+    """
+    if style.sibling_order not in SIBLING_ORDERS:
+        raise PedigreeError(
+            f"Unknown sibling_order {style.sibling_order!r}: "
+            f"expected one of {', '.join(SIBLING_ORDERS)}"
+        )
 
 
 def check_labels(style: PedigreeStyle) -> None:
@@ -1884,6 +1916,7 @@ def compute_layout_circular(
 
     # Steps 1-2: Generations and left-to-right order, from the hierarchical
     # placement (the family may gain duplicate nodes there).
+    check_sibling_order(style)
     family, generations, x_positions = _place_hierarchically(family, style, labels=False)
     check_labels(style)
     check_text_scale(style)

@@ -21,6 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   e.g. "IQ distribution (mean 100, SD 15)". `PhenotypeDisplayMode.CURVE`,
   `pypedigree.config.curve_kind`; `apply_pgs_spacing` takes `boxes` and `box_gap`. Example
   `tests/data/phenotype/curve_traits.ped` (IQ and two PGS), in the web app too.
+- `sibling_order` (`--sibling-order`, web app "Sibling order"): `"auto"` (the default, as before)
+  orders siblings by date of birth, then file order, but moves a child who leads to a loop to the
+  end of their sibship facing the other branch; `"birth"` keeps birth order strictly, and draws
+  such a loop with a duplicate instead. Two siblings who are partners stay side by side.
+- The documentation says what a date of birth is for: ordering siblings, compared as text, undated
+  siblings after dated ones; for a pregnancy, the date of its outcome, or the due date of an
+  ongoing one.
 
 ### Changed
 
