@@ -531,9 +531,12 @@ class DuplicateArc:
         curvature: Signed curvature for the arc. Positive curves left
             of the from→to direction, negative curves right. The sign
             is chosen so the arc bows away from the tree centre.
-        waypoints: The route of the line in the hierarchical layout (#149):
-            up from the top of one copy, across the band above their row
-            and down to the other. Empty: the curve given by ``curvature``
+        waypoints: The route of the line in the hierarchical layout (#149),
+            from the original: up from the top of one copy, across the band
+            above their row and down to the other. Copies in two rows are
+            joined through a gap beside the upper one: across the band above
+            the lower copy's row, up through the gap, across the band above
+            the upper row. Empty: the curve given by ``curvature``
             (circular layout).
     """
 

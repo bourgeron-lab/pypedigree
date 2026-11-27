@@ -92,7 +92,10 @@ def compute_layout(
     positions = {
         sid: (x, -generations.get(sid, 0) * style.generation_gap) for sid, x in x_positions.items()
     }
-    duplicate_arcs = _route_duplicate_arcs(_compute_duplicate_arcs(family, positions, style), style)
+    couples = {frozenset(u.partner_ids) for u in family.unions}
+    duplicate_arcs = _route_duplicate_arcs(
+        _compute_duplicate_arcs(family, positions, style), style, positions, couples
+    )
 
     return FamilyLayout(
         family_id=family.family_id,
@@ -1693,65 +1696,151 @@ _ARC_CORNER = 0.1
 _ARC_LANE_PAD = 0.1
 
 
-def _route_duplicate_arcs(arcs: list[DuplicateArc], style: PedigreeStyle) -> list[DuplicateArc]:
-    """Route each dotted line through the band above its row (#149).
+def _route_duplicate_arcs(
+    arcs: list[DuplicateArc],
+    style: PedigreeStyle,
+    positions: Mapping[str, tuple[float, float]] | None = None,
+    couples: set[frozenset[str]] | None = None,
+) -> list[DuplicateArc]:
+    """Route each dotted line through the band above the copies' rows (#149).
 
-    The two copies of a person are always in the same row, often far apart;
-    a curve from centre to centre ran through every symbol in between. The
+    A curve from centre to centre ran through every symbol in between. The
     line now leaves the top of each copy `_ARC_EXIT` half-sizes towards the
     other, rises into the band between the symbols' tops and their sibship
     lines (`generation_gap` / 2 above the row), which holds no symbol, runs
-    across and comes down, with rounded corners. Lines of a row whose spans
-    overlap get lanes at different heights, the shorter ones lower, so a
-    line nested in another stays inside it.
+    across and comes down, with rounded corners.
+
+    Copies in different rows (a man whose second partner is from a younger
+    generation) are joined through the gap beside the upper copy, on the
+    side of the lower one: the first gap there between two people who are
+    not a couple (a couple's gap holds their line of descent), else beyond
+    the end of the row. The line runs in the band above the lower copy's row
+    to that gap, up through it and across the band above the upper row.
+
+    Lines whose runs across one band overlap get lanes at different heights,
+    the shorter ones lower, so a line nested in another stays inside it.
+
+    Args:
+        arcs: The lines, from `_compute_duplicate_arcs`.
+        style: Style of the figure.
+        positions: Centre of every node, to find the gap a line between
+            two rows goes through.
+        couples: Pairs of partners, whose gap that line avoids.
+
+    Returns:
+        The lines with their waypoints.
     """
     half = style.shape_size / 2
-    rows: dict[float, list[int]] = {}
+    exit_dx = half * _ARC_EXIT
+    rows_x: dict[float, list[float]] = {}
+    for x, y in (positions or {}).values():
+        rows_x.setdefault(round(y, 6), []).append(x)
+    by_x: dict[tuple[float, float], str] = {
+        (round(x, 6), round(y, 6)): sid for sid, (x, y) in (positions or {}).items()
+    }
+
+    def gap_beside(upper: tuple[float, float], lower: tuple[float, float]) -> float:
+        """x of the gap the line from `lower` goes up through, beside `upper`."""
+        side = 1.0 if lower[0] >= upper[0] else -1.0
+        row = round(upper[1], 6)
+        xs = sorted(rows_x.get(row, [upper[0]]), key=lambda x: side * x)
+        xs = [x for x in xs if side * (x - upper[0]) >= 0]
+        between = [
+            sorted(xs_r)
+            for y_r, xs_r in rows_x.items()
+            if min(lower[1], upper[1]) + 1e-6 < y_r < max(lower[1], upper[1]) - 1e-6
+        ]
+        for a, b in zip(xs, xs[1:], strict=False):
+            pair = frozenset((by_x.get((round(a, 6), row), ""), by_x.get((round(b, 6), row), "")))
+            if couples and pair in couples:
+                continue
+            x = (a + b) / 2
+            if all(abs(x - xr) > half + _ARC_LANE_PAD for xs_r in between for xr in xs_r):
+                return x
+        end = xs[-1] if xs else upper[0]
+        return end + side * (half + style.sibling_gap / 2)
+
+    # Each line: its route as the copies it leaves and the runs across a
+    # band, (band's row, x from, x to).
+    runs: dict[int, list[tuple[float, float, float]]] = {}
     for i, arc in enumerate(arcs):
-        rows.setdefault(round(arc.from_pos[1], 6), []).append(i)
-    routed = list(arcs)
-    for row_y, members in rows.items():
-        spans = {}
-        for i in members:
-            (x1, _), (x2, _) = arcs[i].from_pos, arcs[i].to_pos
-            side = 1.0 if x2 >= x1 else -1.0
-            spans[i] = (x1 + side * half * _ARC_EXIT, x2 - side * half * _ARC_EXIT)
+        a, b = arc.from_pos, arc.to_pos
+        if abs(a[1] - b[1]) < 1e-6:
+            side = 1.0 if b[0] >= a[0] else -1.0
+            runs[i] = [(round(a[1], 6), a[0] + side * exit_dx, b[0] - side * exit_dx)]
+            continue
+        upper, lower = (a, b) if a[1] > b[1] else (b, a)
+        x_gap = gap_beside(upper, lower)
+        s_low = 1.0 if x_gap >= lower[0] else -1.0
+        s_up = 1.0 if x_gap >= upper[0] else -1.0
+        runs[i] = [
+            (round(lower[1], 6), lower[0] + s_low * exit_dx, x_gap),
+            (round(upper[1], 6), x_gap, upper[0] + s_up * exit_dx),
+        ]
+
+    lane_y: dict[tuple[int, int], float] = {}
+    band = style.generation_gap / 2 - half
+    bands: dict[float, list[tuple[int, int]]] = {}
+    for i, rs in runs.items():
+        for k, (row, _, _) in enumerate(rs):
+            bands.setdefault(row, []).append((i, k))
+    for row_y, members in bands.items():
         lanes: list[list[tuple[float, float]]] = []
-        lane_of: dict[int, int] = {}
-        for i in sorted(members, key=lambda j: abs(spans[j][1] - spans[j][0])):
-            lo, hi = sorted(spans[i])
+        lane_of: dict[tuple[int, int], int] = {}
+        for m in sorted(members, key=lambda m: abs(runs[m[0]][m[1]][2] - runs[m[0]][m[1]][1])):
+            lo, hi = sorted(runs[m[0]][m[1]][1:])
             for k, taken in enumerate(lanes):
-                if all(hi + _ARC_LANE_PAD < a or b + _ARC_LANE_PAD < lo for a, b in taken):
+                if all(hi + _ARC_LANE_PAD < p or q + _ARC_LANE_PAD < lo for p, q in taken):
                     taken.append((lo, hi))
-                    lane_of[i] = k
+                    lane_of[m] = k
                     break
             else:
                 lanes.append([(lo, hi)])
-                lane_of[i] = len(lanes) - 1
+                lane_of[m] = len(lanes) - 1
         bottom = row_y + half
-        band = style.generation_gap / 2 - half
         low, high = bottom + band * _ARC_BAND_MARGIN, bottom + band * (1 - _ARC_BAND_MARGIN)
-        for i in members:
-            k = lane_of[i]
-            lane = low + (high - low) * (k + 1) / (len(lanes) + 1)
-            routed[i] = replace(arcs[i], waypoints=_arc_route(*spans[i], bottom, lane))
+        for m in members:
+            lane_y[m] = low + (high - low) * (lane_of[m] + 1) / (len(lanes) + 1)
+
+    routed = list(arcs)
+    for i, rs in runs.items():
+        corners = [(rs[0][1], rs[0][0] + half)]
+        for k, (_, xa, xb) in enumerate(rs):
+            corners += [(xa, lane_y[(i, k)]), (xb, lane_y[(i, k)])]
+        corners.append((rs[-1][2], rs[-1][0] + half))
+        if len(rs) > 1 and arcs[i].from_pos[1] > arcs[i].to_pos[1]:
+            corners.reverse()  # from the original, as for a line within a row
+        routed[i] = replace(arcs[i], waypoints=_rounded(corners, _ARC_CORNER))
     return routed
 
 
-def _arc_route(xa: float, xb: float, bottom: float, lane: float) -> list[tuple[float, float]]:
-    """Up from (xa, bottom), across at ``lane``, down to (xb, bottom), with
-    quarter-circle corners of radius `_ARC_CORNER` (less when short)."""
-    side = 1.0 if xb >= xa else -1.0
-    r = min(_ARC_CORNER, (lane - bottom) / 2, abs(xb - xa) / 2)
+def _rounded(corners: list[tuple[float, float]], radius: float) -> list[tuple[float, float]]:
+    """An orthogonal polyline with quarter-circle corners of `radius` (less
+    where a segment is short: at most half of it on either side)."""
+    points = [corners[0]]
     steps = 6
-    points = [(xa, bottom)]
-    for k in range(steps + 1):  # first corner: from going up to going across
-        a = math.pi / 2 * k / steps
-        points.append((xa + side * r * (1 - math.cos(a)), lane - r + r * math.sin(a)))
-    for k in range(steps + 1):  # second corner: from going across to going down
-        a = math.pi / 2 * k / steps
-        points.append((xb - side * r + side * r * math.sin(a), lane - r * (1 - math.cos(a))))
-    points.append((xb, bottom))
+    for k in range(1, len(corners) - 1):
+        (x0, y0), (x1, y1), (x2, y2) = corners[k - 1], corners[k], corners[k + 1]
+        d_in, d_out = math.hypot(x1 - x0, y1 - y0), math.hypot(x2 - x1, y2 - y1)
+        if d_in < 1e-9 or d_out < 1e-9:
+            continue
+        r = min(radius, d_in / 2, d_out / 2)
+        u = ((x1 - x0) / d_in, (y1 - y0) / d_in)
+        v = ((x2 - x1) / d_out, (y2 - y1) / d_out)
+        # Corner centre: back along the incoming direction and on along the
+        # outgoing one by r; the arc goes from p_in to p_out around it.
+        p_in = (x1 - u[0] * r, y1 - u[1] * r)
+        centre = (p_in[0] + v[0] * r, p_in[1] + v[1] * r)
+        for j in range(steps + 1):
+            a = math.pi / 2 * j / steps
+            # From p_in (centre - v*r) towards p_out (centre + u*r).
+            points.append(
+                (
+                    centre[0] - v[0] * r * math.cos(a) + u[0] * r * math.sin(a),
+                    centre[1] - v[1] * r * math.cos(a) + u[1] * r * math.sin(a),
+                )
+            )
+    points.append(corners[-1])
     return points
 
 
