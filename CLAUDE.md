@@ -678,7 +678,10 @@ click highlighting and zoom/pan. Families are laid side by side; element ids are
 generated (`f<family>n<node>`), never derived from sample IDs. Each node group
 carries `data-id`, `data-parents/children/siblings` and `data-x`, `data-y`,
 `data-size` (symbol centre and size in `#main-group` coordinates, which zoom/pan
-transform) for host overlays; `TestSvgNodePositions` checks them. Text is placed
+transform) for host overlays; `TestSvgNodePositions` checks them. Text, titles and `data-*`
+values go through `_xml` (escaped, non-ASCII as `&#NNNN;`): the output stays ASCII, so Python holds
+it at one byte per character (a single "−" doubled the memory of a large SVG;
+`tests/test_svg_ascii.py`, tests read it with `conftest.decode_char_refs`). Text is placed
 with explicit baseline offsets (`_BASELINE_SHIFT`), not `dominant-baseline`,
 which librsvg and older Inkscape ignore. Font sizes and line widths in points are
 scaled by `pt = symbols.units_per_point(style.text_scale)` layout units per point (#145). No circular layout in the SVG.

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 import pytest
-from conftest import PHENOTYPE_DIR
+from conftest import PHENOTYPE_DIR, decode_char_refs
 
 from pypedigree import (
     PedigreeStyle,
@@ -54,6 +54,7 @@ def _png_texts(path, **style) -> list[str]:
 
 def _svg_legend(path, **style) -> str:
     svg = render_interactive_svg(parse_pedigree(path), style=PedigreeStyle(**style))
+    svg = decode_char_refs(svg)
     start = svg.index('<g class="legend">')
     return svg[start : svg.index("\n</g>", start)]
 

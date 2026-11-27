@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Drawing a large pedigree as SVG took about 45% more memory than in 1.0.0rc1 (744 MB instead of
+  515 MB for 20,000 people), and more time: one "−" (U+2212) in the legend's PGS icon (1.0.0rc2)
+  made Python hold the whole SVG, and every piece it was built from, at two bytes per character.
+  The SVG writer now writes any non-ASCII character of a text, tooltip or `data-*` value as a
+  character reference (`&#8722;`), which every SVG reader shows as the same character: 526 MB.
+  Code that searches the SVG source for such a character should look for the reference, or read
+  the SVG with an XML parser.
+
 ## [1.0.0rc3] - 2026-11-27
 
 Third release candidate, after a family drawn in the web app showed a son of founders married into

@@ -11,6 +11,7 @@ import re
 
 import matplotlib.pyplot as plt
 import pytest
+from conftest import decode_char_refs
 
 from pypedigree import (
     PedigreeStyle,
@@ -92,6 +93,7 @@ def test_svg_same_gap_above_each_bar(position):
         parse_pedigree_from_string(PED),
         style=PedigreeStyle(**BASE, gradient_bin_label_position=position),
     )
+    svg = decode_char_refs(svg)
     legend = svg[svg.index('<g class="legend">') :]
     legend = legend[: legend.index("\n</g>")]
     tops = sorted(

@@ -13,7 +13,7 @@ import re
 
 import matplotlib.pyplot as plt
 import pytest
-from conftest import PHENOTYPE_DIR
+from conftest import PHENOTYPE_DIR, decode_char_refs
 
 from pypedigree import PedigreeStyle, parse_pedigree, render_interactive_svg, render_pedigree
 from pypedigree.carriers import CarrierScheme
@@ -150,7 +150,7 @@ class TestLegend:
             texts = [t.get_text() for t in fig.axes[1].texts]
         finally:
             plt.close(fig)
-        svg = render_interactive_svg(parse_pedigree(FIXTURE), style=_style())
+        svg = decode_char_refs(render_interactive_svg(parse_pedigree(FIXTURE), style=_style()))
         legend = svg[svg.index('<g class="legend">') :]
         for limits in ("< 60", "60–65", "66–75", "≥ 76", "< 70", "≥ 70"):
             assert limits in texts
@@ -158,7 +158,7 @@ class TestLegend:
         assert "0" in texts and "54" in texts and "Low" not in texts
 
     def test_svg_tooltip_names_the_step(self):
-        svg = render_interactive_svg(parse_pedigree(FIXTURE), style=_style())
+        svg = decode_char_refs(render_interactive_svg(parse_pedigree(FIXTURE), style=_style()))
         # The gallery's style also names the steps (#81).
         assert re.search(r"SRS: 70 \(66–75, moderate\)", svg)
         assert re.search(r"IQ: 64 \(&lt; 70, intellectual disability\)", svg)

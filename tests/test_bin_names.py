@@ -10,7 +10,7 @@ import re
 
 import matplotlib.pyplot as plt
 import pytest
-from conftest import PHENOTYPE_DIR
+from conftest import PHENOTYPE_DIR, decode_char_refs
 
 from pypedigree import PedigreeStyle, parse_pedigree, render_interactive_svg, render_pedigree
 from pypedigree.carriers import CarrierScheme
@@ -70,7 +70,7 @@ class TestNames:
         assert bin_text("IQ", 64, style) == "< 70, intellectual disability"
 
     def test_svg_tooltip(self):
-        svg = render_interactive_svg(parse_pedigree(FIXTURE), style=_style())
+        svg = decode_char_refs(render_interactive_svg(parse_pedigree(FIXTURE), style=_style()))
         assert "SRS: 81 (≥ 76, severe)" in svg
         assert "IQ: 64 (&lt; 70, intellectual disability)" in svg
 
@@ -111,7 +111,7 @@ class TestLegend:
             plt.close(fig)
 
     def test_svg_writes_the_names(self):
-        svg = render_interactive_svg(parse_pedigree(FIXTURE), style=_style())
+        svg = decode_char_refs(render_interactive_svg(parse_pedigree(FIXTURE), style=_style()))
         legend = svg[svg.index('<g class="legend">') :]
         for name in ("mild", "moderate", "severe", "intellectual disability"):
             assert re.search(rf">{name}</text>", legend)
