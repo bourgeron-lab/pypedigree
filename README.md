@@ -420,6 +420,7 @@ Options:
   --text-scale X                 Text and marks X times larger relative to the symbols (for a pedigree drawn small)
   --no-labels                    Hide sample ID labels
   --sibling-order [auto|birth]  Siblings in birth order, loops closed by moving a child (auto) or strictly (birth)
+  --loops [duplicate|cross]  A loop drawn with a person twice (default) or with crossing lines that hop
   --labels [id|generation|both]  Label with the sample ID (default), the NSGC number from the drawing (I-1, II-3), or both
   --canrisk-names                For a CanRisk file: label with its Name column, where given and unique
   --ptdt                         Compute each child's pTDT deviation from its parents' PGS (style pgs_transmission)

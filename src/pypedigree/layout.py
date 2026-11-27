@@ -57,6 +57,7 @@ def compute_layout(
         style = PedigreeStyle()
     check_labels(style)
     check_sibling_order(style)
+    check_loops(style)
     check_text_scale(style)
 
     if not family.individuals:
@@ -81,10 +82,19 @@ def compute_layout(
 
     # Step 5: Compute connection edges (twin groups excluded from individual lines)
     twin_groups = _find_twin_groups(family)
-    edges = _compute_edges(family, x_positions, generations, style, twin_groups)
+    lanes = (
+        _sibship_lanes(family, x_positions, generations, style, twin_groups)
+        if style.loops == "cross"
+        else {}
+    )
+    edges = _compute_edges(family, x_positions, generations, style, twin_groups, lanes)
 
     # Step 6: Compute twin connectors
-    twin_connectors = _compute_twin_connectors(family, x_positions, generations, style, twin_groups)
+    twin_connectors = _compute_twin_connectors(
+        family, x_positions, generations, style, twin_groups, lanes
+    )
+    if style.loops == "cross":
+        edges = _with_hops(edges, style)
 
     edges += _childless_edges(nodes, style)
     edges += _couple_childless_edges(family, nodes, style)
@@ -630,6 +640,17 @@ class _HierarchicalPlacer:
         """
         if not self.loops:
             return []
+        if self.style.loops == "cross":
+            # Lines may cross, but a partnership whose partners stand apart
+            # (the partner already drawn elsewhere in the row) would need a
+            # relationship line through the symbols between them: that
+            # partner is still drawn twice.
+            return [
+                (self.unions[pi], pid)
+                for ui, entries in self.loops.items()
+                for pi, pid in entries
+                if pi == ui
+            ]
         levels: dict[int, list[tuple[float, float, int]]] = {}
         for ui, union in enumerate(self.unions):
             kids = [x[c] for c in union.children_ids if c in x]
@@ -1093,6 +1114,25 @@ def _pgs_right_side(family: Family, positions: Mapping[str, float]) -> set[str]:
 SIBLING_ORDERS = ("auto", "birth")
 
 
+#: Values of `PedigreeStyle.loops`.
+LOOP_MODES = ("duplicate", "cross")
+
+
+def check_loops(style: PedigreeStyle) -> None:
+    """Reject an unknown ``loops`` mode before anything is laid out.
+
+    Raises:
+        PedigreeError: If ``style.loops`` is not one of `LOOP_MODES`, or
+            ``style.hop_radius`` is negative.
+    """
+    if style.loops not in LOOP_MODES:
+        raise PedigreeError(
+            f"Unknown loops {style.loops!r}: expected one of {', '.join(LOOP_MODES)}"
+        )
+    if style.hop_radius < 0:
+        raise PedigreeError(f"hop_radius must not be negative, got {style.hop_radius}")
+
+
 def check_sibling_order(style: PedigreeStyle) -> None:
     """Reject an unknown ``sibling_order`` before anything is laid out.
 
@@ -1245,6 +1285,7 @@ def _compute_edges(
     generations: dict[str, int],
     style: PedigreeStyle,
     twin_groups: list[tuple[set[str], TwinType]] | None = None,
+    lanes: Mapping[tuple[str, str], float] | None = None,
 ) -> list[EdgeLayout]:
     """Compute all connection edges for the family.
 
@@ -1259,6 +1300,9 @@ def _compute_edges(
         x_positions: Horizontal positions.
         generations: Generation assignments.
         style: Style parameters.
+        twin_groups: Twin groups from _find_twin_groups().
+        lanes: How far below its usual height each union's sibship line
+            runs (`_sibship_lanes`, crossing lines only).
 
     Returns:
         List of EdgeLayout objects.
@@ -1315,6 +1359,7 @@ def _compute_edges(
 
         # Descent goes from relationship line down to sibship level
         descent_bottom_y = child_y + half_shape + style.generation_gap * 0.3
+        descent_bottom_y -= (lanes or {}).get(union.partner_ids, 0.0)
 
         # For consanguinous unions, start below the bottom double-line
         descent_top_y = y
@@ -1423,6 +1468,117 @@ def _compute_edges(
                 )
 
     return edges
+
+
+# Crossing lines (`loops` "cross"): the room sibship lines of one row may
+# take below their usual height, as a share of the generation gap, and the
+# largest step between two of them, as a multiple of the hop radius.
+_LANE_ROOM = 0.2
+_LANE_STEP_HOPS = 1.6
+
+
+def _sibship_lanes(
+    family: Family,
+    x_positions: dict[str, float],
+    generations: dict[str, int],
+    style: PedigreeStyle,
+    twin_groups: list[tuple[set[str], TwinType]] | None = None,
+) -> dict[tuple[str, str], float]:
+    """How far below its usual height each sibship line runs, when lines cross.
+
+    With duplicates, two sibship lines of a row never overlap. Drawn without
+    them, a loop stretches a sibship line over others of its row: lines that
+    overlap get different heights. The widest stays at the usual height,
+    closest to the parents, the others step down towards the children, so
+    the vertical lines crossing a stretched line are few (a couple's line of
+    descent rather than each of their children's lines).
+
+    Returns:
+        Map of a union's ``partner_ids`` to the distance its sibship line
+        and line of descent end below the usual height (absent: none).
+    """
+    twins = {sid: group for group, _tt in (twin_groups or []) for sid in group}
+    rows: dict[int, list[tuple[float, float, tuple[str, str]]]] = {}
+    for union in family.unions:
+        p1, p2 = union.partner_ids
+        if p1 not in x_positions or p2 not in x_positions or not union.children_ids:
+            continue
+        xs = [(x_positions[p1] + x_positions[p2]) / 2]
+        for cid in union.children_ids:
+            if cid not in x_positions:
+                continue
+            group = twins.get(cid)
+            if group:
+                gx = [x_positions[s] for s in group if s in x_positions]
+                xs.append((min(gx) + max(gx)) / 2)
+            else:
+                xs.append(x_positions[cid])
+        if max(xs) - min(xs) > 1e-9:
+            rows.setdefault(generations.get(p1, 0), []).append(
+                (min(xs), max(xs), union.partner_ids)
+            )
+    room = style.generation_gap * _LANE_ROOM
+    pad = style.hop_radius
+    shift: dict[tuple[str, str], float] = {}
+    for spans in rows.values():
+        lanes: list[list[tuple[float, float]]] = []
+        lane_of: dict[tuple[str, str], int] = {}
+        for lo, hi, key in sorted(spans, key=lambda s: (-(s[1] - s[0]), s[0])):
+            for k, taken in enumerate(lanes):
+                if all(hi + pad < a or b + pad < lo for a, b in taken):
+                    taken.append((lo, hi))
+                    lane_of[key] = k
+                    break
+            else:
+                lanes.append([(lo, hi)])
+                lane_of[key] = len(lanes) - 1
+        if len(lanes) < 2:
+            continue
+        step = min(style.hop_radius * _LANE_STEP_HOPS, room / (len(lanes) - 1))
+        for key, k in lane_of.items():
+            if k:
+                shift[key] = k * step
+    return shift
+
+
+def _with_hops(edges: list[EdgeLayout], style: PedigreeStyle) -> list[EdgeLayout]:
+    """Horizontal lines hop over the vertical lines they cross.
+
+    Where a sibship or relationship line crosses a line of descent or an
+    individual line (not where one ends on the other), the horizontal line
+    is drawn with a half-circle above the crossing (`symbols.hop_path`),
+    so the two cannot be read as joined. The route goes in ``waypoints``.
+    """
+    eps = 1e-6
+    verticals = [
+        (e.start[0], min(e.start[1], e.end[1]), max(e.start[1], e.end[1]))
+        for e in edges
+        if e.edge_type in (EdgeType.DESCENT, EdgeType.INDIVIDUAL)
+        and abs(e.start[0] - e.end[0]) < eps
+    ]
+    out = []
+    for e in edges:
+        horizontal = (
+            e.edge_type in (EdgeType.SIBSHIP, EdgeType.RELATIONSHIP)
+            and e.line_style == LineStyle.SOLID
+            and abs(e.start[1] - e.end[1]) < eps
+        )
+        if not horizontal:
+            out.append(e)
+            continue
+        y = e.start[1]
+        lo, hi = sorted((e.start[0], e.end[0]))
+        hops = sorted(
+            x
+            for x, bottom, top in verticals
+            if lo + eps < x < hi - eps and bottom + eps < y < top - eps
+        )
+        if not hops:
+            out.append(e)
+            continue
+        points = symbols.hop_path(lo, hi, y, hops, style.hop_radius)
+        out.append(replace(e, start=points[0], end=points[-1], waypoints=points[1:-1]))
+    return out
 
 
 def _order_children(family: Family, children_ids: list[str]) -> list[str]:
@@ -1573,6 +1729,7 @@ def _compute_twin_connectors(
     generations: dict[str, int],
     style: PedigreeStyle,
     twin_groups: list[tuple[set[str], TwinType]],
+    lanes: Mapping[tuple[str, str], float] | None = None,
 ) -> list[TwinConnector]:
     """Compute twin connector geometry for all twin groups.
 
@@ -1608,6 +1765,11 @@ def _compute_twin_connectors(
 
         # Convergence at sibship level (same formula as _compute_edges)
         descent_bottom_y = child_y + half_shape + style.generation_gap * 0.3
+        if lanes:
+            parents = next(
+                (u.partner_ids for u in family.unions if group_ids & set(u.children_ids)), None
+            )
+            descent_bottom_y -= lanes.get(parents, 0.0) if parents else 0.0
 
         # Convergence point: centered above twin group at sibship level
         twin_xs = [x_positions.get(sid, 0.0) for sid in group_ids]
@@ -1917,6 +2079,10 @@ def compute_layout_circular(
     # Steps 1-2: Generations and left-to-right order, from the hierarchical
     # placement (the family may gain duplicate nodes there).
     check_sibling_order(style)
+    check_loops(style)
+    # The circular layout draws its sibships as arcs: loops are always drawn
+    # with duplicates there.
+    style = replace(style, loops="duplicate")
     family, generations, x_positions = _place_hierarchically(family, style, labels=False)
     check_labels(style)
     check_text_scale(style)

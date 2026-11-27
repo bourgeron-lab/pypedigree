@@ -29,6 +29,7 @@ STYLE_CHOICES: dict[str, tuple[str, ...]] = {
     "carrier_notation": ("nsgc2022", "legacy"),
     "labels": ("id", "generation", "both"),
     "sibling_order": ("auto", "birth"),
+    "loops": ("duplicate", "cross"),
 }
 #: Prefix of every id in the interactive SVG, so it cannot clash with the page.
 ID_PREFIX = "pv-"

@@ -1066,3 +1066,43 @@ def generation_numbers(
         for position, sid in enumerate(row, start=1):
             numbers[sid] = f"{roman(rank)}-{position}"
     return numbers
+
+
+# Points per half-circle of a line hop (crossing lines, `loops` "cross").
+HOP_STEPS = 8
+
+
+def hop_path(
+    x_start: float, x_end: float, y: float, hops: list[float], radius: float
+) -> list[tuple[float, float]]:
+    """A horizontal line from ``x_start`` to ``x_end`` at ``y`` that hops over
+    the vertical lines crossing it at ``hops``.
+
+    Each hop is a half-circle above the line (towards larger y, up the page;
+    the SVG flips the whole drawing), of ``radius``, smaller where two
+    crossings or a crossing and an end of the line are closer than twice
+    that. Shared by both renderers through `EdgeLayout.waypoints`.
+
+    Args:
+        x_start: Left end of the line.
+        x_end: Right end.
+        y: Height of the line.
+        hops: x of each crossing, between the ends.
+        radius: Radius of a hop, in layout units.
+
+    Returns:
+        The line's points, from (x_start, y) to (x_end, y).
+    """
+    xs = sorted(hops)
+    points = [(x_start, y)]
+    for i, x in enumerate(xs):
+        left = x - (xs[i - 1] if i else x_start)
+        right = (xs[i + 1] if i + 1 < len(xs) else x_end) - x
+        r = min(radius, left / 2 if i else left, right / 2 if i + 1 < len(xs) else right)
+        if r <= 0:
+            continue
+        for k in range(HOP_STEPS + 1):
+            a = math.pi * (1 - k / HOP_STEPS)
+            points.append((x + r * math.cos(a), y + r * math.sin(a)))
+    points.append((x_end, y))
+    return points

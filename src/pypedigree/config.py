@@ -334,6 +334,14 @@ class PedigreeStyle:
     # strictly, so such a loop is drawn with a duplicate (or crossing lines).
     sibling_order: str = "auto"
 
+    # How a loop that would stretch a sibship line over another is drawn:
+    # "duplicate" draws one partner twice, joined by a dotted line (NSGC);
+    # "cross" keeps one copy and lets the lines cross, overlapping sibship
+    # lines at different heights, a line hopping over another with a small
+    # half-circle of radius `hop_radius` (layout units).
+    loops: str = "duplicate"
+    hop_radius: float = 0.1
+
     # Circular layout parameters
     radial_gap: float = 2.5
     base_radius: float = 3.0

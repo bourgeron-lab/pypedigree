@@ -1905,6 +1905,14 @@ def _svg_edge(edge: EdgeLayout, style: PedigreeStyle) -> str:
     x2, y2 = edge.end
     sw = style.line_width * pt
 
+    if edge.waypoints and edge.line_style == LineStyle.SOLID:
+        # A line hopping over the lines it crosses (`loops` "cross").
+        points = " ".join(f"{x:.3f},{y:.3f}" for x, y in [edge.start, *edge.waypoints, edge.end])
+        return (
+            f'<polyline class="edge" points="{points}" fill="none" '
+            f'stroke="{style.line_color}" stroke-width="{sw:.3f}"/>'
+        )
+
     if edge.line_style == LineStyle.DOUBLE:
         gap = style.double_line_gap
         if y1 == y2:  # Horizontal
