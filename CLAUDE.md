@@ -106,7 +106,14 @@ src/pypedigree/
    `PedigreeStyle.sibling_order` "birth" (`layout.SIBLING_ORDERS`, `check_sibling_order`) leaves
    `_children_group`'s order alone (no first/within/last), and `loops_to_break` also copies a
    child drawn beside a partner elsewhere out of birth order; two siblings who are partners stay
-   side by side. `tests/test_sibling_order.py`. `_HierarchicalPlacer` packs each union's
+   side by side. `tests/test_sibling_order.py`. `PedigreeStyle.loops` "cross" (`LOOP_MODES`,
+   `check_loops`; the circular layout forces "duplicate"): `loops_to_break` returns only a
+   partnership's own remote partner (entries `(ui, other)` keyed by `ui`, a relationship line
+   through symbols); `_sibship_lanes` gives overlapping sibship spans of a row lanes below the
+   usual height (widest on top, `_LANE_ROOM`, `_LANE_STEP_HOPS` x `hop_radius`), passed to
+   `_compute_edges` and `_compute_twin_connectors`; `_with_hops` puts `symbols.hop_path` in the
+   `waypoints` of each solid horizontal line a vertical one crosses. The SVG draws an edge with
+   waypoints as a polyline. Rule 3 holds per height. `tests/test_crossing_lines.py`. `_HierarchicalPlacer` packs each union's
    descendants as a block against its neighbours' contours, so two couples'
    children never interleave. Loops are drawn side by side unless that
    stretches a sibship line over another one; then `_place_hierarchically`
@@ -626,6 +633,7 @@ pypedigree INPUT.ped [OPTIONS]
 --text-scale X           Text and marks X times larger relative to the symbols (style `text_scale`)
 --no-labels              Hide sample ID labels
 --sibling-order [auto|birth]  Birth order (DOB, then file order); loops may move a child (auto) or not (birth)
+--loops [duplicate|cross]  Loops with a person drawn twice (default) or crossing lines with hops
 --labels [id|generation|both]  Sample IDs (default), NSGC numbers from the drawing (I-1, II-3), or both (style `labels`)
 --canrisk-names          For a CanRisk file: its Name column as labels, where given and unique
 --hpo-features           For a Phenopackets Family: each HPO term as a binary column

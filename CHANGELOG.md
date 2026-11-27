@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   orders siblings by date of birth, then file order, but moves a child who leads to a loop to the
   end of their sibship facing the other branch; `"birth"` keeps birth order strictly, and draws
   such a loop with a duplicate instead. Two siblings who are partners stay side by side.
+- `loops` (`--loops`, web app "Loops"): `"duplicate"` (the default, as before) draws one partner
+  of a loop twice, joined by a dotted line; `"cross"` draws them once and lets the lines cross.
+  Sibship lines that would overlap then run at different heights, and a horizontal line hops
+  over each vertical line it crosses with a small half-circle (`hop_radius`, 0.1). A partner who
+  could only be reached by a relationship line through other symbols is still drawn twice. With
+  `sibling_order` "birth" every conflict becomes a crossing. Hierarchical layout only. The
+  interactive SVG draws an edge with waypoints as a polyline.
 - The documentation says what a date of birth is for: ordering siblings, compared as text, undated
   siblings after dated ones; for a pregnancy, the date of its outcome, or the due date of an
   ongoing one.

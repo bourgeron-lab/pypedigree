@@ -181,6 +181,15 @@ def _export(pedigree: Pedigree, path: str) -> None:
     "is closed by moving a child to the end of their sibship (auto, default); or strictly "
     "in that order, loops drawn with a duplicate instead (birth).",
 )
+@click.option(
+    "--loops",
+    "loop_mode",
+    type=click.Choice(["duplicate", "cross"]),
+    default=None,
+    help="A loop that would stretch a sibship line over another: draw one partner "
+    "twice, joined by a dotted line (duplicate, default), or once, the lines crossing "
+    "with a small hop (cross).",
+)
 @click.option("--no-legend", is_flag=True, help="Hide the phenotype legend.")
 @click.option(
     "--show-phenotype-labels",
@@ -289,6 +298,7 @@ def main(
     no_labels: bool,
     label_mode: str | None,
     sibling_order: str | None,
+    loop_mode: str | None,
     no_legend: bool,
     show_phenotype_labels: bool,
     no_na_labels: bool,
@@ -345,6 +355,8 @@ def main(
                 style.labels = label_mode
             if sibling_order is not None:
                 style.sibling_order = sibling_order
+            if loop_mode is not None:
+                style.loops = loop_mode
             if ptdt:
                 style.pgs_transmission = True
 
