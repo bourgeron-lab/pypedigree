@@ -251,48 +251,70 @@ def _lower_to_children(family: Family, generations: dict[str, int]) -> None:
         p1, p2 = union.partner_ids
         if p1 in group and p2 in group:
             group[find(p1)] = find(p2)
+    gid = {sid: find(sid) for sid in generations}
     members: dict[str, list[str]] = {}
     for sid in generations:
-        members.setdefault(find(sid), []).append(sid)
+        members.setdefault(gid[sid], []).append(sid)
 
     # Lines from an upper individual to a lower one, at least `gap` rows
-    # apart: parent to child (1), original to duplicate (0).
-    links: list[tuple[str, str, int]] = []
+    # apart: parent to child (1), original to duplicate (0). Each line
+    # also carries the groups of its two ends.
+    Link = tuple[str, str, int, str, str]
+    links: list[Link] = []
     for ind in family.individuals.values():
         sid = ind.sample_id
         if sid not in generations:
             continue
         for parent in (ind.father_id, ind.mother_id):
             if parent and parent in generations:
-                links.append((parent, sid, 1))
+                links.append((parent, sid, 1, gid[parent], gid[sid]))
         if ind.is_duplicate and ind.duplicate_of in generations:
-            links.append((ind.duplicate_of, sid, 0))
-    down: dict[str, list[tuple[str, str, int]]] = {}
-    up: dict[str, list[tuple[str, str, int]]] = {}
-    for link in links:
-        down.setdefault(find(link[0]), []).append(link)
-        up.setdefault(find(link[1]), []).append(link)
+            original = ind.duplicate_of
+            links.append((original, sid, 0, gid[original], gid[sid]))
 
-    def slack(link: tuple[str, str, int]) -> int:
-        upper, lower, gap = link
-        return generations[lower] - generations[upper] - gap
+    def slack(link: Link) -> int:
+        return generations[link[1]] - generations[link[0]] - link[2]
+
+    # Nothing can get shorter if every line already is as short as it can be.
+    if not any(slack(link) > 0 for link in links):
+        return
+    down: dict[str, list[Link]] = {}
+    up: dict[str, list[Link]] = {}
+    for link in links:
+        down.setdefault(link[3], []).append(link)
+        up.setdefault(link[4], []).append(link)
+
+    def movable() -> set[str]:
+        """Groups whose move could shorten a line: those reaching, through
+        lines as short as they can be, a group with a longer line below."""
+        found = {g for g, lns in down.items() if any(slack(ln) > 0 for ln in lns)}
+        queue = deque(found)
+        while queue:
+            for link in up.get(queue.popleft(), []):
+                if link[3] not in found and slack(link) == 0:
+                    found.add(link[3])
+                    queue.append(link[3])
+        return found
 
     order = sorted(members, key=lambda g: generations[members[g][0]])
     for _ in range(len(links) + 1):
         moved = False
+        candidates = movable()
         for start in order:
+            if start not in candidates:
+                continue
             # The groups that must move with this one: those hanging from
             # it by a line already as short as it can be.
             moving = {start}
             queue = deque([start])
             while queue:
                 for link in down.get(queue.popleft(), []):
-                    lower = find(link[1])
+                    lower = link[4]
                     if lower not in moving and slack(link) == 0:
                         moving.add(lower)
                         queue.append(lower)
-            shorter = [ln for g in moving for ln in down.get(g, []) if find(ln[1]) not in moving]
-            longer = [ln for g in moving for ln in up.get(g, []) if find(ln[0]) not in moving]
+            shorter = [ln for g in moving for ln in down.get(g, []) if ln[4] not in moving]
+            longer = [ln for g in moving for ln in up.get(g, []) if ln[3] not in moving]
             if len(shorter) <= len(longer):
                 continue
             step = min(slack(ln) for ln in shorter)
@@ -300,6 +322,7 @@ def _lower_to_children(family: Family, generations: dict[str, int]) -> None:
                 for sid in members[g]:
                     generations[sid] += step
             moved = True
+            candidates = movable()
         if not moved:
             break
 
