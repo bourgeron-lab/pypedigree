@@ -31,6 +31,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   boxes one individual has: figures where nobody has two kinds are drawn as before. A pTDT box on
   `pgs_scale` "minmax" now has its ±2 SD lines, as its legend row had.
 
+### Fixed
+
+- The founders of someone who marries into a younger generation were drawn on the top row, a
+  generation or more above their child: in a family where a son of founders married a
+  granddaughter of other founders, his parents stood one row too high, so the copy drawn for him
+  next to his wife stood a row below him and the dotted line joining the two stopped short of it.
+  Rows are now lowered after the first assignment wherever that shortens more lines than it
+  lengthens: the founders, their other children and their partners move down with them, children
+  always below their parents and partners level. No other figure of the test suite moves.
+- In the same family, depending on the order of the rows, a man who married into the other top
+  family (12) was drawn twice as well. The families on the top rows are now placed first, so
+  founders lowered to a child who married into a younger generation join from the side, and the
+  only copy is that child's, in his row, whatever the order of the rows.
+
 ## [1.0.0rc2] - 2026-11-24
 
 Second release candidate: how polygenic scores are drawn, after a first reading of 1.0.0rc1.

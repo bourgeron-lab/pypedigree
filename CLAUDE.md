@@ -95,7 +95,14 @@ src/pypedigree/
    checks this on every fixture and on the large synthetic pedigrees. (The
    circular layout uses straight and curved lines by design.)
 
-3. **Sibship lines never overlap.** `_HierarchicalPlacer` packs each union's
+3. **Sibship lines never overlap.** Rows first: `_assign_generations` puts founders on row 0,
+   aligns partners and keeps children below parents, then `_lower_to_children` moves a set of
+   people down (a group of partners and everyone hanging from it by a line as short as it can be)
+   while that shortens more parent-child or original-duplicate lines than it lengthens, so
+   founders whose son marries into a younger generation stand just above him and his copy, if
+   any, stays in his row (`TestMarriedInFounders`, `complex/married_in_founders.ped`); `run()` starts
+   blocks from the top rows down, so such an in-law family is placed after the lineage it
+   married into and the copy is the son's, never his wife's father's. `_HierarchicalPlacer` packs each union's
    descendants as a block against its neighbours' contours, so two couples'
    children never interleave. Loops are drawn side by side unless that
    stretches a sibship line over another one; then `_place_hierarchically`

@@ -201,7 +201,93 @@ def _assign_generations(family: Family) -> dict[str, int]:
         if sid not in generations:
             generations[sid] = max_gen + 1
 
+    _lower_to_children(family, generations)
     return generations
+
+
+def _lower_to_children(family: Family, generations: dict[str, int]) -> None:
+    """Move people down when that shortens the lines joining them to the rest.
+
+    Every founder starts on the top row, so the parents of someone who
+    marries into a younger generation stay far above them, and the sibship
+    line of their parents is drawn a row or more above them. This lowers
+    such a set of people (founders, their partners, and the children and
+    duplicates that must move with them to stay below their parents) as
+    long as more lines get shorter than longer, in place.
+
+    The constraints kept are the ones the passes above settle: partners
+    share a row, children are below their parents, duplicates no higher
+    than the individual they repeat. The total length of the lines only
+    decreases, so this ends.
+
+    Args:
+        family: The family laid out.
+        generations: Row of each individual, modified in place.
+    """
+    # Partners are drawn level: move each group of partners as one.
+    group: dict[str, str] = {sid: sid for sid in generations}
+
+    def find(sid: str) -> str:
+        while group[sid] != sid:
+            group[sid] = group[group[sid]]
+            sid = group[sid]
+        return sid
+
+    for union in family.unions:
+        p1, p2 = union.partner_ids
+        if p1 in group and p2 in group:
+            group[find(p1)] = find(p2)
+    members: dict[str, list[str]] = {}
+    for sid in generations:
+        members.setdefault(find(sid), []).append(sid)
+
+    # Lines from an upper individual to a lower one, at least `gap` rows
+    # apart: parent to child (1), original to duplicate (0).
+    links: list[tuple[str, str, int]] = []
+    for ind in family.individuals.values():
+        sid = ind.sample_id
+        if sid not in generations:
+            continue
+        for parent in (ind.father_id, ind.mother_id):
+            if parent and parent in generations:
+                links.append((parent, sid, 1))
+        if ind.is_duplicate and ind.duplicate_of in generations:
+            links.append((ind.duplicate_of, sid, 0))
+    down: dict[str, list[tuple[str, str, int]]] = {}
+    up: dict[str, list[tuple[str, str, int]]] = {}
+    for link in links:
+        down.setdefault(find(link[0]), []).append(link)
+        up.setdefault(find(link[1]), []).append(link)
+
+    def slack(link: tuple[str, str, int]) -> int:
+        upper, lower, gap = link
+        return generations[lower] - generations[upper] - gap
+
+    order = sorted(members, key=lambda g: generations[members[g][0]])
+    for _ in range(len(links) + 1):
+        moved = False
+        for start in order:
+            # The groups that must move with this one: those hanging from
+            # it by a line already as short as it can be.
+            moving = {start}
+            queue = deque([start])
+            while queue:
+                for link in down.get(queue.popleft(), []):
+                    lower = find(link[1])
+                    if lower not in moving and slack(link) == 0:
+                        moving.add(lower)
+                        queue.append(lower)
+            shorter = [ln for g in moving for ln in down.get(g, []) if find(ln[1]) not in moving]
+            longer = [ln for g in moving for ln in up.get(g, []) if find(ln[0]) not in moving]
+            if len(shorter) <= len(longer):
+                continue
+            step = min(slack(ln) for ln in shorter)
+            for g in moving:
+                for sid in members[g]:
+                    generations[sid] += step
+            moved = True
+        if not moved:
+            break
 
 
 class _Block:
@@ -506,6 +592,10 @@ class _HierarchicalPlacer:
         for union in self.unions:
             roots.extend(union.partner_ids[:1])
         roots.extend(self.family.individuals)
+        # Families on the top rows first: founders lowered to a child who
+        # married into a younger generation (an in-law family) come after
+        # the lineage they married into, which they then join from the side.
+        roots.sort(key=lambda sid: self.gen.get(sid, 0))
         for sid in roots:
             if sid in self.gen and sid not in self.claimed and sid not in self.attached:
                 for block in self._place(sid):
