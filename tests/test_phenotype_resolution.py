@@ -363,7 +363,7 @@ class TestEffectiveModeResolution:
     def test_pgs_columns_are_not_bands(self):
         pedigree = parse_pedigree(PGS_PED)
         _, ctx = _render_context(pedigree)
-        assert ctx.effective("PGS") == "pgs"
+        assert ctx.effective("PGS") == "curve"
 
     def test_explicit_gradient_range_implies_gradient(self):
         text = "FID\tID\tFather\tMother\tSex\tSRS\nF\ta\t0\t0\t1\t1\nF\tb\t0\t0\t2\t2\n"

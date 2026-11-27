@@ -20,11 +20,10 @@ from pypedigree import PedigreeStyle, parse_pedigree
 from pypedigree.config import apply_pgs_spacing, is_curve_column, resolve_style
 from pypedigree.layout import compute_layout_circular
 from pypedigree.phenotypes import (
-    active_pgs,
+    active_curves,
     box_width,
+    curve_spacing,
     pgs_box_left,
-    pgs_box_width,
-    pgs_values_width,
 )
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -44,11 +43,9 @@ PGS_FIXTURES = [
 def _style_for(ped) -> tuple[PedigreeStyle, list[str]]:
     """The style a renderer would lay the pedigree out with."""
     names = ped.phenotype_names or []
-    cols = [n for n in names if is_curve_column(n)]
-    style = resolve_style(PedigreeStyle(), names)
-    style = apply_pgs_spacing(
-        style, names, pgs_values_width(ped.individuals(), cols, style), pgs_box_width(cols, style)
-    )
+    style = resolve_style(PedigreeStyle(), names, ped.phenotype_display_modes)
+    cols = [n for n in names if is_curve_column(n, style)]
+    style = apply_pgs_spacing(style, names, **curve_spacing(ped.individuals(), cols, style))
     return style, cols
 
 
@@ -57,8 +54,8 @@ def _boxes(layout, style, cols):
     out = []
     for n in layout.nodes:
         x0, x1 = n.x - half, n.x + half
-        if cols and active_pgs(n, cols, style.pgs_scale):
-            left = pgs_box_left(n, style)
+        for index in range(len(active_curves(n, cols, style)) if cols else 0):
+            left = pgs_box_left(n, style, index=index)
             x0, x1 = min(x0, left), max(x1, left + box_width(style))
         out.append((n.individual_id, x0, n.y - half, x1, n.y + half))
     return out

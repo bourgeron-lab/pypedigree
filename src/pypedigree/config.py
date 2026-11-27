@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import unicodedata
 import warnings
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import asdict, dataclass, field, fields, replace
 from difflib import get_close_matches
 from typing import Any
 
 from pypedigree.colors import parse_rgb
 from pypedigree.errors import PedigreeStyleWarning
+from pypedigree.models import PhenotypeDisplayMode
 
 DEFAULT_PHENOTYPE_PALETTE = [
     "#e74c3c",  # red
@@ -250,6 +251,11 @@ class PedigreeStyle:
     # (`phenotypes.pgs_box_width`, #147). 0: the usual width. Read through
     # `phenotypes.box_width`.
     pgs_box_width: float = 0.0
+    # Between two boxes of one individual, in layout units, when some
+    # individual has values of several kinds of curve (PGS, pTDT, IQ...):
+    # set by `apply_pgs_spacing` to hold the values and captions between
+    # them. 0 when nobody has two kinds.
+    pgs_box_gap: float = 0.0
 
     # The legend's fixed wording (#79), by role: "key_note", "shared_binary",
     # "affected", "unaffected", "unknown", "pgs", "ptdt", "male", "female",
@@ -258,8 +264,25 @@ class PedigreeStyle:
     # "pgs" and "ptdt" replace the whole caption before the scores' key.
     legend_text: dict[str, str] = field(default_factory=dict)
 
-    # PGS curve colors (PGS column name -> hex color, e.g. {"PGS_autism": "#3498db"})
+    # Curve marker colors (curve column name -> hex color, e.g.
+    # {"PGS_autism": "#3498db"}): PGS, pTDT and `z_` columns alike.
     pgs_colors: dict[str, str] = field(default_factory=dict)
+
+    # Normal-curve traits (R6): a column's population mean and standard
+    # deviation, e.g. {"IQ": {"mean": 100, "sd": 15}}. Its values are placed
+    # on the curve at z = (value - mean) / sd and written as they are
+    # ("115"). Without an entry a curve column's values are z-scores (a PGS
+    # column's follow `pgs_scale`). A column listed here is drawn on a curve
+    # whatever its prefix.
+    curve_reference: dict[str, dict[str, float]] = field(default_factory=dict)
+
+    # Caption of a curve column's box, e.g. {"IQ_verbal": "IQ"}: columns with
+    # one caption share a box, one marker each, and an individual gets one box
+    # per caption, side by side. Default: "PGS" for a PGS column, "pTDT" for a
+    # pTDT column, the column's shown name for a `z_` column (filled in by
+    # `resolve_style`). A column listed here is drawn on a curve whatever its
+    # prefix.
+    curve_captions: dict[str, str] = field(default_factory=dict)
 
     # Custom gradient normalization ranges (pheno_name -> [min, max])
     gradient_range: dict[str, list[float]] = field(default_factory=dict)
@@ -391,6 +414,8 @@ def is_pgs_column(name: str) -> bool:
 
 
 PTDT_PREFIX = "PTDT"  # a pTDT deviation column (#52), case-insensitive: pTDT_autism
+PGS_CAPTION = "PGS"
+PTDT_CAPTION = "pTDT"
 
 
 def is_ptdt_column(name: str) -> bool:
@@ -403,9 +428,36 @@ def is_ptdt_column(name: str) -> bool:
     return name.upper().startswith(PTDT_PREFIX)
 
 
-def is_curve_column(name: str) -> bool:
-    """Whether a column is drawn as a distribution curve: a PGS or a pTDT column."""
-    return is_pgs_column(name) or is_ptdt_column(name)
+def curve_kind(name: str, style: PedigreeStyle | None = None) -> str | None:
+    """The kind of curve a column is drawn on, or None for any other column.
+
+    A kind is the caption of the column's box: the columns of one kind share
+    a box, and an individual gets one box per kind (R6). It is the column's
+    ``curve_captions`` entry, else "pTDT" for a pTDT column and "PGS" for a
+    PGS column (by name, case-insensitive), else, for a column with a
+    ``curve_reference``, its shown name. A ``z_`` column is in
+    ``curve_captions`` once the style is resolved (`resolve_style`).
+
+    Args:
+        name: Phenotype column name, prefix stripped.
+        style: The style, or None to go by the name alone (PGS and pTDT).
+    """
+    if style is not None:
+        caption = style.curve_captions.get(name)
+        if caption:
+            return caption
+    if is_ptdt_column(name):
+        return PTDT_CAPTION
+    if is_pgs_column(name):
+        return PGS_CAPTION
+    if style is not None and name in style.curve_reference:
+        return _shown_name(name, style)
+    return None
+
+
+def is_curve_column(name: str, style: PedigreeStyle | None = None) -> bool:
+    """Whether a column is drawn as a distribution curve (`curve_kind`)."""
+    return curve_kind(name, style) is not None
 
 
 def curve_trait(name: str) -> str:
@@ -414,9 +466,17 @@ def curve_trait(name: str) -> str:
     return name[len(prefix) :]
 
 
+def _shown_name(name: str, style: PedigreeStyle) -> str:
+    """A column's shown name: its `phenotype_labels` entry, or its name with
+    underscores as spaces (`phenotypes.display_name`)."""
+    label = style.phenotype_labels.get(name)
+    return label if label is not None else name.replace("_", " ")
+
+
 def resolve_style(
     style: PedigreeStyle | None,
     phenotype_names: Sequence[str] | None = None,
+    display_modes: Mapping[str, PhenotypeDisplayMode] | None = None,
 ) -> PedigreeStyle:
     """Fill in the pedigree-dependent parts of a style.
 
@@ -432,6 +492,10 @@ def resolve_style(
     Args:
         style: User-supplied style, or None for defaults.
         phenotype_names: Ordered phenotype column names of the pedigree.
+        display_modes: Modes declared by column prefixes
+            (`Pedigree.phenotype_display_modes`): a ``z_`` column gets its
+            default caption in ``curve_captions``, which makes it a curve
+            column (`curve_kind`).
 
     Returns:
         A new PedigreeStyle with auto-assigned phenotype colors.
@@ -449,9 +513,15 @@ def resolve_style(
     resolved.gradient_bin_labels = {k: list(v) for k, v in resolved.gradient_bin_labels.items()}
     if isinstance(resolved.gradient_bin_label_position, dict):
         resolved.gradient_bin_label_position = dict(resolved.gradient_bin_label_position)
+    resolved.curve_reference = {k: dict(v) for k, v in resolved.curve_reference.items()}
+    resolved.curve_captions = dict(resolved.curve_captions)
 
     all_names = list(phenotype_names or [])
-    names = [n for n in all_names if not is_curve_column(n)]
+    # A z_ column is a curve (R6), captioned with its shown name by default.
+    for name, mode in (display_modes or {}).items():
+        if mode == PhenotypeDisplayMode.CURVE and curve_kind(name, resolved) is None:
+            resolved.curve_captions[name] = _shown_name(name, resolved)
+    names = [n for n in all_names if not is_curve_column(n, resolved)]
 
     # Conventional colors for known phenotypes (autism, ID, ADHD, epilepsy),
     # unless the user chose one.
@@ -495,11 +565,11 @@ def resolve_style(
 def _assign_pgs_colors(
     style: PedigreeStyle, all_names: Sequence[str], known: dict[str, str]
 ) -> None:
-    """Give each PGS column of a figure with several a distinct marker color.
+    """Give each curve column of a kind with several a distinct marker color.
 
-    PGS and pTDT columns (#52) are colored apart, each kind as below: an
-    individual's curve shows one kind only, so ``pTDT_autism`` may take the
-    autism color ``PGS_autism`` has.
+    Each kind of curve (`curve_kind`: PGS, pTDT #52, IQ...) is colored apart,
+    as below: its columns share a box of their own, so ``pTDT_autism`` may
+    take the autism color ``PGS_autism`` has.
 
     A score named after a known phenotype (``PGS_autism``) takes that
     phenotype's color, the one its column has in the figure if there is one;
@@ -516,17 +586,21 @@ def _assign_pgs_colors(
     bands = {
         n: style.phenotype_colors[n]
         for n in all_names
-        if not is_curve_column(n) and n in style.phenotype_colors
+        if not is_curve_column(n, style) and n in style.phenotype_colors
     }
-    for kind in (is_pgs_column, is_ptdt_column):
-        group = [n for n in all_names if kind(n)]
+    groups: dict[str, list[str]] = {}
+    for name in all_names:
+        kind = curve_kind(name, style)
+        if kind is not None:
+            groups.setdefault(kind, []).append(name)
+    for group in groups.values():
         _assign_curve_colors(style, group, bands, known)
 
 
 def _assign_curve_colors(
     style: PedigreeStyle, pgs: Sequence[str], bands: dict[str, str], known: dict[str, str]
 ) -> None:
-    """`_assign_pgs_colors` for one kind of curve column."""
+    """`_assign_pgs_colors` for the columns of one kind of curve."""
     if len(pgs) < 2:
         return
     column_color = {key: bands[n] for n, key in reversed(known.items()) if n in bands}
@@ -607,6 +681,8 @@ def apply_pgs_spacing(
     phenotype_names: Sequence[str] | None = None,
     values_width: float = 0.0,
     box_width: tuple[float, float] = (0.0, 0.0),
+    boxes: int = 1,
+    box_gap: float = 0.0,
 ) -> PedigreeStyle:
     """Widen node spacing to make room for PGS distribution curves.
 
@@ -622,23 +698,32 @@ def apply_pgs_spacing(
             layout units (`phenotypes.pgs_values_width`; 0 without them).
         box_width: The boxes' width and how much wider than usual it is, in
             layout units (`phenotypes.pgs_box_width`, #147); the extra is
-            added to the room.
+            added to the room, and each box after the first adds its width.
+        boxes: The most boxes one drawn individual has, one per kind of
+            curve (`phenotypes.curve_box_count`, R6): the room holds them
+            side by side.
+        box_gap: Between two boxes of one individual, in layout units
+            (`phenotypes.curve_box_gap`); kept in the style when ``boxes``
+            is above one.
 
     Returns:
-        A new PedigreeStyle, widened if any PGS column is present, else
+        A new PedigreeStyle, widened if any curve column is present, else
         `style` unchanged.
     """
-    if not any(is_curve_column(n) for n in (phenotype_names or [])):
+    if not any(is_curve_column(n, style) for n in (phenotype_names or [])):
         return style
 
     width, wider = box_width
     pgs_extra = style.shape_size * 0.55 + values_width + wider
+    if boxes > 1:
+        pgs_extra += (boxes - 1) * (width + box_gap)
     return replace(
         style,
         couple_gap=style.couple_gap + pgs_extra,
         sibling_gap=style.sibling_gap + pgs_extra,
         pgs_box_room=pgs_extra,
         pgs_box_width=width if wider > 0 else 0.0,
+        pgs_box_gap=box_gap if boxes > 1 else 0.0,
     )
 
 

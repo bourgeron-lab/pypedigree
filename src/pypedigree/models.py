@@ -22,6 +22,8 @@ class PhenotypeDisplayMode(Enum):
     - ``cr_`` → CARRIER (carrier status of one gene or condition: 0 = not a
       carrier, 1 = carrier, 2 = obligate carrier; drawn as a patterned
       section, see ``pypedigree.carriers``)
+    - ``z_`` → CURVE (a normally distributed trait, drawn as a marker on a
+      gaussian curve beside the symbol, as a polygenic score is)
     - no prefix → AUTO (auto-detect from data)
     """
 
@@ -32,6 +34,7 @@ class PhenotypeDisplayMode(Enum):
     OUTLINE = "outline"
     CARRIER = "carrier"
     CATEGORICAL = "categorical"
+    CURVE = "curve"
 
 
 class Sex(Enum):

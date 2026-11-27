@@ -13,7 +13,7 @@ step). SD(mid-parent) is a cohort quantity one family cannot estimate: it is
 ``ptdt_midparent_sd``, √½ by default, the value for standardised scores and
 unrelated parents. A child missing a parent, or a parent's value, gets no
 deviation. Parents keep their PGS curve; a child with a deviation shows it
-instead of its PGS (`phenotypes.active_pgs`).
+in a pTDT box beside its PGS box (`phenotypes.active_curves`, R6).
 
 The deviations are computed over the whole file (`Pedigree.column_scope`) and
 the pedigree is copied: the parsed one is not modified. No matplotlib (rule 1).

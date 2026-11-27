@@ -1,0 +1,4 @@
+{
+  "curve_reference": {"IQ": {"mean": 100, "sd": 15}},
+  "show_pgs_values": true
+}

@@ -86,23 +86,26 @@ from pypedigree.phenotypes import (
     UNKNOWN_FILL,
     LegendRow,
     PhenotypeRender,
-    active_pgs,
+    active_curves,
     all_bands_na,
     band_cell,
     band_room,
     bin_text,
     binned_row_geometry,
+    box_tail_positions,
     cell_texts,
     check_band_text,
+    check_curve_options,
     check_gradient_bins,
     check_legend,
     check_min_font_size,
     check_pgs_scale,
     check_phenotype_layout,
-    curve_caption,
+    curve_spacing,
     curve_value_text,
     display_name,
     fit_text,
+    kind_columns,
     legend_binary_captions,
     legend_gradient_width,
     legend_layout,
@@ -117,7 +120,6 @@ from pypedigree.phenotypes import (
     outline_reach,
     outline_ring_offsets,
     pgs_box_left,
-    pgs_box_width,
     pgs_caption_above,
     pgs_caption_offset,
     pgs_curve,
@@ -127,7 +129,6 @@ from pypedigree.phenotypes import (
     pgs_icon_geometry,
     pgs_marker_values,
     pgs_row_layout,
-    pgs_tail_positions,
     pgs_values_width,
     pgs_values_x,
     pregnancy_loss_fill,
@@ -143,7 +144,6 @@ from pypedigree.phenotypes import (
     to_hex,
     validate_style_colors,
     warn_asymptomatic_sections,
-    warn_mixed_curves,
     warn_pgs_scale,
     with_outline_rings,
     with_quadrants,
@@ -246,18 +246,20 @@ def _render(
         style = PedigreeStyle()
     validate_style_colors(style)
     # The children's pTDT deviations, from their parents' PGS (#52).
-    pedigree, computed = with_transmission(pedigree, style)
+    pedigree, _computed = with_transmission(pedigree, style)
     names = list(pedigree.phenotype_names or [])
     modes = pedigree.phenotype_display_modes
     # Same style resolution as render_pedigree, so both outputs share colors
     # and spacing. Each renderer applies the PGS spacing exactly once.
-    style = resolve_style(style, names)
-    pgs_cols = [n for n in names if is_curve_column(n)]
-    warn_mixed_curves(pedigree.individuals(), pgs_cols, computed)
-    warn_pgs_scale(pedigree.column_scope.individuals(), pgs_cols, style.pgs_scale)
-    values_width = pgs_values_width(pedigree.individuals(), pgs_cols, style)
-    # The only place the PGS spacing is applied (see `apply_pgs_spacing`).
-    style = apply_pgs_spacing(style, names, values_width, pgs_box_width(pgs_cols, style))
+    style = resolve_style(style, names, modes)
+    check_curve_options(style)
+    pgs_cols = [n for n in names if is_curve_column(n, style)]
+    warn_pgs_scale(pedigree.column_scope.individuals(), pgs_cols, style)
+    # The only place the PGS spacing is applied (see `apply_pgs_spacing`):
+    # room for the most kinds of curve one individual has (R6).
+    style = apply_pgs_spacing(
+        style, names, **curve_spacing(pedigree.individuals(), pgs_cols, style)
+    )
     check_notation(style.carrier_notation)
     families = list(pedigree.families.values())
     # A subset is drawn as in the whole file (`Pedigree.column_scope`).
@@ -280,7 +282,7 @@ def _render(
     style = apply_outline_spacing(style, outline_reach(render.outline_rings, style))
     # Bands need colors; PGS curves need none (see renderer._render_layout).
     banded = bool(
-        names and render.effective_modes and (style.phenotype_colors or render.pgs_names(names))
+        names and render.effective_modes and (style.phenotype_colors or render.curve_names(names))
     )
     ctx = _SvgContext(
         style=style,
@@ -289,7 +291,7 @@ def _render(
         display_modes=modes,
         band_names=render.band_names(names) if banded else [],
         outline_names=render.outline_names(names) if banded else [],
-        pgs_names=render.pgs_names(names) if banded else [],
+        pgs_names=render.curve_names(names) if banded else [],
         banded=banded,
         show_labels=show_labels,
     )
@@ -337,7 +339,7 @@ def _render(
 
     bounds = _union(extents)
     show_pheno_legend = (
-        show_legend and names and (style.phenotype_colors or render.pgs_names(names))
+        show_legend and names and (style.phenotype_colors or render.curve_names(names))
     )
     show_carrier_legend = show_legend and (carriers.has_legacy_carriers or bool(carriers.keys))
     if show_pheno_legend or show_carrier_legend:
@@ -463,8 +465,8 @@ def _family_extent(layout: FamilyLayout, ctx: _SvgContext) -> _Extent:
         values = pgs_values_width(layout.nodes, ctx.pgs_names, style)
         box_w = pgs_box_w(style)
         for n in layout.nodes:
-            if active_pgs(n, ctx.pgs_names, style.pgs_scale):
-                box_left = pgs_box_left(n, style, _node_ring(n, ctx))
+            for index in range(len(active_curves(n, ctx.pgs_names, style))):
+                box_left = pgs_box_left(n, style, _node_ring(n, ctx), index)
                 x0 = min(x0, box_left - values)
                 x1 = max(x1, box_left + box_w + values)
     if ctx.show_labels and layout.nodes:
@@ -892,8 +894,8 @@ def _tooltip(
             lines.append(f"{shown}: {category}")
         elif value is not None and math.isnan(value):
             lines.append(f"{shown}: NA")
-        elif value is not None and is_curve_column(name):
-            lines.append(f"{shown}: {curve_value_text(name, value, style.pgs_scale)}")
+        elif value is not None and is_curve_column(name, style):
+            lines.append(f"{shown}: {curve_value_text(name, value, style)}")
         elif value is not None:
             # With clinical thresholds, the step it falls in (#57).
             step = bin_text(name, value, style)
@@ -1351,20 +1353,35 @@ def _svg_legacy_carrier(node: NodeLayout, ctx: _SvgContext, uid: str) -> str:
 
 
 def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
-    """PGS distribution curve beside a symbol, one marker per score.
+    """An individual's curve boxes beside its symbol, one per kind of curve (R6).
 
-    Mirrors `renderer._draw_pgs_ridge`: the curve runs bottom to top, with
+    Mirrors `renderer._draw_pgs_ridge`: each curve runs bottom to top, with
     each score's position on [0, 1] marked by a thin solid line and a dot (#158).
     """
+    style = ctx.style
+    columns = kind_columns(ctx.pgs_names, style)
+    out = []
+    for index, (kind, markers) in enumerate(active_curves(node, ctx.pgs_names, style)):
+        tails = box_tail_positions(columns[kind], style)
+        out.append(_svg_curve_box(node, ctx, index, kind, markers, tails))
+    return "\n".join(out)
+
+
+def _svg_curve_box(
+    node: NodeLayout,
+    ctx: _SvgContext,
+    index: int,
+    caption: str,
+    active: list[tuple[str, float]],
+    tails: tuple[float, ...],
+) -> str:
+    """One box of `_svg_pgs`, ``index`` boxes out from the symbol."""
     pt = symbols.units_per_point(ctx.style.text_scale)  # layout units per point (#145)
     style = ctx.style
-    active = active_pgs(node, ctx.pgs_names, style.pgs_scale)
-    if not active:
-        return ""
     half = style.shape_size / 2
     box_w, box_h = pgs_box_w(style), half * 2
     # Clear of several o_ borders (#46); right of a right-hand partner (#78).
-    left = pgs_box_left(node, style, _node_ring(node, ctx))
+    left = pgs_box_left(node, style, _node_ring(node, ctx), index)
     bottom = node.y + half
     thin = 0.5 * pt
 
@@ -1381,7 +1398,7 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
         f'<polygon points="{area}" fill="{FALLBACK_COLOR}" fill-opacity="0.08"/>',
         f'<polyline points="{pts}" fill="none" stroke="#aaaaaa" stroke-width="{0.6 * pt:.3f}"/>',
     ]
-    for tail in pgs_tail_positions(style.pgs_scale):
+    for tail in tails:
         ty = bottom - tail * box_h
         out.append(
             f'<line class="pgs-tail" x1="{left:.3f}" y1="{ty:.3f}" x2="{left + box_w:.3f}" '
@@ -1411,7 +1428,7 @@ def _svg_pgs(node: NodeLayout, ctx: _SvgContext) -> str:
         _svg_text(
             left + box_w / 2,
             bottom - box_h - gap if above else bottom + gap,
-            curve_caption(active),
+            caption,
             caption_size * pt,
             style,
             baseline="auto" if above else "hanging",
@@ -1433,7 +1450,7 @@ def _svg_pgs_values(
 ) -> list[str]:
     """Each PGS value left of the curve's box, at its marker's height (#54)."""
     pt = symbols.units_per_point(style.text_scale)  # layout units per point (#145)
-    texts = pgs_marker_values(node, [name for name, _ in active], style.pgs_scale)
+    texts = pgs_marker_values(node, [name for name, _ in active], style)
     size = style.text_size(symbols.PGS_CAPTION_SCALE)
     step = PGS_VALUE_LINE_EM * size * pt
     placed = spread_labels(ys, step, top + step / 2, bottom - step / 2)
