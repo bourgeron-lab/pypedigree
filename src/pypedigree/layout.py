@@ -592,6 +592,10 @@ class _HierarchicalPlacer:
         for union in self.unions:
             roots.extend(union.partner_ids[:1])
         roots.extend(self.family.individuals)
+        # Families on the top rows first: founders lowered to a child who
+        # married into a younger generation (an in-law family) come after
+        # the lineage they married into, which they then join from the side.
+        roots.sort(key=lambda sid: self.gen.get(sid, 0))
         for sid in roots:
             if sid in self.gen and sid not in self.claimed and sid not in self.attached:
                 for block in self._place(sid):

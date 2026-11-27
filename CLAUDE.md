@@ -100,7 +100,9 @@ src/pypedigree/
    people down (a group of partners and everyone hanging from it by a line as short as it can be)
    while that shortens more parent-child or original-duplicate lines than it lengthens, so
    founders whose son marries into a younger generation stand just above him and his copy, if
-   any, stays in his row (`TestMarriedInFounders`, `complex/married_in_founders.ped`). `_HierarchicalPlacer` packs each union's
+   any, stays in his row (`TestMarriedInFounders`, `complex/married_in_founders.ped`); `run()` starts
+   blocks from the top rows down, so such an in-law family is placed after the lineage it
+   married into and the copy is the son's, never his wife's father's. `_HierarchicalPlacer` packs each union's
    descendants as a block against its neighbours' contours, so two couples'
    children never interleave. Loops are drawn side by side unless that
    stretches a sibship line over another one; then `_place_hierarchically`

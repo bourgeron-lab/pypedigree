@@ -1001,6 +1001,18 @@ class TestMarriedInFounders:
         for arc in layout.duplicate_arcs:
             assert arc.from_pos[1] == pytest.approx(arc.to_pos[1])
 
+    @pytest.mark.parametrize("seed", range(40))
+    def test_only_the_son_who_marries_down_is_copied(self, style, seed):
+        """The families on the top rows are placed first, so 12 (married to
+        5, from the other top family) is never copied, whatever the row order;
+        19 is, as his parents' line would otherwise cover 14 x 202's."""
+        lines = self.PATH.read_text(encoding="utf-8").splitlines()
+        rows = lines[1:]
+        random.Random(seed).shuffle(rows)
+        family = parse_pedigree_from_string("\n".join([lines[0], *rows]) + "\n").get_family("FAM1")
+        copies = [n.individual_id for n in compute_layout(family, style).nodes if n.is_duplicate]
+        assert copies == ["_dup_19_1"]
+
 
 def _added_duplicates(family, style) -> int:
     before = sum(ind.is_duplicate for ind in family.individuals.values())

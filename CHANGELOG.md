@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Rows are now lowered after the first assignment wherever that shortens more lines than it
   lengthens: the founders, their other children and their partners move down with them, children
   always below their parents and partners level. No other figure of the test suite moves.
+- In the same family, depending on the order of the rows, a man who married into the other top
+  family (12) was drawn twice as well. The families on the top rows are now placed first, so
+  founders lowered to a child who married into a younger generation join from the side, and the
+  only copy is that child's, in his row, whatever the order of the rows.
 
 ## [1.0.0rc2] - 2026-11-24
 
