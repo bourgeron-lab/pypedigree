@@ -483,14 +483,25 @@ class _HierarchicalPlacer:
         (#41). A couple with children also has its descent line in the middle
         of the gap, so each partner's text must stay on its side of it: the
         gap is then at least twice the larger reach (#130; a CanRisk panel's
-        gene line under one partner crossed the line).
+        gene line under one partner crossed the line). The marker of a
+        proband or consultand on the right, at the lower left of their
+        symbol, keeps clear of that line too (`symbols.descent_clearance`).
         """
         reach = self.label_reach
         left_reach, right_reach = reach.get(left, 0.0), reach.get(right, 0.0)
         labels = left_reach + right_reach
+        descent = 0.0
         if ui is not None and self.unions[ui].children_ids:
             labels = max(labels, 2 * max(left_reach, right_reach))
-        return max(self.style.couple_gap, self.marker_room.get(right, 0.0), labels)
+            ind = self.family.individuals[right]
+            if ind.is_proband or ind.notation.is_consultand:
+                descent = symbols.descent_clearance(
+                    self.style.shape_size / 2,
+                    self.style.text_size(),
+                    ind.is_proband,
+                    symbols.units_per_point(self.style.text_scale),
+                )
+        return max(self.style.couple_gap, self.marker_room.get(right, 0.0), labels, descent)
 
     def _add(self, block: _Block, sid: str, x: float, gen: int, pgs_right: bool = False) -> None:
         """Put ``sid`` in ``block``, with the room their marker and label need.

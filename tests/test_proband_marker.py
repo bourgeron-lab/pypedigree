@@ -22,8 +22,10 @@ from pypedigree.symbols import (
     MARKER_ARROW_EM,
     MARKER_LETTER_GAP_EM,
     UNITS_PER_POINT,
+    descent_clearance,
     marker_clearance,
     marker_points,
+    marker_reach,
 )
 
 TIGHT = PedigreeStyle(sibling_gap=1.0, couple_gap=1.0, font_size=18)
@@ -75,11 +77,58 @@ class TestLayout:
             max(TIGHT.sibling_gap, _need(TIGHT, letter=False))
         )
 
-    @pytest.mark.parametrize("proband", ["10", "11", "12", "13", "27"])
+    @pytest.mark.parametrize("proband", ["10", "12", "13", "27"])
     def test_default_style_moves_nothing(self, proband):
+        """Except for a proband on the right of a couple with children (below)."""
         style = PedigreeStyle()
         assert _need(style) < style.sibling_gap
         assert _xs(_sibship(proband), style) == _xs(_sibship(""), style)
+
+
+class TestDescentLine:
+    """A proband or consultand on the right of a couple with children: their
+    marker, at the lower left of the symbol, keeps clear of the line of
+    descent hanging from the middle of the gap (the "P" was drawn on it)."""
+
+    def _gap(self, style, proband="11", consultand=""):
+        x = _xs(_sibship(proband, consultand), style)
+        return x["11"] - x["10"]
+
+    def test_marker_left_of_the_descent_line(self):
+        style = PedigreeStyle()
+        gap = self._gap(style)
+        assert gap / 2 >= marker_reach(0.4, style.font_size, True) + 1e-9
+        assert gap == pytest.approx(descent_clearance(0.4, style.font_size, True))
+        assert gap > style.couple_gap
+
+    def test_consultand_arrow_fits_the_default_gap(self):
+        style = PedigreeStyle()
+        assert descent_clearance(0.4, style.font_size, False) < style.couple_gap
+        assert self._gap(style, proband="", consultand="11") == pytest.approx(style.couple_gap)
+
+    def test_left_partner_unchanged(self):
+        """A marker on the left partner points away from the line."""
+        style = PedigreeStyle()
+        assert self._gap(style, proband="10") == pytest.approx(style.couple_gap)
+
+    def test_larger_text_wider_gap(self):
+        assert self._gap(PedigreeStyle(font_size=14)) > self._gap(PedigreeStyle())
+
+    def test_svg_p_right_of_the_descent_line(self):
+        """In the SVG, the whole "P" (right-aligned at its x, about 0.8 em
+        wide) stays right of the couple's line of descent."""
+        svg = render_interactive_svg(parse_pedigree_from_string(_sibship("11")))
+        family = parse_pedigree_from_string(_sibship("11")).families["F"]
+        layout = compute_layout(family, PedigreeStyle())
+        x = {n.individual_id: n.x for n in layout.nodes}
+        middle = (x["10"] + x["11"]) / 2
+        letters = [
+            float(m.group(1))
+            for m in re.finditer(r'<text[^>]*x="([-0-9.]+)"[^>]*text-anchor="end"[^>]*>P<', svg)
+        ]
+        assert letters, "the proband's P is drawn right-aligned"
+        em = PedigreeStyle().font_size * UNITS_PER_POINT
+        assert all(lx - 0.8 * em > middle for lx in letters)
 
     def test_leftmost_proband_adds_no_room(self):
         x = _xs(_sibship(proband="12"), TIGHT)
