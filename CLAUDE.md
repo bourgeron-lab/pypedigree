@@ -164,7 +164,8 @@ src/pypedigree/
    the sibling gap are listed. It is applied while packing, not after: as a
    left margin on the contour (`_Block.add(sid, x, gen, left, right)`, via
    `_HierarchicalPlacer._add`) and as a wider couple gap when they are the
-   partner on the right (`_couple_gap`). At the default style it is never
+   partner on the right (`_couple_gap`); with children, that gap also keeps their marker off the
+   line of descent in its middle (`symbols.descent_clearance`, `marker_reach`; the "P" sat on it). At the default style it is never
    needed, so nothing moves.
 
    Labels get room the same way (#41). `_label_reach` gives each node half

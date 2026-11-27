@@ -71,6 +71,12 @@ trait (IQ...) on a curve as a polygenic score is.
   and stopped a row short of the other. It now runs across the band above the lower copy, up
   through the gap beside the upper one (not a couple's gap, which holds their line of descent)
   and across the band above the upper row, onto each copy's top.
+- A proband on the right of a couple with children had their "P" drawn on the couple's line of
+  descent, which hangs from the middle of the gap between the partners, under the arrow's tail.
+  Such a couple is now drawn far enough apart that the whole marker stays on the proband's side
+  (`symbols.descent_clearance`: twice the marker's reach plus a small pad, 1.66 at the default
+  style instead of 1.5). A consultand's arrow alone already fits the default gap; with larger text
+  or a tighter `couple_gap` it gets the same room.
 
 ## [1.0.0rc2] - 2026-11-24
 
