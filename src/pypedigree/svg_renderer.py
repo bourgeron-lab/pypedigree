@@ -152,6 +152,18 @@ from pypedigree.phenotypes import box_width as pgs_box_w
 from pypedigree.transmission import with_transmission
 
 
+def _xml(text: str) -> str:
+    """``text`` escaped for SVG markup, with every non-ASCII character as a
+    character reference (``&#8722;``).
+
+    A Python string takes as many bytes per character as its widest one
+    needs: one "−" (U+2212) in a legend made a 74 MB drawing take twice
+    that while it was built. Kept ASCII, it stays one byte per character;
+    the SVG reads the same.
+    """
+    return html.escape(text).encode("ascii", "xmlcharrefreplace").decode("ascii")
+
+
 def render_interactive_svg(
     pedigree: Pedigree,
     style: PedigreeStyle | None = None,
@@ -802,7 +814,7 @@ def _svg_text(
         extra += f' class="{cls}"'
     return (
         f'<text x="{x:.3f}" y="{y:.3f}" font-size="{size:.3f}" '
-        f'text-anchor="{anchor}" fill="{html.escape(color)}"{extra}>{html.escape(text)}</text>'
+        f'text-anchor="{anchor}" fill="{html.escape(color)}"{extra}>{_xml(text)}</text>'
     )
 
 
@@ -924,17 +936,15 @@ def _svg_node(
     # pan), so a host can draw an overlay in the same system. The host's own
     # classes and data-* attributes (css_class / data_ columns) follow.
     classes = " ".join(["node", *node.css_classes])
-    extra = "".join(
-        f' data-{name}="{html.escape(value)}"' for name, value in node.data_attributes.items()
-    )
-    number = f' data-number="{html.escape(node.number)}"' if node.number else ""
+    extra = "".join(f' data-{name}="{_xml(value)}"' for name, value in node.data_attributes.items())
+    number = f' data-number="{_xml(node.number)}"' if node.number else ""
     parts = [
-        f'<g class="{html.escape(classes)}" data-id="{html.escape(node.individual_id)}" '
+        f'<g class="{_xml(classes)}" data-id="{_xml(node.individual_id)}" '
         f'data-x="{node.x + 0.0:.3f}" data-y="{node.y + 0.0:.3f}" '
         f'data-size="{style.shape_size:.3f}"{extra}{number} '
-        f'data-parents="{html.escape(",".join(adj.get("parents", [])))}" '
-        f'data-children="{html.escape(",".join(adj.get("children", [])))}" '
-        f'data-siblings="{html.escape(",".join(adj.get("siblings", [])))}">'
+        f'data-parents="{_xml(",".join(adj.get("parents", [])))}" '
+        f'data-children="{_xml(",".join(adj.get("children", [])))}" '
+        f'data-siblings="{_xml(",".join(adj.get("siblings", [])))}">'
     ]
 
     banded = ctx.banded and bool(node.extra_phenotypes) and not node.is_phantom
@@ -996,7 +1006,7 @@ def _svg_node(
         parts.append(_svg_labels(node, style))
 
     tip = _tooltip(node, ind, ctx.carriers, style, ctx.outline_names)
-    parts.append(f"<title>{html.escape(tip)}</title>")
+    parts.append(f"<title>{_xml(tip)}</title>")
     parts.append("</g>")
     return "\n".join(p for p in parts if p)
 

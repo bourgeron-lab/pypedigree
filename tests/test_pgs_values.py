@@ -12,6 +12,7 @@ import re
 import matplotlib.pyplot as plt
 import pytest
 from click.testing import CliRunner
+from conftest import decode_char_refs
 from matplotlib.lines import Line2D
 
 import pypedigree as pp
@@ -136,7 +137,7 @@ class TestSpacing:
 
 class TestSvg:
     def test_values_written_in_their_colors(self):
-        svg = pp.render_svg(_ped(), style=ZSCORE)
+        svg = decode_char_refs(pp.render_svg(_ped(), style=ZSCORE))
         style = pp.resolve_style(ZSCORE, _ped().phenotype_names)
         values = re.findall(r'<text [^>]*fill="([^"]+)"[^>]*class="pgs-value"[^>]*>([^<]+)<', svg)
         assert len(values) == 12
@@ -150,7 +151,7 @@ class TestSvg:
     def test_values_beyond_the_box_and_apart(self):
         """On the far side of the box from the symbol: left of a box on the
         left, right of a right-hand partner's box on the right (#78)."""
-        svg = pp.render_svg(_ped(), style=ZSCORE)
+        svg = decode_char_refs(pp.render_svg(_ped(), style=ZSCORE))
         size = ZSCORE.text_size(symbols.PGS_CAPTION_SCALE) * PT
         for group in _nodes(svg).values():
             box = re.search(
@@ -179,7 +180,7 @@ class TestSvg:
             assert math.dist(a, b) >= PGS_DOT_PT * PT - 2e-3
 
     def test_viewbox_holds_the_values(self):
-        svg = pp.render_svg(_ped(), style=ZSCORE)
+        svg = decode_char_refs(pp.render_svg(_ped(), style=ZSCORE))
         vb_x = float(re.search(r'viewBox="([-0-9.]+)', svg).group(1))
         xs = [float(x) for x in re.findall(r'<text x="([-0-9.]+)"[^>]*class="pgs-value"', svg)]
         size = ZSCORE.text_size(symbols.PGS_CAPTION_SCALE)

@@ -14,7 +14,7 @@ import warnings
 
 import matplotlib.pyplot as plt
 import pytest
-from conftest import PHENOTYPE_DIR
+from conftest import PHENOTYPE_DIR, decode_char_refs
 from matplotlib.text import Text
 
 from pypedigree import (
@@ -146,7 +146,9 @@ class TestDrawing:
         assert texts.count("PGS") == 2 and texts.count("pTDT") == 4
 
     def test_svg_captions_and_tooltips(self):
-        svg = render_interactive_svg(parse_pedigree(FIXTURE), style=PedigreeStyle(**STYLE))
+        svg = decode_char_refs(
+            render_interactive_svg(parse_pedigree(FIXTURE), style=PedigreeStyle(**STYLE))
+        )
         assert len(re.findall(r">pTDT</text>", svg)) == 4
         assert len(re.findall(r">PGS</text>", svg)) == 2
         assert "pTDT autism: pTDT = +2.10" in svg
@@ -186,7 +188,9 @@ class TestLegend:
             texts = " ".join(t.get_text() for t in fig.axes[1].texts)
         finally:
             plt.close(fig)
-        svg = render_interactive_svg(parse_pedigree(FIXTURE), style=PedigreeStyle(**STYLE))
+        svg = decode_char_refs(
+            render_interactive_svg(parse_pedigree(FIXTURE), style=PedigreeStyle(**STYLE))
+        )
         legend = svg[svg.index('<g class="legend">') :]
         for text in (texts, legend):
             assert "pTDT deviation" in text and "PGS distribution" in text

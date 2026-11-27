@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   once, returns at once when every line is as short as it can be, and tries only the groups that
   can reach a longer line: 4.5 s, with the same rows (`tests/test_lower_to_children.py` checks
   them against the plain algorithm).
+- Drawing a large pedigree as SVG took about 45% more memory than in 1.0.0rc1 (744 MB instead of
+  515 MB for 20,000 people), and more time: one "−" (U+2212) in the legend's PGS icon (1.0.0rc2)
+  made Python hold the whole SVG, and every piece it was built from, at two bytes per character.
+  The SVG writer now writes any non-ASCII character of a text, tooltip or `data-*` value as a
+  character reference (`&#8722;`), which every SVG reader shows as the same character: 526 MB.
+  Code that searches the SVG source for such a character should look for the reference, or read
+  the SVG with an XML parser.
 
 ## [1.0.0rc3] - 2026-11-27
 

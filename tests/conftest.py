@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -15,6 +16,18 @@ if TYPE_CHECKING:
 matplotlib.use("Agg")
 
 TEST_DATA_DIR = Path(__file__).parent / "data"
+
+
+def decode_char_refs(svg: str) -> str:
+    """The SVG's numeric character references (``&#8722;``) as characters.
+
+    The SVG writer keeps its output ASCII, so a "−" or a no-break space is
+    written as a reference; tests looking for such text read it back with
+    this. Named references (``&lt;``) are left as they are.
+    """
+    return re.sub(r"&#(\d+);", lambda m: chr(int(m.group(1))), svg)
+
+
 BASIC_DIR = TEST_DATA_DIR / "basic"
 FORMAT_DIR = TEST_DATA_DIR / "format"
 EXTENDED_DIR = TEST_DATA_DIR / "extended"

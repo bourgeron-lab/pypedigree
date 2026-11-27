@@ -14,7 +14,7 @@ import re
 
 import matplotlib.pyplot as plt
 import pytest
-from conftest import TEST_DATA_DIR
+from conftest import TEST_DATA_DIR, decode_char_refs
 
 import pypedigree as pp
 from pypedigree.carriers import CarrierScheme
@@ -273,6 +273,7 @@ class TestSvg:
         svg = pp.render_svg(
             pp.parse_pedigree_from_string(SCORES), style=PedigreeStyle(pgs_scale="zscore")
         )
+        svg = decode_char_refs(svg)
         legend = svg[svg.index('<g class="legend">') :]
         for label in ("high", "low", f"+2{NBSP}SD", f"{MINUS}2{NBSP}SD"):
             assert re.search(rf">{re.escape(label)}</text>", legend), label
