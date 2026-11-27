@@ -97,6 +97,23 @@ pypedigree tests/data/multi_partner/multiple_relationships.ped -o multiple_relat
 
 ---
 
+## married_in_founders.ped (a person drawn twice, or crossing lines)
+
+![Three founder families; 19 drawn twice](imgs/examples/married_in_founders.png)
+
+![The same family with crossing lines](imgs/examples/married_in_founders_cross.png)
+
+**Description**: Synthetic family of 26 people from three founder couples. 12, a son of the second couple, marries 5, a daughter of the first. 19, a son of the third couple, marries their granddaughter 1, a generation below his own parents' children in the other families.
+
+**Features**: the third couple stands one row lower, just above their son, not on the top row (since 1.0.0rc3). By default (`loops` "duplicate") 19 is drawn twice, among his siblings and next to 1, the two copies joined by a dotted line above their row: his parents' sibship line would otherwise run over the one of 14 and 202. With `--loops cross` he is drawn once; that sibship line stretches to him, the line of 14 and 202 runs a little lower, and where a line crosses another it hops over it with a small half-circle. `--sibling-order birth` keeps every sibship in birth order (date of birth, then file order) whichever way loops are drawn.
+
+```bash
+pypedigree tests/data/complex/married_in_founders.ped -o married_in_founders.png
+pypedigree tests/data/complex/married_in_founders.ped --loops cross -o married_in_founders_cross.png
+```
+
+---
+
 ## Style customization
 
 **Description**: Any pedigree can be rendered with custom visual styles using the `--style` JSON file or direct CLI options.
