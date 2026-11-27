@@ -73,7 +73,7 @@
     <p>With a <strong>header line</strong>, columns are found by name, in any order, and more can
       be added:</p>
     <ul>
-      <li><code>dob</code> (birth date, orders siblings), <code>twins</code>
+      <li><code>dob</code> (birth date, YYYYMMDD, YYYYMM or YYYY; orders siblings; for a pregnancy, the date of its outcome, or the due date of an ongoing one), <code>twins</code>
         (<code>MZ:id</code>, <code>DZ:id</code> or <code>TW:id</code>), <code>deceased</code>
         (1), <code>proband</code> (1), <code>consultand</code> (1).</li>
       <li><strong>Phenotypes</strong>: any other column. A prefix chooses how it is drawn:
@@ -127,7 +127,9 @@
       <tr><td>Horizontal line between two symbols</td><td>A couple; a <strong>double
         line</strong> marks a consanguineous couple</td></tr>
       <tr><td>Children hanging from one line</td><td>A sibship, in birth order when birth dates
-        are given</td></tr>
+        are given (otherwise in file order). To close a loop a child may be moved to
+        the end of the sibship, unless the sibling order is set to strict birth
+        order</td></tr>
       <tr><td>Two lines from one point</td><td>Twins; a bar between the lines: monozygotic</td></tr>
       <tr><td>“P”, “D” or “S” in the middle of a symbol</td><td>A pregnancy, a gamete
         donor, a surrogate</td></tr>

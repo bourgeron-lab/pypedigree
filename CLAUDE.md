@@ -102,7 +102,11 @@ src/pypedigree/
    founders whose son marries into a younger generation stand just above him and his copy, if
    any, stays in his row (`TestMarriedInFounders`, `complex/married_in_founders.ped`); `run()` starts
    blocks from the top rows down, so such an in-law family is placed after the lineage it
-   married into and the copy is the son's, never his wife's father's. `_HierarchicalPlacer` packs each union's
+   married into and the copy is the son's, never his wife's father's.
+   `PedigreeStyle.sibling_order` "birth" (`layout.SIBLING_ORDERS`, `check_sibling_order`) leaves
+   `_children_group`'s order alone (no first/within/last), and `loops_to_break` also copies a
+   child drawn beside a partner elsewhere out of birth order; two siblings who are partners stay
+   side by side. `tests/test_sibling_order.py`. `_HierarchicalPlacer` packs each union's
    descendants as a block against its neighbours' contours, so two couples'
    children never interleave. Loops are drawn side by side unless that
    stretches a sibship line over another one; then `_place_hierarchically`
@@ -621,6 +625,7 @@ pypedigree INPUT.ped [OPTIONS]
 --min-font-size PT       Smallest size of any text, in points (style `min_font_size`)
 --text-scale X           Text and marks X times larger relative to the symbols (style `text_scale`)
 --no-labels              Hide sample ID labels
+--sibling-order [auto|birth]  Birth order (DOB, then file order); loops may move a child (auto) or not (birth)
 --labels [id|generation|both]  Sample IDs (default), NSGC numbers from the drawing (I-1, II-3), or both (style `labels`)
 --canrisk-names          For a CanRisk file: its Name column as labels, where given and unique
 --hpo-features           For a Phenopackets Family: each HPO term as a binary column

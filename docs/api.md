@@ -770,6 +770,7 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `zero_pad_ids` | `0` | Zero-pad sample IDs to this width in labels (0 = no padding) |
 | `pgs_transmission` | `False` | Compute each child's pTDT deviation from its parents' `PGS_*` columns into `pTDT_*` columns (#52; `pypedigree.transmission.with_transmission`, applied by both renderers, over the whole file) |
 | `ptdt_midparent_sd` | `0.7071…` (√½) | SD(mid-parent) for `pgs_transmission`; not positive and finite: `PedigreeError` |
+| `sibling_order` | `"auto"` | Order of siblings: `"auto"` by date of birth, then file order, except that a child leading to a loop is moved to the end of their sibship facing the other branch; `"birth"` keeps that order strictly, and such a loop is drawn with a duplicate instead (two siblings who are partners stay side by side). Another value raises `PedigreeError`. CLI `--sibling-order` |
 | `labels` | `"id"` | What labels a symbol (#125): `"id"` its sample ID, `"generation"` its NSGC number from the drawing (generation in Roman numerals from the top, position from the left: "II-3"; a duplicate has its original's), `"both"` the number with the ID right under it. `NodeLayout.number`; SVG tooltip "Number: II-3" and `data-number`. Another value raises `PedigreeError` |
 | `dpi` | `150` | Output resolution |
 | `fig_width` | `10.0` | Width in inches a small pedigree is drawn to fill (sets its scale; the figure is then fitted to the drawing) |

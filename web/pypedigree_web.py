@@ -28,6 +28,7 @@ STYLE_CHOICES: dict[str, tuple[str, ...]] = {
     "pgs_scale": ("zscore", "minmax", "percentile"),
     "carrier_notation": ("nsgc2022", "legacy"),
     "labels": ("id", "generation", "both"),
+    "sibling_order": ("auto", "birth"),
 }
 #: Prefix of every id in the interactive SVG, so it cannot clash with the page.
 ID_PREFIX = "pv-"

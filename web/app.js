@@ -105,6 +105,7 @@ function options() {
     pgs_scale: f.pgs_scale.value,
     carrier_notation: f.carrier_notation.value,
     labels: f.labels.value,
+    sibling_order: f.sibling_order.value,
     min_font_size: f.min_font_size.value,
     show_labels: f.show_labels.checked,
     show_legend: f.show_legend.checked,

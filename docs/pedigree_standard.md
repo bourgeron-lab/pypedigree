@@ -23,7 +23,7 @@ A parent named in the father or mother column but with no row of their own is dr
 
 Additional columns can be appended to the standard 6-column format. All extended columns are optional — the parser auto-detects how many columns are present.
 
-- 7th column: **date_of_birth** (dob) using a format that could be YYYYMMDD or YYYYMM or YYYY but should be uniform across the file. Use `0` or `-9` for unknown.
+- 7th column: **date_of_birth** (dob) using a format that could be YYYYMMDD or YYYYMM or YYYY but should be uniform across the file. Use `0` or `-9` for unknown. It is used only to order siblings, oldest on the left, and is compared as text: a shorter date sorts before a longer one that starts with it (`1990` before `199003`), which is why one precision for the whole file is best. Siblings with no date are drawn after the dated ones, in file order; with no date at all, siblings keep the file order. For a pregnancy row (`pregnancy` P, SAB, TOP, ECT or SB), give the date of its outcome (the loss, termination or stillbirth); for an ongoing pregnancy (P), its expected due date, so that it is drawn after its born siblings. The SVG tooltip shows the value as given ("DOB: ...").
 - 8th column: **twins** — a comma-separated list of values describing twin relationships:
   - `MZ:sample_id` to indicate that `sample_id` is a monozygotic twin to the current individual
   - `DZ:sample_id` to indicate that `sample_id` is a dizygotic twin to the current individual
@@ -309,7 +309,7 @@ when there is more than one birth coming from the union of 2 individuals, there 
 
 :::image type="content" source="imgs/diagram_informations.png" alt-text="diagram informations":::
 
-siblings should be listed from left to rigth from the oldest to the younger
+Siblings are drawn from left to right, from the oldest to the youngest (by date of birth, then file order). With `sibling_order: "auto"` (the default) a sibling leading to a loop may be moved to the end of the sibship facing the other branch (see below); with `sibling_order: "birth"` (`--sibling-order birth`) the order is always kept.
 
 ### 5. Individual line
 
@@ -337,7 +337,7 @@ If one individual is involved in multiple relationship, we should plot complete 
 
 If incestuous consiguinous relationship crossing generations are present, the older individual (higher up in the tree) can be duplicated to be put in a relationship as a "new" individual but with a dotted arc to link it to its duplicate.
 
-When both partners of a relationship descend from people in the pedigree (a loop: consanguinity, or a marriage between two branches), they are drawn side by side and the sibship line of the second partner's parents stretches to reach them. Siblings are ordered so that the two branches of a loop meet (the ancestors on one side placed last among their siblings, those on the other side first), which keeps that line clear of other sibships in most pedigrees. If it would still overlap the sibship line of another couple, the second partner is drawn twice instead: once among their siblings, and once as a duplicate next to their partner, linked by a dotted arc. Such reordering takes precedence over birth order. Sibship lines of two different couples must never overlap, since a child hanging from merged lines cannot be traced to its parents.
+When both partners of a relationship descend from people in the pedigree (a loop: consanguinity, or a marriage between two branches), they are drawn side by side and the sibship line of the second partner's parents stretches to reach them. Siblings are ordered so that the two branches of a loop meet (the ancestors on one side placed last among their siblings, those on the other side first), which keeps that line clear of other sibships in most pedigrees. If it would still overlap the sibship line of another couple, the second partner is drawn twice instead: once among their siblings, and once as a duplicate next to their partner, linked by a dotted arc. Such reordering takes precedence over birth order, unless `sibling_order` is `"birth"` (`--sibling-order birth`): then siblings are never moved, and a partner who cannot stand next to their spouse in their place among their siblings is drawn twice instead. The one exception is two siblings who are partners, drawn side by side. Sibship lines of two different couples must never overlap, since a child hanging from merged lines cannot be traced to its parents.
 
 The sample_id should be written under each individual.
 
