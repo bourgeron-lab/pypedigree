@@ -5,7 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-11-27
+
+First stable release. What 1.x keeps stable under Semantic Versioning (exported names, style
+options, CLI options, input formats, SVG hooks, warning and error classes) and what it does not
+(private names, the helper modules, the exact look of a figure; the circular layout is
+experimental) is in `docs/api.md`. The changes since 0.10.0 are in the three release candidates
+below; since 1.0.0rc3, two fixes bring large pedigrees back to the speed and memory of 1.0.0rc1.
+Every figure is drawn as by 1.0.0rc3.
 
 ### Fixed
 
