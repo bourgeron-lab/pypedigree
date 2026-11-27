@@ -507,6 +507,51 @@ def marker_points(tip_x: float, tip_y: float, em: float, up: float = 1.0) -> tup
     return tip_x - em * MARKER_ARROW_EM, tip_y - up * em * MARKER_ARROW_EM
 
 
+def marker_reach(
+    half: float, font_size: float, letter: bool, upp: float = UNITS_PER_POINT
+) -> float:
+    """How far a proband's or consultand's marker reaches left of the centre.
+
+    The arrow ends at the lower left of the symbol (at most ``half`` from
+    the centre, a square's corner) and its tail, with the proband's "P"
+    beyond it, runs `MARKER_ARROW_EM` (and `MARKER_LETTER_GAP_EM` +
+    the letter's width) ems further left, in the label font.
+
+    Args:
+        half: Half the shape size.
+        font_size: Label and marker font size, in points.
+        letter: Whether the marker has a "P" (a proband).
+        upp: Layout units per point (`units_per_point`, #145).
+
+    Returns:
+        The distance in layout units.
+    """
+    em = font_size * upp
+    reach = half + em * MARKER_ARROW_EM
+    if letter:
+        reach += em * (MARKER_LETTER_GAP_EM + _MARKER_LETTER_EM)
+    return reach
+
+
+def descent_clearance(
+    half: float, font_size: float, letter: bool, upp: float = UNITS_PER_POINT
+) -> float:
+    """Smallest gap between partners keeping the right one's marker off their
+    line of descent, which hangs from the middle of the gap: twice the
+    marker's reach plus `_MARKER_PAD_EM` on its side.
+
+    Args:
+        half: Half the shape size.
+        font_size: Label and marker font size, in points.
+        letter: Whether the marker has a "P" (a proband).
+        upp: Layout units per point (`units_per_point`, #145).
+
+    Returns:
+        The distance between the partners' centres, in layout units.
+    """
+    return 2 * (marker_reach(half, font_size, letter, upp) + font_size * upp * _MARKER_PAD_EM)
+
+
 def marker_clearance(
     half: float,
     font_size: float,
@@ -537,9 +582,7 @@ def marker_clearance(
     """
     em = font_size * upp
     tail = half + em * MARKER_ARROW_EM
-    reach = tail
-    if letter:
-        reach += em * (MARKER_LETTER_GAP_EM + _MARKER_LETTER_EM)
+    reach = marker_reach(half, font_size, letter, upp)
     labels = reach + em * (_MARKER_PAD_EM + _LABEL_CHAR_EM * label_chars / 2)
     return max(labels, neighbour_mark + tail) if neighbour_mark else labels
 
