@@ -549,7 +549,9 @@ class PedigreeBuilder:
         from pypedigree.renderer import render_pedigree
 
         pedigree = self.build()
-        render_style = resolve_style(style or self._style, pedigree.phenotype_names)
+        render_style = resolve_style(
+            style or self._style, pedigree.phenotype_names, pedigree.phenotype_display_modes
+        )
 
         return render_pedigree(
             pedigree,
@@ -588,7 +590,9 @@ class PedigreeBuilder:
         from pypedigree.svg_renderer import render_interactive_svg
 
         pedigree = self.build()
-        render_style = resolve_style(style or self._style, pedigree.phenotype_names)
+        render_style = resolve_style(
+            style or self._style, pedigree.phenotype_names, pedigree.phenotype_display_modes
+        )
 
         return render_interactive_svg(
             pedigree,
@@ -620,7 +624,9 @@ class PedigreeBuilder:
         from pypedigree.svg_renderer import render_svg
 
         pedigree = self.build()
-        render_style = resolve_style(style or self._style, pedigree.phenotype_names)
+        render_style = resolve_style(
+            style or self._style, pedigree.phenotype_names, pedigree.phenotype_display_modes
+        )
 
         return render_svg(
             pedigree,

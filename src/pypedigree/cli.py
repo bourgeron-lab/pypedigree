@@ -363,7 +363,7 @@ def main(
                 apply_annotations_to_pedigree(pedigree, ann_data, ann_names)
 
             # Fill in palette colors and PGS spacing from the pedigree's phenotypes
-            style = resolve_style(style, pedigree.phenotype_names)
+            style = resolve_style(style, pedigree.phenotype_names, pedigree.phenotype_display_modes)
 
         # Filter to specific family if requested
         if family:

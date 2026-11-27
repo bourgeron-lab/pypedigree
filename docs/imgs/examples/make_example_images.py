@@ -59,6 +59,7 @@ EXAMPLES: dict[str, tuple[str, str | None, dict[str, Any]]] = {
     "gradient_bins": ("phenotype/gradient_bins.ped", "phenotype/gradient_bins.json", {}),
     "legend_minimal": ("phenotype/legend_minimal.ped", "phenotype/legend_minimal.json", {}),
     "ptdt": ("phenotype/ptdt.ped", "phenotype/ptdt.json", {}),
+    "curve_traits": ("phenotype/curve_traits.ped", "phenotype/curve_traits.json", {}),
     "canrisk": ("format/canrisk_v4.txt", None, {}),
     "quadrants": ("phenotype/quadrants.ped", None, {"phenotype_layout": "quadrants"}),
     "outline_rings": ("phenotype/outline_rings.ped", None, {}),

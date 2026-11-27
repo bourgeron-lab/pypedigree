@@ -226,8 +226,12 @@ class TestBoxWidth:
     def test_kinds_counted_apart(self):
         from pypedigree.phenotypes import pgs_dot_count
 
-        assert pgs_dot_count(["PGS_a", "PGS_b", "pTDT_a"]) == 2
-        assert pgs_dot_count(["pTDT_a", "pTDT_b", "pTDT_c", "PGS_a"]) == 3
+        style = PedigreeStyle(curve_reference={"IQ": {"mean": 100, "sd": 15}})
+        assert pgs_dot_count(["PGS_a", "PGS_b", "pTDT_a"], style) == 2
+        assert pgs_dot_count(["pTDT_a", "pTDT_b", "pTDT_c", "PGS_a"], style) == 3
+        assert pgs_dot_count(["PGS_a", "IQ"], style) == 1
+        grouped = PedigreeStyle(curve_captions={"IQ": "PGS"})
+        assert pgs_dot_count(["PGS_a", "IQ"], grouped) == 2
 
     def test_svg_full_size_dots_in_the_wider_box(self):
         from pypedigree.phenotypes import PGS_DOT_PT

@@ -894,7 +894,20 @@ produce the same figure for the same input.</p>
 <p>Any column starting with <code>PGS</code> (case-insensitive) is treated as a PGS column. For example: <code>PGS_autism</code>, <code>PGS_IQ</code>, <code>PGS_ADHD</code>. All PGS columns share a single gaussian curve, with each trait's individual score marked by a thin solid line of its color across the box, with a dot of that color (since 1.0.0rc2; dashed before, which could be read as an interval). Colors are set via the <code>pgs_colors</code> style option. Without it, a single PGS column is red (<code>#e74c3c</code>) and several get distinct colors: a score named after a known phenotype (<code>PGS_autism</code>, <code>PGS_ADHD</code>, <code>PGS_ID</code>, <code>PGS_epilepsy</code>) takes that phenotype's color, the one its column has in the figure if there is one; the others take the first color unlike the other scores and the phenotype bands.</p>
 
 <h4>pTDT Deviations</h4>
-<p>A column whose name starts with <code>pTDT</code> (case-insensitive, e.g. <code>pTDT_autism</code>) holds each child&rsquo;s polygenic transmission deviation, (PGS<sub>child</sub> &minus; PGS<sub>mid-parent</sub>) / SD(PGS<sub>mid-parent</sub>) (Weiner et al. 2017). It is drawn with the PGS curve, always on the z scale, captioned &ldquo;pTDT&rdquo;; the legend has its own row and the tooltip reads &ldquo;pTDT = +2.12&rdquo;. An individual&rsquo;s curve shows its pTDT deviations if it has any, otherwise its PGS, so the parents&rsquo; PGS and the children&rsquo;s pTDT share a figure. Give them in the file, or let pypedigree compute them (since 0.11.0): with <code>pgs_transmission</code> (<code>--ptdt</code>), each child whose two parents have a value of a PGS_* column gets (child − mid-parent) / ptdt_midparent_sd in a pTDT_* column (PGS_autism → pTDT_autism). SD(mid-parent) is a cohort quantity one family cannot estimate: √½ by default, the value for standardised scores and unrelated parents. A child missing a parent or a value gets none and keeps its PGS curve; a pTDT_* column already in the file is drawn as given, with a warning. The parsed pedigree is not modified.</p>
+<p>A column whose name starts with <code>pTDT</code> (case-insensitive, e.g. <code>pTDT_autism</code>) holds each child&rsquo;s polygenic transmission deviation, (PGS<sub>child</sub> &minus; PGS<sub>mid-parent</sub>) / SD(PGS<sub>mid-parent</sub>) (Weiner et al. 2017). It is drawn with the PGS curve, always on the z scale, captioned &ldquo;pTDT&rdquo;; the legend has its own row and the tooltip reads &ldquo;pTDT = +2.12&rdquo;. Each kind of curve has its own box (since 1.0.0rc3): a child with both a PGS and a pTDT deviation, as with <code>--ptdt</code>, shows a PGS box and a pTDT box side by side (before, its pTDT only, with a warning). Give them in the file, or let pypedigree compute them (since 0.11.0): with <code>pgs_transmission</code> (<code>--ptdt</code>), each child whose two parents have a value of a PGS_* column gets (child − mid-parent) / ptdt_midparent_sd in a pTDT_* column (PGS_autism → pTDT_autism). SD(mid-parent) is a cohort quantity one family cannot estimate: √½ by default, the value for standardised scores and unrelated parents. A child missing a parent or a value gets none (its PGS box only); a pTDT_* column already in the file is drawn as given, with a warning. The parsed pedigree is not modified.</p>
+
+<h4>Other Traits on a Curve</h4>
+<p>Since 1.0.0rc3 the curve is a way of drawing any normally distributed quantitative trait, not only a polygenic score. A column with the <code>z_</code> prefix (<code>z_IQ</code>) gets a box of its own beside the symbol, captioned with its name (&ldquo;IQ&rdquo;), with a marker per value as for a PGS. Its values are z-scores; for values on another scale give the population's mean and SD with <code>curve_reference</code>:</p>
+<pre><code>{
+  <span class="string">"curve_reference"</span>: {<span class="string">"IQ"</span>: {<span class="string">"mean"</span>: 100, <span class="string">"sd"</span>: 15}},
+  <span class="string">"show_pgs_values"</span>: true
+}</code></pre>
+<p>The marker then goes at z = (value &minus; mean) / SD, the value is written as it is (&ldquo;115&rdquo;) and the SVG tooltip reads &ldquo;IQ: 115 (z = +1.00, 84th percentile)&rdquo;. Without a reference, values that do not look like z-scores draw a warning, as PGS columns do. <code>pgs_scale</code> applies to PGS columns only.</p>
+<p>Each kind of curve (PGS, pTDT, IQ&hellip;) has its own box. An individual with values of several kinds gets their boxes in a row, outward from the symbol, in column order (right of a right-hand partner), and the layout keeps room for the most boxes one individual has, so a figure where nobody has two kinds is spaced as before. A kind is a caption: <code>curve_captions</code> renames a box, and columns given one caption share one box, one marker each, as several PGS do (<code>{"IQ_verbal": "IQ", "IQ_performance": "IQ"}</code>). A column listed in <code>curve_reference</code> or <code>curve_captions</code> is drawn on a curve whatever its prefix. The legend has a row per kind, e.g. &ldquo;IQ distribution (mean 100, SD 15)&rdquo;, with the &plusmn;2 SD lines of that box's scale.</p>
+<figure>
+  <img src="imgs/examples/curve_traits.png" alt="IQ and polygenic score boxes side by side beside the symbols">
+  <figcaption>IQ (mean 100, SD 15) and two polygenic scores: one box per kind (<code>tests/data/phenotype/curve_traits.ped</code>)</figcaption>
+</figure>
 
 <h4>Custom Gradient Ranges</h4>
 <p>By default, gradient values are normalized to [0,1] using the data's min/max. You can override this with the <code>gradient_range</code> style option to define fixed scales:</p>
@@ -974,6 +987,12 @@ in the rendered pedigree.</p>
       <td>Diagnosis categories, subtypes</td>
     </tr>
     <tr>
+      <td><code>z_</code></td>
+      <td>Curve</td>
+      <td>A marker on a normal curve in a box beside the symbol, as a PGS is. Values are z-scores, or made into them with <code>curve_reference</code> (mean and SD). See <a href="#phenotypes">Other Traits on a Curve</a>.</td>
+      <td>IQ, height, a standardised score</td>
+    </tr>
+    <tr>
       <td><code>cr_</code></td>
       <td>Carrier</td>
       <td>Carrier status of one gene or condition: <code>0</code> not a carrier, <code>1</code> carrier, <code>2</code> obligate carrier. Drawn as a patterned section of the symbol, with its own legend row.</td>
@@ -1035,7 +1054,8 @@ PhenotypeDisplayMode.AUTO         <span class="comment"># No prefix, auto-detect
 PhenotypeDisplayMode.BINARY       <span class="comment"># b_ prefix</span>
 PhenotypeDisplayMode.GRADIENT     <span class="comment"># g_ prefix</span>
 PhenotypeDisplayMode.OUTLINE      <span class="comment"># o_ prefix</span>
-PhenotypeDisplayMode.CATEGORICAL  <span class="comment"># c_ prefix</span></code></pre>
+PhenotypeDisplayMode.CATEGORICAL  <span class="comment"># c_ prefix</span>
+PhenotypeDisplayMode.CURVE        <span class="comment"># z_ prefix</span></code></pre>
 
 <div class="callout callout-tip">
   <strong>Combining with smart header mapping</strong>
@@ -1316,6 +1336,8 @@ svg_str = builder.render_interactive_svg(output=<span class="string">"interactiv
     <tr><td><code>legend_spacing</code></td><td>float</td><td>1.0</td><td>Factor on the legend&rsquo;s row height and gaps, 0.6 to 3 (e.g. 0.7 for print); the figure is as much shorter</td></tr>
     <tr><td><code>show_pgs_values</code></td><td>bool</td><td>False</td><td>Write each PGS value beside its marker, in its color, left of the curve (&ldquo;+2.1&rdquo;, the percentile, or the value); the layout makes room</td></tr>
     <tr><td><code>pgs_colors</code></td><td>dict</td><td>{}</td><td>Map of PGS column name to hex color for marker line (e.g. <code>{"PGS_autism": "#3498db"}</code>). Unset: <code>#e74c3c</code> for a single PGS column; with several, distinct colors</td></tr>
+    <tr><td><code>curve_reference</code></td><td>dict</td><td>{}</td><td>A curve column's population mean and SD, e.g. <code>{"IQ": {"mean": 100, "sd": 15}}</code>: z = (value &minus; mean) / SD, the value written as it is. Without it, values are z-scores</td></tr>
+    <tr><td><code>curve_captions</code></td><td>dict</td><td>{}</td><td>Caption of a curve column's box (default &ldquo;PGS&rdquo;, &ldquo;pTDT&rdquo; or the column's name); columns with one caption share a box</td></tr>
     <tr><td><code>gradient_range</code></td><td>dict</td><td>{}</td><td>Custom min/max for gradient normalization (e.g. <code>{"SRS": [40, 90]}</code>); the legend writes these ends instead of Low / High</td></tr>
     <tr><td><code>gradient_bins</code></td><td>dict</td><td>{}</td><td>Clinical thresholds: column &rarr; ascending cut-offs (e.g. <code>{"SRS": [60, 66, 76], "IQ": [70]}</code>). The band takes one of the steps of the column&rsquo;s color (a <code>gi_</code> column the other way) and the legend shows each step with its limits (&ldquo;&lt; 60&rdquo;, &ldquo;60&ndash;65&rdquo;, &ldquo;66&ndash;75&rdquo;, &ldquo;&ge; 76&rdquo;)</td></tr>
     <tr><td><code>gradient_bin_label_position</code></td><td>str | dict</td><td>"below"</td><td>Where the legend writes the step names: <code>"below"</code> the limits, or <code>"inside"</code> the colored steps (the limits stay under the bar); for all columns or by column</td></tr>

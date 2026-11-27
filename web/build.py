@@ -46,6 +46,13 @@ EXAMPLES: list[dict[str, object]] = [
         "style": "complex/multi_phenotype_pgs_style.json",
     },
     {
+        "file": "phenotype/curve_traits.ped",
+        "title": "IQ and polygenic scores on curves",
+        "description": "IQ on its population curve (mean 100, SD 15) beside two polygenic "
+        "scores: one box per kind of curve.",
+        "style": "phenotype/curve_traits.json",
+    },
+    {
         "file": "phenotype/quadrants.ped",
         "title": "Four phenotypes in quadrants",
         "description": "Autism, ADHD, intellectual disability and epilepsy, one per quadrant, "

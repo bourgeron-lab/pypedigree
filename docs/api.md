@@ -76,7 +76,7 @@ The DataFrame is read as a pedigree file would be:
 - **By name**, when its first column is named like a family ID column (`FID`, `family_id`,
   `family`) or another known header name (`IID`, `sex`...): the column names are the file's
   header. Columns are matched by name in any order, and extra phenotype (`b_`, `g_`, `c_`,
-  `o_`, `cr_`, `PGS`, `pTDT`, no prefix), annotation (`a_`), notation, `css_class` and `data_`
+  `o_`, `cr_`, `z_`, `PGS`, `pTDT`, no prefix), annotation (`a_`), notation, `css_class` and `data_`
   columns are read, as from a file. This is what `pd.read_csv("family.ped", sep="\t")` of a
   file with a header gives.
 - **By position** otherwise, e.g. `pd.read_csv(..., header=None)` (columns 0, 1, 2...):
@@ -760,6 +760,8 @@ style = PedigreeStyle(shape_size=1.0, dpi=300)
 | `legend_spacing` | `1.0` | Factor on the legend's row height and gaps (header, captions, padding), 0.6 to 3, e.g. 0.7 for print. A row never gets shorter than its swatch and the captions under it. The figure is as much shorter as the legend |
 | `show_pgs_values` | `False` | Write each PGS value beside its marker, in its color, left of the curve: "+2.1" / "−0.4" on `"zscore"`, the rounded percentile on `"percentile"`, three significant digits on `"minmax"`. Close values are spread apart; the layout widens the gaps by the widest value. CLI: `--show-pgs-values` |
 | `pgs_colors` | `{}` | Map of PGS column name to hex color for the marker line. Unset: `#e74c3c` for a single PGS column; with several, distinct colors (known phenotypes' for `PGS_autism` and the like) |
+| `curve_reference` | `{}` | A curve column's population mean and SD, e.g. `{"IQ": {"mean": 100, "sd": 15}}`: the marker goes at z = (value − mean) / SD, the value is written as it is ("115") and the tooltip reads "IQ: 115 (z = +1.00, 84th percentile)". Without an entry the values are z-scores (a PGS column's follow `pgs_scale`). A listed column is drawn on a curve whatever its prefix. Not `{"mean": number, "sd": number above zero}`: `PedigreeError` |
+| `curve_captions` | `{}` | Caption of a curve column's box, e.g. `{"IQ_verbal": "IQ", "IQ_performance": "IQ"}`: columns with one caption share a box, one marker each; an individual gets one box per caption, side by side. Default: "PGS", "pTDT", or the column's shown name for a `z_` column. A listed column is drawn on a curve whatever its prefix. Not non-empty text: `PedigreeError` |
 | `gradient_range` | `{}` | Custom min/max for gradient normalization, e.g. `{"SRS": [40, 90]}`; the legend's bar then writes these ends instead of "Low" / "High" |
 | `gradient_bins` | `{}` | Clinical thresholds: column → ascending cut-offs, e.g. `{"SRS": [60, 66, 76], "IQ": [70]}`. The band takes one of `len(cut-offs) + 1` steps of the column's color, white to full (a `gi_` column the other way), a value at a cut-off going to the step above; the value is still written. The legend shows the steps with their limits ("< 60", "60–65", "66–75", "≥ 76"; with fractional cut-offs a step is written up to the next one, which it excludes) and the SVG tooltip adds the step ("SRS: 70 (66–75)"). Takes precedence over `gradient_diverging` and `gradient_range` for the color. Anything but ascending numbers raises `PedigreeError` |
 | `gradient_bin_label_position` | `"below"` | Where the legend writes the step names: `"below"` (under the limits) or `"inside"` (centred in each colored step, in a color that reads on it, `text_color_on`; the limits stay under the bar on one line, so the row is shorter; the bar grows to a line of names when needed and each step to its name). For all binned columns, or by column, e.g. `{"SRS": "inside"}` (others `"below"`). Anything else raises `PedigreeError` |
@@ -811,7 +813,7 @@ The prefix is stripped from the display name (e.g. `b_ASD` is shown as `ASD`).
 
 **Multiple PGS columns**: Any column whose name starts with `PGS` (case-insensitive) is treated as a PGS column -- e.g. `PGS_autism`, `PGS_IQ`, `PGS_ADHD`. All PGS values are rendered on a single gaussian curve with multiple colored markers, each a thin solid line with a dot (dashed before 1.0.0rc2, #158). The legend's PGS row draws the box as it stands beside a symbol, upright, with "high" above it, "low" below it and, on the z-score and percentile scales, the ±2 SD lines named on its right (#159); its caption names the scale ("PGS distribution, z-score:") and its key gives each score's color. Marker colors are set via the `pgs_colors` style option. With several PGS columns and no `pgs_colors` entry, each gets its own color: a score named after a known phenotype (`PGS_autism`, `PGS_ADHD`, `PGS_ID`, `PGS_epilepsy`) takes that phenotype's color, the one its column has in the figure if there is one; the others take the first color unlike the other scores and the phenotype bands, starting from `#e74c3c`. A single PGS column keeps `#e74c3c`. `pgs_colors` entries always win. When PGS columns are present, `couple_gap` and `sibling_gap` are auto-increased to accommodate the curve. The curve is drawn left of the symbol, or right of it for the right-hand partner of a couple (`NodeLayout.pgs_side`), so that no box or value sits on the line between partners; its values go on the far side of the box from the symbol, and the layout keeps the box's room on that side.
 
-**pTDT deviations** (#52): a column whose name starts with `pTDT` (case-insensitive, e.g. `pTDT_autism`) holds each child's polygenic transmission deviation, (PGS_child − PGS_mid-parent) / SD(PGS_mid-parent) (Weiner et al. 2017), N(0, 1) without over-transmission. It is drawn with the PGS curve, always on the z scale whatever `pgs_scale` (±2 SD marked), captioned "pTDT" under the curve; the legend has its own row, "pTDT deviation, (child − mid-parent) / SD:" then its key, beside the same upright icon as the PGS row, and the SVG tooltip reads "pTDT = +2.12" (no percentile). An individual's curve shows one kind: its pTDT deviations if it has any, otherwise its PGS, so the parents' PGS and the children's pTDT share a figure; an individual with both draws a `PedigreeDataWarning`. `pTDT_autism` may take the color `PGS_autism` has. Give them in the file, or let pypedigree compute them (since 0.11.0): with `pgs_transmission` (`--ptdt`), each child whose two parents have a value of a `PGS_*` column gets (child − mid-parent) / `ptdt_midparent_sd` in a `pTDT_*` column (`PGS_autism` → `pTDT_autism`). SD(mid-parent) is a cohort quantity one family cannot estimate: √½ by default, the value for standardised scores and unrelated parents. A child missing a parent or a value gets none and keeps its PGS curve; a `pTDT_*` column already in the file is drawn as given, with a warning. The parsed pedigree is not modified.
+**pTDT deviations** (#52): a column whose name starts with `pTDT` (case-insensitive, e.g. `pTDT_autism`) holds each child's polygenic transmission deviation, (PGS_child − PGS_mid-parent) / SD(PGS_mid-parent) (Weiner et al. 2017), N(0, 1) without over-transmission. It is drawn with the PGS curve, always on the z scale whatever `pgs_scale` (±2 SD marked), captioned "pTDT" under the curve; the legend has its own row, "pTDT deviation, (child − mid-parent) / SD:" then its key, beside the same upright icon as the PGS row, and the SVG tooltip reads "pTDT = +2.12" (no percentile). Each kind of curve has its own box (since 1.0.0rc3): a child with both a PGS and a pTDT deviation (as with `--ptdt`) shows a PGS box and a pTDT box side by side. `pTDT_autism` may take the color `PGS_autism` has. Give them in the file, or let pypedigree compute them (since 0.11.0): with `pgs_transmission` (`--ptdt`), each child whose two parents have a value of a `PGS_*` column gets (child − mid-parent) / `ptdt_midparent_sd` in a `pTDT_*` column (`PGS_autism` → `pTDT_autism`). SD(mid-parent) is a cohort quantity one family cannot estimate: √½ by default, the value for standardised scores and unrelated parents. A child missing a parent or a value gets none (its PGS box only); a `pTDT_*` column already in the file is drawn as given, with a warning. The parsed pedigree is not modified.
 
 **Gradient value display**: Gradient band values (e.g. "IQ: 90", "SRS: 76") are always written, whatever the band's color intensity. Text in bands and quadrants fits its place (`band_text: "auto"`, the default since 0.7.0): a gradient band writes "IQ: 90", or "90" alone, or the value smaller (down to `min_font_size`, or half `font_size`), whichever first fits the band's width at that height (a circle's chord), and nothing when even that does not fit; quadrant text likewise. `band_text: "name_value"` always writes "IQ: 90" (as before 0.7.0), `"value"` the value alone, `"none"` no value.
 
@@ -857,16 +859,17 @@ function is idempotent.
 
 ### `apply_pgs_spacing(style, phenotype_names=None, values_width=0.0, box_width=(0.0, 0.0))`
 
-Widen `couple_gap` and `sibling_gap` to leave room for PGS distribution
-curves drawn beside each node, and by `values_width` (layout units) for the
-values written left of them with `show_pgs_values` (the renderers pass the
-widest value's width). Returns `style` unchanged when no PGS column is present.
+Widen `couple_gap` and `sibling_gap` to leave room for the distribution
+curves (PGS, pTDT, `z_` traits) drawn beside each node, and by `values_width`
+(layout units) for the values written beside them with `show_pgs_values` (the
+renderers pass the widest value's width). Returns `style` unchanged when no
+curve column is present.
 
 Unlike `resolve_style()` this is **not** idempotent — each call widens
 further. `render_pedigree()` is its only caller; do not apply it yourself
 before calling `render_pedigree()`.
 
-**Args**: `style` — `PedigreeStyle`. `phenotype_names` — ordered phenotype column names. `values_width` — room for the PGS values, in layout units. `box_width` — the boxes' width and how much wider than usual it is (`phenotypes.pgs_box_width`, #147); the extra widens the gaps, the width is kept in `style.pgs_box_width`.
+**Args**: `style` — `PedigreeStyle`. `phenotype_names` — ordered phenotype column names. `values_width` — room for the PGS values, in layout units. `box_width` — the boxes' width and how much wider than usual it is (`phenotypes.pgs_box_width`, #147); the extra widens the gaps, the width is kept in `style.pgs_box_width`. `boxes` — the most boxes one drawn individual has, one per kind of curve (`phenotypes.curve_box_count`; default 1); each one after the first adds its width and `box_gap` (`phenotypes.curve_box_gap`), kept in `style.pgs_box_gap`. The renderers pass all four from `phenotypes.curve_spacing`.
 
 **Returns**: a new `PedigreeStyle`, or the input unchanged.
 
@@ -884,6 +887,16 @@ Whether a phenotype column name holds pTDT deviations (#52), i.e. starts with
 `is_pgs_column` is false for it.
 
 **Returns**: `bool`.
+
+### `pypedigree.config.curve_kind(name, style=None)`
+
+The kind of curve a column is drawn on, or `None` for any other column. A kind
+is the caption of the column's box; the columns of one kind share it, and an
+individual gets one box per kind. The column's `curve_captions` entry, else
+"pTDT" for a pTDT column, "PGS" for a PGS column, else the shown name of a
+column with a `curve_reference`. A `z_` column is in `curve_captions` once the
+style is resolved (`resolve_style(style, names, display_modes)`).
+`is_pgs_column` and `is_ptdt_column` go by the name alone, as before.
 
 ---
 

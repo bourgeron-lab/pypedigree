@@ -19,6 +19,7 @@ from pypedigree.errors import PedigreeBatchError, PedigreeDataWarning, PedigreeS
 from pypedigree.models import Pedigree
 from pypedigree.phenotypes import (
     check_band_text,
+    check_curve_options,
     check_gradient_bins,
     check_legend,
     check_min_font_size,
@@ -134,11 +135,12 @@ def render_families(
         raise ValueError(f"Unknown format {fmt!r}: expected one of {', '.join(FORMATS)}")
 
     # Checked once, not once per family: an invalid style fails them all.
-    style = resolve_style(style, pedigree.phenotype_names)
+    style = resolve_style(style, pedigree.phenotype_names, pedigree.phenotype_display_modes)
     validate_style_colors(style)
     check_notation(style.carrier_notation)
     check_phenotype_layout(style)
     check_pgs_scale(style)
+    check_curve_options(style)
     check_min_font_size(style)
     check_text_scale(style)
     check_band_text(style)
