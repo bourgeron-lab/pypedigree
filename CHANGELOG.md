@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The founders of someone who marries into a younger generation were drawn on the top row, a
+  generation or more above their child: in a family where a son of founders married a
+  granddaughter of other founders, his parents stood one row too high, so the copy drawn for him
+  next to his wife stood a row below him and the dotted line joining the two stopped short of it.
+  Rows are now lowered after the first assignment wherever that shortens more lines than it
+  lengthens: the founders, their other children and their partners move down with them, children
+  always below their parents and partners level. No other figure of the test suite moves.
+
 ## [1.0.0rc2] - 2026-11-24
 
 Second release candidate: how polygenic scores are drawn, after a first reading of 1.0.0rc1.

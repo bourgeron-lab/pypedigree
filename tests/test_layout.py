@@ -1,6 +1,7 @@
 """Tests for pypedigree.layout."""
 
 import math
+import random
 
 import pytest
 from conftest import TEST_DATA_DIR
@@ -8,7 +9,7 @@ from conftest import TEST_DATA_DIR
 from pypedigree.config import PedigreeStyle
 from pypedigree.layout import _assign_generations, compute_layout
 from pypedigree.models import EdgeType, Family
-from pypedigree.parser import parse_pedigree
+from pypedigree.parser import parse_pedigree, parse_pedigree_from_string
 
 
 @pytest.fixture
@@ -941,6 +942,64 @@ class TestCrossGenerationPartners:
             if e.edge_type is EdgeType.INDIVIDUAL and e.end[0] == pytest.approx(uncle.x)
         )
         assert stub.end[1] == pytest.approx(uncle.y + style.shape_size / 2)
+
+
+class TestMarriedInFounders:
+    """Founders whose son marries into a younger generation are drawn just
+    above him, not on the top row (married_in_founders: 19, son of the
+    founders 21 and 22, marries 1, a granddaughter of the other founders)."""
+
+    PATH = TEST_DATA_DIR / "complex/married_in_founders.ped"
+
+    def test_parents_one_row_above_their_son(self):
+        family = parse_pedigree(self.PATH).get_family("FAM1")
+        gens = _assign_generations(family)
+        assert gens["19"] == gens["1"] == 2
+        assert gens["21"] == gens["22"] == 1
+        assert gens["20"] == 2
+        assert gens["10"] == gens["17"] == 0
+
+    def test_lines_a_child_and_its_parents(self):
+        """Lowering keeps every child below their parents and partners level."""
+        family = parse_pedigree(self.PATH).get_family("FAM1")
+        gens = _assign_generations(family)
+        for ind in family.individuals.values():
+            for parent in (ind.father_id, ind.mother_id):
+                if parent:
+                    assert gens[ind.sample_id] > gens[parent]
+        for union in family.unions:
+            p1, p2 = union.partner_ids
+            assert gens[p1] == gens[p2]
+
+    def test_a_founder_couple_whose_only_line_marries_down(self):
+        text = (
+            "FID\tIID\tPAT\tMAT\tSEX\tPHENO\n"
+            "FAM1\tg1\t0\t0\t1\t1\n"
+            "FAM1\tg2\t0\t0\t2\t1\n"
+            "FAM1\tp\tg1\tg2\t2\t1\n"
+            "FAM1\tq\t0\t0\t1\t1\n"
+            "FAM1\tc\tq\tp\t2\t1\n"
+            "FAM1\tf1\t0\t0\t1\t1\n"
+            "FAM1\tf2\t0\t0\t2\t1\n"
+            "FAM1\ts\tf1\tf2\t1\t1\n"
+            "FAM1\tsib\tf1\tf2\t2\t1\n"
+            "FAM1\tk\ts\tc\t1\t1\n"
+        )
+        gens = _assign_generations(parse_pedigree_from_string(text).get_family("FAM1"))
+        assert gens["s"] == gens["c"] == 2
+        assert gens["f1"] == gens["f2"] == 1
+        assert gens["sib"] == 2
+
+    @pytest.mark.parametrize("seed", range(40))
+    def test_copies_share_a_row_whatever_the_row_order(self, style, seed):
+        lines = self.PATH.read_text(encoding="utf-8").splitlines()
+        rows = lines[1:]
+        random.Random(seed).shuffle(rows)
+        family = parse_pedigree_from_string("\n".join([lines[0], *rows]) + "\n").get_family("FAM1")
+        layout = compute_layout(family, style)
+        assert layout.duplicate_arcs or not any(n.is_duplicate for n in layout.nodes)
+        for arc in layout.duplicate_arcs:
+            assert arc.from_pos[1] == pytest.approx(arc.to_pos[1])
 
 
 def _added_duplicates(family, style) -> int:
