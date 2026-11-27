@@ -65,6 +65,8 @@ EXAMPLES: dict[str, tuple[str, str | None, dict[str, Any]]] = {
     "outline_rings": ("phenotype/outline_rings.ped", None, {}),
     "nomenclature": ("nomenclature/nomenclature.ped", None, {}),
     "multigenerational": ("complex/multigenerational.ped", None, {"phenotype_layout": "bands"}),
+    "married_in_founders": ("complex/married_in_founders.ped", None, {}),
+    "married_in_founders_cross": ("complex/married_in_founders.ped", None, {"loops": "cross"}),
 }
 
 # The detail of the large example: the branch of 201, whose grandchildren 401

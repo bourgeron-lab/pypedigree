@@ -265,7 +265,7 @@
   <div class="container">
     <h1>pypedigree</h1>
     <p class="subtitle">Generate publication-quality pedigree diagrams from standard genetics pedigree files</p>
-    <span class="version">v1.0.0rc2</span>
+    <span class="version">v1.0.0rc3</span>
   </div>
 </header>
 
@@ -906,8 +906,8 @@ produce the same figure for the same input.</p>
 }</code></pre>
 <p>The marker then goes at z = (value &minus; mean) / SD, the value is written as it is (&ldquo;115&rdquo;) and the SVG tooltip reads &ldquo;IQ: 115 (z = +1.00, 84th percentile)&rdquo;. Without a reference, values that do not look like z-scores draw a warning, as PGS columns do. <code>pgs_scale</code> applies to PGS columns only.</p>
 <p>Each kind of curve (PGS, pTDT, IQ&hellip;) has its own box. An individual with values of several kinds gets their boxes in a row, outward from the symbol, in column order (right of a right-hand partner), and the layout keeps room for the most boxes one individual has, so a figure where nobody has two kinds is spaced as before. A kind is a caption: <code>curve_captions</code> renames a box, and columns given one caption share one box, one marker each, as several PGS do (<code>{"IQ_verbal": "IQ", "IQ_performance": "IQ"}</code>). A column listed in <code>curve_reference</code> or <code>curve_captions</code> is drawn on a curve whatever its prefix. The legend has a row per kind, e.g. &ldquo;IQ distribution (mean 100, SD 15)&rdquo;, with the &plusmn;2 SD lines of that box's scale.</p>
-<figure>
-  <img src="imgs/examples/curve_traits.png" alt="IQ and polygenic score boxes side by side beside the symbols">
+<figure class="example-img">
+  <img src="imgs/examples/curve_traits.png" alt="IQ and polygenic score boxes side by side beside the symbols" style="max-width:500px">
   <figcaption>IQ (mean 100, SD 15) and two polygenic scores: one box per kind (<code>tests/data/phenotype/curve_traits.ped</code>)</figcaption>
 </figure>
 
@@ -1802,7 +1802,7 @@ did you mean 'phenotype_colors'?</code></pre>
 
 <footer>
   <div class="container">
-    <p>pypedigree v1.0.0rc2 &mdash; <a href="https://github.com/bourgeron-lab/pypedigree">GitHub</a> &mdash; DOI <a href="https://doi.org/10.5281/zenodo.24289471">10.5281/zenodo.24289471</a> &mdash; Bourgeron Lab</p>
+    <p>pypedigree v1.0.0rc3 &mdash; <a href="https://github.com/bourgeron-lab/pypedigree">GitHub</a> &mdash; DOI <a href="https://doi.org/10.5281/zenodo.24289471">10.5281/zenodo.24289471</a> &mdash; Bourgeron Lab</p>
   </div>
 </footer>
 
