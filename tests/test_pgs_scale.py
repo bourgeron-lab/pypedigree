@@ -22,7 +22,7 @@ from pypedigree.cli import main
 from pypedigree.errors import PedigreeDataWarning, PedigreeError
 from pypedigree.phenotypes import (
     PGS_CURVE_SIGMA,
-    active_pgs,
+    active_curves,
     check_pgs_scale,
     pgs_legend_description,
     pgs_position,
@@ -43,10 +43,11 @@ ZSCORE = PedigreeStyle(pgs_scale="zscore")
 
 def _positions(text, scale):
     family = parse_pedigree_from_string(text).families["F"]
+    style = PedigreeStyle(pgs_scale=scale)
     return {
-        sid: active_pgs(ind, ["PGS_autism"], scale)[0][1]
+        sid: boxes[0][1][0][1]
         for sid, ind in family.individuals.items()
-        if active_pgs(ind, ["PGS_autism"], scale)
+        if (boxes := active_curves(ind, ["PGS_autism"], style))
     }
 
 

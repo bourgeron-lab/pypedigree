@@ -239,6 +239,7 @@ _DISPLAY_MODE_PREFIXES: dict[str, PhenotypeDisplayMode] = {
     "g_": PhenotypeDisplayMode.GRADIENT,
     "o_": PhenotypeDisplayMode.OUTLINE,
     "c_": PhenotypeDisplayMode.CATEGORICAL,
+    "z_": PhenotypeDisplayMode.CURVE,
 }
 
 
@@ -1955,7 +1956,7 @@ def _normalize_extra_phenotypes(pedigree: Pedigree, pheno_names: list[str]) -> N
         if mode in (PhenotypeDisplayMode.BINARY, PhenotypeDisplayMode.OUTLINE):
             # Forced binary: treat as pedigree encoding if values include 2
             strategy = "binary"
-        elif mode == PhenotypeDisplayMode.GRADIENT:
+        elif mode in (PhenotypeDisplayMode.GRADIENT, PhenotypeDisplayMode.CURVE):
             strategy = "gradient"
         else:
             # AUTO: detect from data

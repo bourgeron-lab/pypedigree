@@ -16,7 +16,7 @@ import bisect
 import math
 import re
 import warnings
-from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from difflib import get_close_matches
 from statistics import NormalDist
@@ -27,7 +27,10 @@ from pypedigree.carriers import CarrierScheme
 from pypedigree.colors import parse_rgb, rgb_to_hex
 from pypedigree.config import (
     DEFAULT_PGS_COLOR,
+    PGS_CAPTION,
+    PTDT_CAPTION,
     PedigreeStyle,
+    curve_kind,
     curve_trait,
     is_curve_column,
     is_pgs_column,
@@ -375,8 +378,8 @@ class PhenotypeRender:
 
     Attributes:
         effective_modes: Column name → "binary", "gradient", "categorical",
-            "outline", "carrier" or "pgs". AUTO columns are resolved from
-            their values.
+            "outline", "carrier" or "curve" (PGS, pTDT and ``z_`` columns,
+            `config.curve_kind`). AUTO columns are resolved from their values.
         categorical_colors: Column name → {category value → hex color}, for
             categorical columns only.
         quadrants: With the "quadrants" layout, each phenotype column or
@@ -408,15 +411,15 @@ class PhenotypeRender:
 
     def band_names(self, names: Sequence[str]) -> list[str]:
         """Columns drawn as horizontal bands inside the symbol, in order."""
-        return [n for n in names if self.effective(n) not in ("pgs", "outline", "carrier")]
+        return [n for n in names if self.effective(n) not in ("curve", "outline", "carrier")]
 
     def outline_names(self, names: Sequence[str]) -> list[str]:
         """Columns drawn as a colored symbol border (``o_`` prefix)."""
         return [n for n in names if self.effective(n) == "outline"]
 
-    def pgs_names(self, names: Sequence[str]) -> list[str]:
-        """Columns drawn on the PGS distribution curve."""
-        return [n for n in names if self.effective(n) == "pgs"]
+    def curve_names(self, names: Sequence[str]) -> list[str]:
+        """Columns drawn on a distribution curve: PGS, pTDT, ``z_`` (R6)."""
+        return [n for n in names if self.effective(n) == "curve"]
 
 
 def is_na_value(value: float | None) -> bool:
@@ -502,8 +505,9 @@ def resolve_phenotype_render(
 
     for name in phenotype_names:
         mode = display_modes.get(name, PhenotypeDisplayMode.AUTO)
-        if is_curve_column(name):  # a PGS or a pTDT column (#52)
-            effective_modes[name] = "pgs"
+        # A PGS or a pTDT column (#52), a z_ column or one with a curve option (R6).
+        if mode == PhenotypeDisplayMode.CURVE or is_curve_column(name, style):
+            effective_modes[name] = "curve"
             continue
         if mode == PhenotypeDisplayMode.OUTLINE:
             effective_modes[name] = "outline"
@@ -1309,13 +1313,17 @@ def pgs_caption_above(node: NodeLayout) -> bool:
     return (node.is_proband or node.notation.is_consultand) and node.pgs_side != "right"
 
 
-def pgs_box_left(node: NodeLayout, style: PedigreeStyle, ring: float = 0.0) -> float:
+def pgs_box_left(
+    node: NodeLayout, style: PedigreeStyle, ring: float = 0.0, index: int = 0
+) -> float:
     """Left edge of a node's PGS box, in layout units.
 
     Left of the symbol, or right of it for a right-hand partner
     (`NodeLayout.pgs_side`, #78), `symbols.pgs_box_near` from its centre,
-    plus ``ring``, the room of its outer borders (#46). Both renderers
-    place the box with this.
+    plus ``ring``, the room of its outer borders (#46). An individual with
+    several kinds of curve (R6) has a box per kind in a row, outward from the
+    symbol: ``index`` is the box's place in it (0 nearest), each one box and
+    ``style.pgs_box_gap`` further out. Both renderers place the boxes with this.
     """
     half = style.shape_size / 2
     mark = style.text_size(symbols.EVALUATION_MARK_FONT_SCALE)
@@ -1331,6 +1339,7 @@ def pgs_box_left(node: NodeLayout, style: PedigreeStyle, ring: float = 0.0) -> f
         bracket_width=style.line_width if node.notation.adoption is not None else None,
         upp=symbols.units_per_point(style.text_scale),
     )
+    near += index * (box_width(style) + style.pgs_box_gap)
     if node.pgs_side == "right":
         return node.x + near
     return node.x - near - box_width(style)
@@ -1372,72 +1381,76 @@ def pgs_caption_offset(half: float, size: float, units_per_point: float) -> floa
     return max(half * PGS_CAPTION_OFFSET, needed)
 
 
-def column_scale(name: str, scale: str) -> str:
-    """The scale a curve column is placed on: ``pgs_scale``, or "zscore" for
-    a pTDT column, whose deviations are N(0, 1) by construction (#52)."""
-    return "zscore" if is_ptdt_column(name) else scale
+def column_scale(name: str, style: PedigreeStyle) -> str:
+    """The scale a curve column is placed on: ``pgs_scale`` for a PGS column,
+    "zscore" for any other (a pTDT column's deviations are N(0, 1) by
+    construction, #52; a ``z_`` column's values are z-scores, or made into
+    them with its ``curve_reference``, R6)."""
+    if is_pgs_column(name) and not is_ptdt_column(name) and name not in style.curve_reference:
+        return style.pgs_scale
+    return "zscore"
 
 
-PTDT_CAPTION = "pTDT"
+def curve_zscore(name: str, raw: float, style: PedigreeStyle) -> float:
+    """The z-score of a curve column's value on a fixed scale: (value − mean) / SD
+    with a ``curve_reference`` (R6), else as `pgs_zscore` reads it."""
+    reference = style.curve_reference.get(name)
+    if reference is not None:
+        return (raw - float(reference["mean"])) / float(reference["sd"])
+    return pgs_zscore(raw, column_scale(name, style))
 
 
-def curve_caption(active: Sequence[tuple[str, float]]) -> str:
-    """The caption of an individual's curve: "pTDT" when it shows pTDT
-    deviations (`active_pgs`), "PGS" otherwise."""
-    return PTDT_CAPTION if active and is_ptdt_column(active[0][0]) else "PGS"
+def curve_kinds(names: Sequence[str], style: PedigreeStyle) -> list[str]:
+    """The kinds of curve of these columns (`config.curve_kind`), in column order."""
+    return list(dict.fromkeys(k for n in names if (k := curve_kind(n, style)) is not None))
 
 
-def active_pgs(
-    node: _HasPhenotypes, pgs_names: Sequence[str], scale: str = "minmax"
-) -> list[tuple[str, float]]:
-    """Curve columns with a value for this individual, with their [0, 1] position.
+def kind_columns(names: Sequence[str], style: PedigreeStyle) -> dict[str, list[str]]:
+    """The curve columns of each kind, kinds and columns in column order."""
+    out: dict[str, list[str]] = {}
+    for name in names:
+        kind = curve_kind(name, style)
+        if kind is not None:
+            out.setdefault(kind, []).append(name)
+    return out
 
-    On "minmax" the position is the value normalised over the pedigree; on
-    "zscore" and "percentile" it is the value's z-score on the drawn
-    normal curve (`pgs_position`), the same for every pedigree. A pTDT
-    column is always on the z scale (#52).
 
-    An individual's curve shows one kind of score: its pTDT deviations if
-    it has any, otherwise its PGS (`warn_mixed_curves` reports individuals
-    with both), so the parents' PGS and the children's pTDT can share a
-    figure, each curve captioned by `curve_caption`.
+def box_tail_positions(names: Iterable[str], style: PedigreeStyle) -> tuple[float, ...]:
+    """The ±2 SD tails of a box holding these columns: none when one of them
+    is on "minmax" (`column_scale`), whose positions are not z-scores."""
+    scales = {column_scale(n, style) for n in names}
+    return pgs_tail_positions("minmax" if "minmax" in scales else "zscore")
+
+
+CurveBox = tuple[str, list[tuple[str, float]]]
+
+
+def active_curves(
+    node: _HasPhenotypes, curve_names: Sequence[str], style: PedigreeStyle
+) -> list[CurveBox]:
+    """The boxes an individual's curves take: one per kind it has a value of (R6).
+
+    Each is (kind, markers): its caption (`config.curve_kind`) and each of its
+    columns this individual has a value of, with the value's position on the
+    curve's [0, 1] axis. On "minmax" the position is the value normalised over
+    the pedigree; on a fixed scale it is the value's z-score on the drawn
+    normal curve (`curve_zscore`, `pgs_position`), the same for every
+    pedigree. Kinds are in column order, the first drawn nearest the symbol.
+    A child with PGS and pTDT values gets both boxes.
     """
-    ptdt = [n for n in pgs_names if is_ptdt_column(n)]
-    if ptdt:
-        shown = _active_curves(node, ptdt, scale)
-        if shown:
-            return shown
-    return _active_curves(node, [n for n in pgs_names if not is_ptdt_column(n)], scale)
+    out: list[CurveBox] = []
+    for kind, columns in kind_columns(curve_names, style).items():
+        markers = _active_markers(node, columns, style)
+        if markers:
+            out.append((kind, markers))
+    return out
 
 
-def warn_mixed_curves(
-    individuals: Iterable[_HasPhenotypes],
-    names: Sequence[str],
-    computed: Collection[str] = (),
-) -> None:
-    """Warn when some individual has both PGS and pTDT values (#52): its
-    curve shows the pTDT deviations only. Columns pypedigree computed from
-    the parents (`computed`, ``pgs_transmission``) are left out: every child
-    has both, by design."""
-    ptdt = [n for n in names if is_ptdt_column(n) and n not in computed]
-    pgs = [n for n in names if is_curve_column(n) and not is_ptdt_column(n)]
-    if not ptdt or not pgs:
-        return
-
-    def has(ind: _HasPhenotypes, cols: list[str]) -> bool:
-        raw = ind.extra_phenotypes_raw
-        return any(n in raw and not is_na_value(raw[n]) for n in cols)
-
-    both = [getattr(i, "sample_id", "?") for i in individuals if has(i, ptdt) and has(i, pgs)]
-    if both:
-        shown = ", ".join(both[:5]) + (", ..." if len(both) > 5 else "")
-        warnings.warn(
-            f"{len(both)} individual(s) have both PGS and pTDT values ({shown}): their curve "
-            "shows the pTDT deviations only. Give the PGS to the parents and the pTDT "
-            "deviation to the children.",
-            PedigreeDataWarning,
-            stacklevel=2,
-        )
+def active_curve_names(
+    node: _HasPhenotypes, curve_names: Sequence[str], style: PedigreeStyle
+) -> list[str]:
+    """The curve columns an individual has a value of, kind by kind."""
+    return [n for _kind, markers in active_curves(node, curve_names, style) for n, _ in markers]
 
 
 # On "zscore" (the default since 0.10.0, #106), a PGS column whose values do
@@ -1457,22 +1470,30 @@ ZSCORE_MAX_MEAN = 2.0
 ZSCORE_MEAN_MIN_VALUES = 3
 
 
-def warn_pgs_scale(individuals: Iterable[_HasPhenotypes], names: Sequence[str], scale: str) -> None:
-    """Warn when a PGS column drawn on "zscore" does not look like z-scores (#106, #117).
+def warn_pgs_scale(
+    individuals: Iterable[_HasPhenotypes], names: Sequence[str], style: PedigreeStyle
+) -> None:
+    """Warn when a curve column taken as z-scores does not look like z-scores (#106, #117).
 
     On "zscore" a value is placed on the standard normal and clipped to the
     curve's ends, so raw scores would all land at one end (or, if tiny, at
-    the centre) without a word. pTDT columns are always z-scores and are not
-    checked. Callers pass the whole file's individuals (`Pedigree.column_scope`),
-    so every family drawn from it gets the same message; duplicates (a person
-    drawn twice) are counted once.
+    the centre) without a word. A PGS column is checked on ``pgs_scale``
+    "zscore"; a ``z_`` column (R6) unless it has a ``curve_reference``; pTDT
+    columns are always z-scores and are not checked. Callers pass the whole
+    file's individuals (`Pedigree.column_scope`), so every family drawn from
+    it gets the same message; duplicates (a person drawn twice) are counted
+    once.
     """
-    if scale != "zscore":
-        return
     people = [i for i in individuals if not getattr(i, "is_duplicate", False)]
-    odd = []
+    odd: list[str] = []
+    traits: list[str] = []
     for name in names:
-        if not is_pgs_column(name) or is_ptdt_column(name):
+        if (
+            not is_curve_column(name, style)
+            or is_ptdt_column(name)
+            or name in style.curve_reference
+            or column_scale(name, style) != "zscore"
+        ):
             continue
         values = [
             float(raw)
@@ -1484,14 +1505,17 @@ def warn_pgs_scale(individuals: Iterable[_HasPhenotypes], names: Sequence[str], 
         mean = sum(values) / len(values)
         sd = math.sqrt(sum((v - mean) ** 2 for v in values) / len(values))
         largest = max(values, key=abs)
+        found = None
         if abs(largest) > ZSCORE_MAX_ABS:
-            odd.append(f"{name} (a value of {largest:g})")
+            found = f"{name} (a value of {largest:g})"
         elif len(values) >= ZSCORE_TINY_MIN_VALUES and 0 < abs(largest) < ZSCORE_TINY:
-            odd.append(f"{name} (every value within ±{ZSCORE_TINY:g})")
+            found = f"{name} (every value within ±{ZSCORE_TINY:g})"
         elif len(values) >= ZSCORE_SD_MIN_VALUES and 0 < sd < ZSCORE_MIN_SD:
-            odd.append(f"{name} (spread {sd:.2g})")
+            found = f"{name} (spread {sd:.2g})"
         elif len(values) >= ZSCORE_MEAN_MIN_VALUES and abs(mean) > ZSCORE_MAX_MEAN:
-            odd.append(f"{name} (mean {mean:.2f})")
+            found = f"{name} (mean {mean:.2f})"
+        if found is not None:
+            (odd if is_pgs_column(name) else traits).append(found)
     if odd:
         warnings.warn(
             f"PGS column(s) {', '.join(odd)} do not look like z-scores, but are drawn on the "
@@ -1500,21 +1524,29 @@ def warn_pgs_scale(individuals: Iterable[_HasPhenotypes], names: Sequence[str], 
             PedigreeDataWarning,
             stacklevel=2,
         )
+    if traits:
+        warnings.warn(
+            f"Curve column(s) {', '.join(traits)} do not look like z-scores, but are drawn as "
+            "z-scores. For values on another scale, give the population's mean and SD in "
+            'curve_reference, e.g. {"IQ": {"mean": 100, "sd": 15}}.',
+            PedigreeDataWarning,
+            stacklevel=2,
+        )
 
 
-def _active_curves(
-    node: _HasPhenotypes, pgs_names: Sequence[str], scale: str
+def _active_markers(
+    node: _HasPhenotypes, names: Sequence[str], style: PedigreeStyle
 ) -> list[tuple[str, float]]:
     out = []
-    for name in pgs_names:
-        if column_scale(name, scale) == "minmax":
+    for name in names:
+        if column_scale(name, style) == "minmax":
             value = node.extra_phenotypes.get(name)
             if not is_na_value(value):
                 out.append((name, value or 0.0))
             continue
         raw = node.extra_phenotypes_raw.get(name)
         if not is_na_value(raw) and raw is not None:
-            out.append((name, pgs_position(pgs_zscore(raw, column_scale(name, scale)))))
+            out.append((name, pgs_position(curve_zscore(name, raw, style))))
     return out
 
 
@@ -1523,12 +1555,24 @@ def _ordinal(n: int) -> str:
     return f"{n}{suffix}"
 
 
-def curve_value_text(name: str, raw: float, scale: str) -> str:
-    """A curve column's value as the tooltip writes it: `pgs_value_text`, or
-    "pTDT = +2.12" for a pTDT deviation, which has no percentile (#52)."""
+def curve_value_text(name: str, raw: float, style: PedigreeStyle) -> str:
+    """A curve column's value as the tooltip writes it (after "name: ").
+
+    "pTDT = +2.12" for a pTDT deviation, which has no percentile (#52);
+    "115 (z = +1.00, 84th percentile)" for a value with a ``curve_reference``
+    (R6); otherwise `pgs_value_text` on the column's scale.
+    """
     if is_ptdt_column(name):
         return f"{PTDT_CAPTION} = {raw:+.2f}".replace("-", MINUS)
-    return pgs_value_text(raw, scale)
+    if name in style.curve_reference:
+        z = curve_zscore(name, raw, style)
+        return f"{_value_text(raw)} ({pgs_value_text(z, 'zscore')})"
+    return pgs_value_text(raw, column_scale(name, style))
+
+
+def _value_text(raw: float) -> str:
+    """A raw value as written: up to four significant digits ("115", "102.5")."""
+    return f"{raw:.4g}".replace("-", MINUS)
 
 
 def pgs_value_text(raw: float, scale: str) -> str:
@@ -1578,13 +1622,19 @@ def pgs_marker_text(raw: float, scale: str) -> str:
     return text.replace("-", MINUS)
 
 
-def pgs_marker_values(node: _HasPhenotypes, pgs_names: Sequence[str], scale: str) -> dict[str, str]:
-    """The text of each PGS value an individual has, by column."""
+def pgs_marker_values(
+    node: _HasPhenotypes, pgs_names: Sequence[str], style: PedigreeStyle
+) -> dict[str, str]:
+    """The text of each curve value an individual has, by column: `pgs_marker_text`
+    on the column's scale, or the value as it is with a ``curve_reference`` ("115")."""
     out = {}
     for name in pgs_names:
         raw = node.extra_phenotypes_raw.get(name)
         if raw is not None and not is_na_value(raw):
-            out[name] = pgs_marker_text(raw, column_scale(name, scale))
+            if name in style.curve_reference:
+                out[name] = _value_text(raw)
+            else:
+                out[name] = pgs_marker_text(raw, column_scale(name, style))
     return out
 
 
@@ -1604,7 +1654,7 @@ def pgs_values_width(
         symbols.text_width(text, size, upp=upp)
         for ind in nodes
         for text in pgs_marker_values(
-            ind, [n for n, _ in active_pgs(ind, pgs_names, style.pgs_scale)], style.pgs_scale
+            ind, active_curve_names(ind, pgs_names, style), style
         ).values()
     ]
     if not widths:
@@ -1612,11 +1662,10 @@ def pgs_values_width(
     return max(widths) + PGS_VALUE_GAP_EM * size * upp + PGS_BOX_PAD
 
 
-def pgs_dot_count(pgs_names: Sequence[str]) -> int:
-    """The most dots one individual's box can hold: the columns of the more
-    numerous kind, PGS or pTDT (`active_pgs` gives one kind per individual)."""
-    ptdt = sum(1 for n in pgs_names if is_ptdt_column(n))
-    return max(ptdt, len(pgs_names) - ptdt)
+def pgs_dot_count(pgs_names: Sequence[str], style: PedigreeStyle) -> int:
+    """The most dots one box can hold: the columns of the most numerous kind
+    of curve (`config.curve_kind`), each kind having a box of its own (R6)."""
+    return max((len(c) for c in kind_columns(pgs_names, style).values()), default=0)
 
 
 def pgs_box_width(pgs_names: Sequence[str], style: PedigreeStyle) -> tuple[float, float]:
@@ -1630,12 +1679,98 @@ def pgs_box_width(pgs_names: Sequence[str], style: PedigreeStyle) -> tuple[float
     `config.apply_pgs_spacing`, which keeps it in the style (`box_width`).
     """
     usual = style.shape_size / 2 * symbols.PGS_BOX_WIDTH
-    count = pgs_dot_count(pgs_names)
+    count = pgs_dot_count(pgs_names, style)
     if count < 2:
         return usual, 0.0
     dot = PGS_DOT_PT * symbols.units_per_point(style.text_scale)
     width = max(usual, dot * (1 + (count - 1) * PGS_DOT_SPREAD))
     return width, width - usual
+
+
+# Between two boxes of one individual (R6), in half-sizes of the symbol, past
+# the values written beside the inner one; at least a caption's width apart.
+CURVE_BOX_GAP = 0.3
+CURVE_CAPTION_GAP_EM = 0.5  # between the captions of two boxes side by side, in ems
+
+
+def curve_box_count(
+    nodes: Iterable[_HasPhenotypes], curve_names: Sequence[str], style: PedigreeStyle
+) -> int:
+    """The most boxes one of these individuals has: one per kind of curve it
+    has a value of (R6). `config.apply_pgs_spacing` keeps room for that many;
+    1 when nobody has two kinds (or nobody has a curve)."""
+    if len(curve_kinds(curve_names, style)) < 2:
+        return 1
+    return max([1, *(len(active_curves(n, curve_names, style)) for n in nodes)])
+
+
+def curve_box_gap(curve_names: Sequence[str], style: PedigreeStyle, values_width: float) -> float:
+    """Between two boxes of one individual, in layout units (R6).
+
+    `CURVE_BOX_GAP` half-sizes past ``values_width`` (the values written on
+    the far side of the inner box, `pgs_values_width`), or more when the
+    widest caption (`config.curve_kind`) would reach the next box's: captions
+    are centred under their boxes, `CURVE_CAPTION_GAP_EM` apart. Measured at
+    the style's text scale, as labels are.
+    """
+    size = style.text_size(symbols.PGS_CAPTION_SCALE)
+    upp = symbols.units_per_point(style.text_scale)
+    captions = curve_kinds(curve_names, style)
+    widest = max((symbols.text_width(c, size, upp=upp) for c in captions), default=0.0)
+    width = pgs_box_width(curve_names, style)[0]
+    caption_room = widest + CURVE_CAPTION_GAP_EM * size * upp - width
+    return max(values_width + style.shape_size / 2 * CURVE_BOX_GAP, caption_room)
+
+
+def curve_spacing(
+    nodes: Iterable[_HasPhenotypes], curve_names: Sequence[str], style: PedigreeStyle
+) -> dict[str, Any]:
+    """`config.apply_pgs_spacing`'s keyword arguments for these drawn
+    individuals: values' room, box width, how many boxes and the gap between
+    them. Both renderers widen their style with it."""
+    people = list(nodes)
+    values = pgs_values_width(people, curve_names, style)
+    boxes = curve_box_count(people, curve_names, style)
+    return {
+        "values_width": values,
+        "box_width": pgs_box_width(curve_names, style),
+        "boxes": boxes,
+        "box_gap": curve_box_gap(curve_names, style, values) if boxes > 1 else 0.0,
+    }
+
+
+def check_curve_options(style: PedigreeStyle) -> None:
+    """Reject an invalid ``curve_reference`` or ``curve_captions`` before drawing (R6).
+
+    Raises:
+        PedigreeError: If a reference is not ``{"mean": number, "sd": number}``
+            with a finite mean and an SD above zero, or a caption is not
+            non-empty text.
+    """
+
+    def number(value: Any) -> bool:
+        return (
+            not isinstance(value, bool) and isinstance(value, int | float) and math.isfinite(value)
+        )
+
+    for name, reference in style.curve_reference.items():
+        valid = (
+            isinstance(reference, Mapping)
+            and set(reference) == {"mean", "sd"}
+            and number(reference["mean"])
+            and number(reference["sd"])
+            and reference["sd"] > 0
+        )
+        if not valid:
+            raise PedigreeError(
+                f'curve_reference for {name!r} must be {{"mean": number, "sd": number above '
+                f"zero}}, not {reference!r}"
+            )
+    for name, caption in style.curve_captions.items():
+        if not isinstance(caption, str) or not caption.strip():
+            raise PedigreeError(
+                f"curve_captions for {name!r} must be non-empty text, not {caption!r}"
+            )
 
 
 def box_width(style: PedigreeStyle) -> float:
@@ -2675,11 +2810,33 @@ def pgs_legend_description(pgs_names: Sequence[str], scale: str = "minmax") -> s
     return f"{caption}:"
 
 
-def pgs_icon_tails(style: PedigreeStyle, scale: str) -> tuple[tuple[float, str], ...]:
-    """The ±2 SD lines of the legend's PGS icon on ``scale``, with their
-    names (#159): none on "minmax", which marks no tails."""
+def pgs_icon_tails(style: PedigreeStyle, columns: Sequence[str]) -> tuple[tuple[float, str], ...]:
+    """The ±2 SD lines of a legend curve icon for these columns, with their
+    names (#159): those of their box (`box_tail_positions`), none on "minmax"."""
     names = (legend_text(style, "pgs_minus_2sd"), legend_text(style, "pgs_plus_2sd"))
-    return tuple(zip(pgs_tail_positions(scale), names, strict=False))
+    return tuple(zip(box_tail_positions(columns, style), names, strict=False))
+
+
+def curve_legend_description(kind: str, columns: Sequence[str], style: PedigreeStyle) -> str:
+    """Caption of the legend row of a kind of curve other than PGS or pTDT (R6).
+
+    "IQ distribution (mean 100, SD 15):" when every column of the kind has
+    the same ``curve_reference``, "IQ distribution, z-score:" when none has
+    one, "IQ distribution:" otherwise. The row's key follows the colon.
+    """
+    references = {
+        (float(r["mean"]), float(r["sd"])) if (r := style.curve_reference.get(n)) else None
+        for n in columns
+    }
+    caption = f"{kind} distribution"
+    if len(references) == 1:
+        reference = next(iter(references))
+        if reference is None:
+            caption += ", z-score"
+        else:
+            # Kept on one line when the row wraps (#68).
+            caption += f" (mean{NBSP}{reference[0]:g},{NBSP}SD{NBSP}{reference[1]:g})"
+    return f"{caption}:"
 
 
 def legend_rows(
@@ -2693,7 +2850,7 @@ def legend_rows(
 
     With the quadrant layout, a key showing which quadrant holds which
     column comes first. Then one row per band column, one per outline
-    column, one shared row for all PGS columns, and the carrier rows: the
+    column, one per kind of curve (PGS, pTDT, IQ..., R6), and the carrier rows: the
     half-fill and dot rows with the legacy notation, then one per carrier
     source and per obligate-carrier source.
     """
@@ -2804,34 +2961,31 @@ def legend_rows(
             )
         )
 
-    curve_names = render.pgs_names(names)
-    pgs_names = [n for n in curve_names if not is_ptdt_column(n)]
-    ptdt_names = [n for n in curve_names if is_ptdt_column(n)]
-    if pgs_names:
-        colors = {n: style.pgs_colors.get(n, DEFAULT_PGS_COLOR) for n in pgs_names}
+    # One row per kind of curve (R6): PGS, pTDT (#52), IQ..., each with its
+    # columns' key and the ±2 SD lines of its own scale.
+    for kind, columns in kind_columns(render.curve_names(names), style).items():
+        colors = {n: style.pgs_colors.get(n, DEFAULT_PGS_COLOR) for n in columns}
+        scores = tuple((pgs_trait_name(n, style), colors[n]) for n in columns)
+        if kind == PTDT_CAPTION and all(is_ptdt_column(n) for n in columns):
+            label = legend_text(style, "ptdt") or ptdt_legend_description()
+        elif kind == PGS_CAPTION and all(
+            is_pgs_column(n) and n not in style.curve_reference for n in columns
+        ):
+            label = legend_text(style, "pgs") or pgs_legend_description(columns, style.pgs_scale)
+        else:
+            label = curve_legend_description(kind, columns, style)
+            if len(scores) == 1 and scores[0][0] == kind:
+                # "IQ distribution (mean 100, SD 15)", not "...: — IQ".
+                label, scores = label.removesuffix(":"), ()
         rows.append(
             LegendRow(
                 "pgs",
-                legend_text(style, "pgs") or pgs_legend_description(pgs_names, style.pgs_scale),
+                label,
                 pgs=colors,
-                key=tuple((pgs_trait_name(n, style), colors[n]) for n in pgs_names),
+                key=scores,
                 high=legend_text(style, "pgs_high"),
                 low=legend_text(style, "pgs_low"),
-                tails=pgs_icon_tails(style, style.pgs_scale),
-            )
-        )
-    if ptdt_names:
-        # pTDT deviations (#52): their own row, on the z scale whatever pgs_scale.
-        colors = {n: style.pgs_colors.get(n, DEFAULT_PGS_COLOR) for n in ptdt_names}
-        rows.append(
-            LegendRow(
-                "pgs",
-                legend_text(style, "ptdt") or ptdt_legend_description(),
-                pgs=colors,
-                key=tuple((pgs_trait_name(n, style), colors[n]) for n in ptdt_names),
-                high=legend_text(style, "pgs_high"),
-                low=legend_text(style, "pgs_low"),
-                tails=pgs_icon_tails(style, "zscore"),
+                tails=pgs_icon_tails(style, columns),
             )
         )
 

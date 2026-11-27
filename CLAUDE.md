@@ -50,7 +50,7 @@ uv run mypy
 src/pypedigree/
   errors.py    -> Custom exceptions + warning categories (no dependencies)
   models.py    -> Data structures (depends on: errors)
-  config.py    -> PedigreeStyle dataclass + style resolution (depends on: errors)
+  config.py    -> PedigreeStyle dataclass + style resolution (depends on: errors, models)
   colors.py    -> Color parsing as matplotlib.colors.to_rgb does, without matplotlib (no dependencies;
                   hands xkcd:/C0 colors to matplotlib only if installed)
   parser.py    -> File I/O + validation + pandas (depends on: models, errors; optional: pandas)
@@ -441,11 +441,11 @@ Multi-phenotype support:
   `ZSCORE_TINY` (from 2 values not all 0), a spread under `ZSCORE_MIN_SD` (from 5) or a mean beyond `ZSCORE_MAX_MEAN`
   (from 3; #117: clinical trios and quartets) warns, over `pedigree.column_scope` minus duplicates, so every family gets
   one message):
-  `active_pgs(node, names, scale)`, `pgs_position(z) = 0.5 + z * PGS_CURVE_SIGMA` on fixed scales,
-  `pgs_tail_positions()` (±2 SD dotted lines), `pgs_value_text()` for the SVG tooltip. Curves (and the
+  `active_curves(node, names, style)`, `pgs_position(z) = 0.5 + z * PGS_CURVE_SIGMA` on fixed scales,
+  `pgs_tail_positions()` (±2 SD dotted lines; per box `box_tail_positions`), `pgs_value_text()` for the SVG tooltip. Curves (and the
   legend) are drawn even with no other phenotype column. `tests/test_pgs_scale.py`
 - PGS boxes and dots (#147): `phenotypes.pgs_box_width` widens the boxes to hold an individual's dots
-  (`pgs_dot_count`: the columns of the more numerous kind) side by side at full size at the style's
+  (`pgs_dot_count`: the columns of the most numerous kind) side by side at full size at the style's
   text scale; each renderer passes it to `apply_pgs_spacing`, which adds the extra to the room and
   keeps the width in `style.pgs_box_width` (read through `phenotypes.box_width`, everywhere a box is
   placed or drawn). Drawn smaller than planned, `pgs_dot_size` shrinks the dots to fit (not below
@@ -475,18 +475,34 @@ Multi-phenotype support:
   (zorder 5) so it is drawn whole, as wide as the others. Legend row `"outline_rings"`
   (`LEG_OUTLINE_RINGS_LABEL`), tooltip "Borders: …". Nothing changes when nobody has two.
   `tests/test_outline_rings.py`
-- pTDT columns (#52): `config.is_ptdt_column` (`pTDT` prefix), `is_curve_column` (PGS or pTDT: effective
-  mode "pgs", palette, spacing; `is_pgs_column` stays PGS-only). `phenotypes.column_scale` puts pTDT on
-  "zscore" whatever `pgs_scale`; `active_pgs` returns one kind per individual (its pTDT if any, else PGS)
-  and `curve_caption` captions it; `warn_mixed_curves` warns for an individual with both. Legend: a
-  second "pgs" row, `ptdt_legend_description()`; tooltip `curve_value_text` ("pTDT = +2.12").
+- pTDT columns (#52): `config.is_ptdt_column` (`pTDT` prefix), drawn on a curve as a kind of its own
+  (`is_pgs_column` stays PGS-only). `phenotypes.column_scale(name, style)` puts pTDT on "zscore"
+  whatever `pgs_scale`. Legend: a "pgs" row of its own, `ptdt_legend_description()`; tooltip
+  `curve_value_text` ("pTDT = +2.12").
+- Curve kinds (#165): `config.curve_kind(name, style)` is a curve column's caption, its kind: the
+  `curve_captions` entry, else "pTDT" / "PGS" by name, else the shown name of a column with a
+  `curve_reference`; `is_curve_column(name, style)`. A `z_` column (`PhenotypeDisplayMode.CURVE`) gets
+  its default caption in `curve_captions` from `resolve_style(style, names, display_modes)` (every
+  caller passes `pedigree.phenotype_display_modes`). Effective mode "curve" (`PhenotypeRender.curve_names`;
+  the legend row kind stays "pgs"). `curve_reference` (`{"IQ": {"mean": 100, "sd": 15}}`): `curve_zscore`
+  = (x − mean) / sd, values written raw (`pgs_marker_values`), tooltip "IQ: 115 (z = +1.00, 84th
+  percentile)"; without one a `z_` column is z-scores, checked by `warn_pgs_scale(..., style)` (separate
+  "Curve column(s)" message). `check_curve_options` with the other style checks. One box per kind:
+  `active_curves(node, names, style)` → [(kind, markers)] in column order (`kind_columns`), drawn by
+  `renderer._draw_curve_box` / `svg_renderer._svg_curve_box` at `pgs_box_left(node, style, ring, index)`,
+  index 0 nearest, each `box_width + style.pgs_box_gap` further out. `curve_spacing(nodes, names, style)`
+  gives `apply_pgs_spacing` its `values_width`, `box_width`, `boxes` (`curve_box_count`, the most kinds one
+  drawn individual has) and `box_gap` (`curve_box_gap`: values + `CURVE_BOX_GAP`, or the widest caption);
+  with one box per person nothing changes. Legend: a row per kind (`curve_legend_description`: "IQ
+  distribution (mean 100, SD 15)", no key when its one column is named as the kind).
+  `tests/test_curve_traits.py`, golden `curve_traits`.
   `_assign_pgs_colors` colors each kind apart (pTDT_autism may share PGS_autism's color). Captions keep
   "±2 SD" and the pTDT formula together with no-break spaces (`NBSP`, `TWO_SD`) when a row wraps
 - Computed pTDT (#52 step 2): `transmission.with_transmission(pedigree, style)`, first thing in both renderers (and
   `check_transmission` in `render_families`): with `pgs_transmission`, over `column_scope`, a copy of the pedigree
   where each child with two parents valued in `PGS_x` gets `pTDT_x` = (child − mid-parent) / `ptdt_midparent_sd`
-  (√½ default), a duplicate parent read as its original; returns the computed names, which `warn_mixed_curves`
-  skips; a `pTDT_x` given in the file is kept, with a warning; a subset is re-subset from the computed whole.
+  (√½ default), a duplicate parent read as its original; returns the computed names (a child then
+  shows a PGS box and a pTDT box); a `pTDT_x` given in the file is kept, with a warning; a subset is re-subset from the computed whole.
   `--ptdt`. `tests/test_ptdt_computed.py`
 - PGS columns: any column starting with `PGS` (case-insensitive) → gaussian distribution curve, upright,
   baseline near the box's right edge and peak to the left (`phenotypes.pgs_curve_base` / `pgs_curve_x`,
@@ -515,7 +531,9 @@ Multi-phenotype support:
   otherwise binary. Never per individual, so a column cannot mix band types.
 
 Additional PedigreeStyle fields:
-- `pgs_colors: dict[str, str]` — PGS column name → hex color for marker line (default: `#e74c3c` for one PGS column, distinct colors for several)
+- `curve_reference: dict[str, dict]`, `curve_captions: dict[str, str]` — a curve column's mean/SD and its
+  box's caption (#165, see "Curve kinds"); `pgs_box_gap` (set by `apply_pgs_spacing`) between two boxes
+- `pgs_colors: dict[str, str]` — curve column name → hex color for marker line (default: `#e74c3c` for one PGS column, distinct colors for several)
 - `gradient_range: dict[str, list[float]]` — custom min/max for gradient normalization (e.g. `{"SRS": [40, 90]}`)
 - `gradient_bins: dict[str, list[float]]` — clinical thresholds (#57): `phenotypes.bin_index` (a value
   at a cut-off goes up), `bin_color` (white to the column color in `len + 1` even steps, reversed for
@@ -575,6 +593,7 @@ Warnings and errors:
   - `o_` → outline (colored shape border, not a band; one border per `o_` column the individual is affected in, inner first)
   - `c_` → categorical (distinct color per unique string value)
   - `cr_` → carrier status of one gene or condition (0/1/2), drawn as a patterned section, not a band
+  - `z_` → a normally distributed trait drawn on a curve in a box of its own, as a PGS (#165)
   - No prefix → auto-detect from data
 
 ## CLI Options
@@ -715,6 +734,7 @@ Validation warnings are printed to stderr as `Warning: <message>`.
 - `tests/test_legend_bottom.py` — The last legend row's captions inside the frame (#77)
 - `tests/test_legend_compact.py` — Legend title, sex symbols, spacing and "minimal" (#67)
 - `tests/test_ptdt.py` — pTDT deviation columns: z scale, captions, legend row, tooltip, colors (#52)
+- `tests/test_curve_traits.py` — `z_` traits on a curve, `curve_reference`, `curve_captions`, one box per kind (#165)
 - `tests/test_ptdt_computed.py` — pTDT deviations computed from the parents' PGS (#52 step 2)
 - `tests/test_legend_name_column.py` — The names of swatch and bar rows in one column (#88)
 - `tests/test_legend_text.py` — The legend's wording (`legend_text`), the minimal legend's frame (#79)

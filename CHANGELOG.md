@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Any normally distributed quantitative trait can be drawn on a curve, as a polygenic score is
+  (#165): a column with the `z_` prefix (`z_IQ`) gets a marker on a normal curve in a box beside
+  the symbol. Style `curve_reference` (`{"IQ": {"mean": 100, "sd": 15}}`) gives the population's
+  mean and SD: the marker goes at z = (value − mean) / SD, the value is written as it is ("115",
+  with `show_pgs_values`) and the SVG tooltip reads "IQ: 115 (z = +1.00, 84th percentile)".
+  Without it the values are z-scores, and values that do not look like z-scores draw a warning, as
+  PGS columns do. Style `curve_captions` names a column's box (default: "PGS", "pTDT", or the
+  column's shown name); columns given one caption share a box, one marker each. A column listed in
+  either option is drawn on a curve whatever its prefix. The legend has a row per kind of curve,
+  e.g. "IQ distribution (mean 100, SD 15)". `PhenotypeDisplayMode.CURVE`,
+  `pypedigree.config.curve_kind`; `apply_pgs_spacing` takes `boxes` and `box_gap`. Example
+  `tests/data/phenotype/curve_traits.ped` (IQ and two PGS), in the web app too.
+
+### Changed
+
+- One box per kind of curve (#165): an individual with values of several kinds (PGS, pTDT, IQ...)
+  gets their boxes side by side, outward from the symbol, each with its caption and the ±2 SD lines
+  of its own scale. A child with both a PGS and a pTDT deviation, as with `--ptdt`, now shows both
+  boxes; before, its pTDT only, with a warning, which is gone. The layout keeps room for the most
+  boxes one individual has: figures where nobody has two kinds are drawn as before. A pTDT box on
+  `pgs_scale` "minmax" now has its ±2 SD lines, as its legend row had.
+
 ### Fixed
 
 - The founders of someone who marries into a younger generation were drawn on the top row, a

@@ -89,20 +89,23 @@ from pypedigree.phenotypes import (
     LetterBox,
     PhenotypeRender,
     Room,
-    active_pgs,
+    active_curves,
     all_bands_na,
     band_cell,
     band_room,
     binned_row_geometry,
+    box_tail_positions,
     cell_texts,
     check_band_text,
+    check_curve_options,
     check_gradient_bins,
     check_legend,
     check_min_font_size,
     check_pgs_scale,
     check_phenotype_layout,
-    curve_caption,
+    curve_spacing,
     fit_text,
+    kind_columns,
     legend_binary_captions,
     legend_gradient_width,
     legend_layout,
@@ -116,7 +119,6 @@ from pypedigree.phenotypes import (
     outline_reach,
     outline_ring_offsets,
     pgs_box_left,
-    pgs_box_width,
     pgs_caption_above,
     pgs_caption_offset,
     pgs_curve_base,
@@ -125,8 +127,6 @@ from pypedigree.phenotypes import (
     pgs_icon_geometry,
     pgs_marker_values,
     pgs_row_layout,
-    pgs_tail_positions,
-    pgs_values_width,
     pgs_values_x,
     pregnancy_loss_fill,
     quadrant_box,
@@ -141,7 +141,6 @@ from pypedigree.phenotypes import (
     to_hex,
     validate_style_colors,
     warn_asymptomatic_sections,
-    warn_mixed_curves,
     warn_pgs_scale,
     with_outline_rings,
     with_quadrants,
@@ -194,7 +193,7 @@ def render_pedigree(
         return fig
 
     # The children's pTDT deviations, from their parents' PGS (#52).
-    pedigree, computed = with_transmission(pedigree, style)
+    pedigree, _computed = with_transmission(pedigree, style)
     families = list(pedigree.families.values())
     pheno_names = pedigree.phenotype_names
     display_modes = pedigree.phenotype_display_modes
@@ -202,13 +201,15 @@ def render_pedigree(
     # Fill in palette colors (idempotent, so harmless if the caller already
     # resolved), then widen for PGS curves — this is the only place that
     # applies the PGS spacing, so it can never be applied twice.
-    style = resolve_style(style, pheno_names)
-    pgs_cols = [n for n in pheno_names if is_curve_column(n)]
-    warn_mixed_curves(pedigree.individuals(), pgs_cols, computed)
-    warn_pgs_scale(pedigree.column_scope.individuals(), pgs_cols, style.pgs_scale)
-    values_width = pgs_values_width(pedigree.individuals(), pgs_cols, style)
-    # The only place the PGS spacing is applied (see `apply_pgs_spacing`).
-    style = apply_pgs_spacing(style, pheno_names, values_width, pgs_box_width(pgs_cols, style))
+    style = resolve_style(style, pheno_names, display_modes)
+    check_curve_options(style)
+    pgs_cols = [n for n in pheno_names if is_curve_column(n, style)]
+    warn_pgs_scale(pedigree.column_scope.individuals(), pgs_cols, style)
+    # The only place the PGS spacing is applied (see `apply_pgs_spacing`):
+    # room for the most kinds of curve one individual has (R6).
+    style = apply_pgs_spacing(
+        style, pheno_names, **curve_spacing(pedigree.individuals(), pgs_cols, style)
+    )
     # A subset is drawn as in the whole file (`Pedigree.column_scope`).
     scope = pedigree.column_scope
     pheno_render = resolve_phenotype_render(scope, pheno_names or [], display_modes, style)
@@ -313,7 +314,7 @@ def render_pedigree(
     show_pheno_legend = (
         show_legend
         and pheno_names
-        and (style.phenotype_colors or pheno_render.pgs_names(pheno_names))
+        and (style.phenotype_colors or pheno_render.curve_names(pheno_names))
     )
     show_carrier_legend = show_legend and (carriers.has_legacy_carriers or bool(carriers.keys))
     if show_pheno_legend or show_carrier_legend:
@@ -483,13 +484,13 @@ def _render_layout(
     use_banded = bool(
         phenotype_names
         and pheno_render.effective_modes
-        and (style.phenotype_colors or pheno_render.pgs_names(phenotype_names))
+        and (style.phenotype_colors or pheno_render.curve_names(phenotype_names))
     )
     names = phenotype_names if use_banded and phenotype_names is not None else []
     # Carrier columns are neither: they are drawn from `carriers`.
     band_names = pheno_render.band_names(names)
     outline_names = pheno_render.outline_names(names)
-    pgs_names = pheno_render.pgs_names(names)
+    pgs_names = pheno_render.curve_names(names)
 
     # Draw nodes on top. Circular-layout labels are placed together once the
     # figure is drawn (`_RadialLabels`).
@@ -2088,24 +2089,35 @@ def _draw_pgs_ridge(
     pgs_names: list[str],
     ring: float = 0.0,
 ) -> None:
-    """Draw a single gaussian distribution with multiple colored markers.
+    """Draw an individual's curve boxes: one per kind of curve it has (R6).
 
-    One shared curve, each PGS trait's individual score shown as a colored
-    thin solid line + dot at the corresponding y-position (#158). The box moves `ring`
-    further left, clear of the symbol's outer borders (#46).
+    Each box holds one gaussian curve and each of its columns' scores as a
+    colored thin solid line + dot at the corresponding y-position (#158). The
+    boxes stand in a row outward from the symbol (`pgs_box_left`), moved
+    `ring` further out, clear of the symbol's outer borders (#46).
     """
+    columns = kind_columns(pgs_names, style)
+    for index, (kind, markers) in enumerate(active_curves(node, pgs_names, style)):
+        box_left = pgs_box_left(node, style, ring, index)
+        tails = box_tail_positions(columns[kind], style)
+        _draw_curve_box(ax, node, style, box_left, kind, markers, tails)
+
+
+def _draw_curve_box(
+    ax: Axes,
+    node: NodeLayout,
+    style: PedigreeStyle,
+    box_left: float,
+    caption: str,
+    active: list[tuple[str, float]],
+    tails: tuple[float, ...],
+) -> None:
+    """One box of `_draw_pgs_ridge`: the curve, its ±2 SD ``tails``, a
+    marker per score of ``active`` and its ``caption`` ("PGS", "IQ"...)."""
     half = style.shape_size / 2
     cy = node.y
-
-    # Filter to PGS columns that have data for this node
-    active = active_pgs(node, pgs_names, style.pgs_scale)
-    if not active:
-        return
-
     box_width = pgs_box_w(style)
     box_height = half * 2
-    # Left of the symbol, or right of a right-hand partner (#78).
-    box_left = pgs_box_left(node, style, ring)
     box_bottom = cy - half
 
     # Shared box outline
@@ -2142,7 +2154,7 @@ def _draw_pgs_ridge(
     )
 
     # On a fixed scale, the +/-2 SD tails: thin dotted lines across the box.
-    for tail in pgs_tail_positions(style.pgs_scale):
+    for tail in tails:
         tail_y = box_bottom + tail * box_height
         ax.plot(
             [box_left, box_left + box_width],
@@ -2184,7 +2196,7 @@ def _draw_pgs_ridge(
             box_left + box_width / 2,
             box_bottom + box_height if above else box_bottom,
             caption_offset,
-            text=curve_caption(active),
+            text=caption,
             fontsize=caption_size,
             fontfamily=style.font_family,
             ha="center",
@@ -2228,9 +2240,7 @@ class _PgsMarks(Artist):
         self._dots: list[Line2D] = []
         self._texts: list[Text | None] = []
         values = (
-            pgs_marker_values(node, [n for n, _ in active], style.pgs_scale)
-            if style.show_pgs_values
-            else {}
+            pgs_marker_values(node, [n for n, _ in active], style) if style.show_pgs_values else {}
         )
         for name, _value in active:
             color = style.pgs_colors.get(name, DEFAULT_PGS_COLOR)

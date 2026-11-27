@@ -86,6 +86,13 @@
       <li><strong>Polygenic scores</strong>: columns whose name starts with <code>PGS</code>.
         The children's pTDT deviations go in <code>pTDT</code> columns, or are computed from the
         parents' scores with <code>{"pgs_transmission": true}</code> in <em>Advanced style</em>.</li>
+      <li><strong>Other traits on a curve</strong>: a <code>z_</code> column (<code>z_IQ</code>)
+        is drawn as a polygenic score is, a marker on a normal curve beside the symbol. Its values
+        are z-scores, or give the population's mean and SD in <em>Advanced style</em>:
+        <code>{"curve_reference": {"IQ": {"mean": 100, "sd": 15}}}</code>; the values are then
+        written as they are (115) and the tooltip gives the z-score and percentile. Each kind of
+        curve (PGS, pTDT, IQ) has its own box, side by side when someone has several; columns
+        given one caption in <code>curve_captions</code> share a box.</li>
       <li><strong>Carriers</strong>: a <code>carrier</code> column, or one <code>cr_</code>
         column per gene (<code>cr_CFTR</code>): 1 carrier, 2 obligate carrier (as declared; it is
         not inferred).</li>

@@ -277,12 +277,26 @@ pypedigree family.ped --style style.json -o diverging.png
 
 **Description**: Synthetic family with two autistic children and two unaffected siblings. The parents have an autism PGS (`PGS_autism`), the children their pTDT deviation (`pTDT_autism`): (PGS_child − PGS_mid-parent) / SD(PGS_mid-parent), +2.1 and +1.4 for the autistic children, about 0 for their siblings (`ptdt.json`: `pgs_scale` "zscore", `show_pgs_values`).
 
-**Features**: a `pTDT_` column is drawn with the PGS curve, on the z scale whatever `pgs_scale`, and captioned "pTDT", so the reader sees what each curve shows. The legend has a row for each kind; the SVG tooltip reads "pTDT = +2.10". An individual's curve shows its pTDT deviations if it has any, otherwise its PGS.
+**Features**: a `pTDT_` column is drawn with the PGS curve, on the z scale whatever `pgs_scale`, and captioned "pTDT", so the reader sees what each curve shows. The legend has a row for each kind; the SVG tooltip reads "pTDT = +2.10". Each kind has its own box: a child with both a PGS and a pTDT deviation shows both.
 
 ```bash
 pypedigree tests/data/phenotype/ptdt.ped --style tests/data/phenotype/ptdt.json -o ptdt.png
 # or computed from the parents' PGS columns, (child − mid-parent) / √½:
 pypedigree family_with_pgs.ped --ptdt -o ptdt_computed.png
+```
+
+---
+
+## curve_traits.ped (IQ and polygenic scores on curves)
+
+![IQ and PGS boxes side by side](imgs/examples/curve_traits.png)
+
+**Description**: Synthetic three-generation family. The grandparents have two polygenic scores (`PGS_autism`, `PGS_ADHD`), the younger generations an IQ (`z_IQ`), and three people have both (`curve_traits.json`: `curve_reference` IQ mean 100, SD 15; `show_pgs_values`).
+
+**Features**: a `z_` column is drawn on a normal curve as a PGS is. With its `curve_reference`, an IQ of 133 is placed at z = +2.2, written "133" beside its marker, and the SVG tooltip reads "IQ: 133 (z = +2.20, 99th percentile)". Each kind of curve has its own box, captioned "PGS" or "IQ": someone with both gets the two boxes in a row, outward from the symbol (on the right of a right-hand partner). The legend has a row per kind, "IQ distribution (mean 100, SD 15)".
+
+```bash
+pypedigree tests/data/phenotype/curve_traits.ped --style tests/data/phenotype/curve_traits.json -o curve_traits.png
 ```
 
 ---

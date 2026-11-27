@@ -247,6 +247,13 @@ class TestVisualExtended:
         fig = render_pedigree(ped, style=style)
         _assert_visual_match(fig, "ptdt", regen_golden)
 
+    def test_curve_traits(self, regen_golden: bool) -> None:
+        """A z_ trait with a reference (IQ) beside two PGS: one box per kind (R6)."""
+        ped = parse_pedigree(DATA_DIR / "phenotype/curve_traits.ped")
+        style = PedigreeStyle(curve_reference={"IQ": {"mean": 100, "sd": 15}}, show_pgs_values=True)
+        fig = render_pedigree(ped, style=style)
+        _assert_visual_match(fig, "curve_traits", regen_golden)
+
     def test_legend_minimal(self, regen_golden: bool) -> None:
         """The minimal legend (#67): no title or sex row, one-symbol key and its caption."""
         ped = parse_pedigree(DATA_DIR / "phenotype/legend_minimal.ped")
