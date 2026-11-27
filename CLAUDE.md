@@ -100,7 +100,10 @@ src/pypedigree/
    people down (a group of partners and everyone hanging from it by a line as short as it can be)
    while that shortens more parent-child or original-duplicate lines than it lengthens, so
    founders whose son marries into a younger generation stand just above him and his copy, if
-   any, stays in his row (`TestMarriedInFounders`, `complex/married_in_founders.ped`); `run()` starts
+   any, stays in his row (`TestMarriedInFounders`, `complex/married_in_founders.ped`). It runs once
+   per loop-breaking pass, so it is kept cheap (groups looked up once, an early return when no line
+   has slack, starts only from groups reaching one); `tests/test_lower_to_children.py` compares it
+   with the plain algorithm; `run()` starts
    blocks from the top rows down, so such an in-law family is placed after the lineage it
    married into and the copy is the son's, never his wife's father's.
    `PedigreeStyle.sibling_order` "birth" (`layout.SIBLING_ORDERS`, `check_sibling_order`) leaves

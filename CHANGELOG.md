@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The layout of a large pedigree was about 70% slower than in 1.0.0rc1 (7.2 s instead of 4.2 s for
+  20,000 people): the pass lowering founders to their children (1.0.0rc3) ran once per
+  loop-breaking pass, trying every group of partners each time. It now looks up each person's group
+  once, returns at once when every line is as short as it can be, and tries only the groups that
+  can reach a longer line: 4.5 s, with the same rows (`tests/test_lower_to_children.py` checks
+  them against the plain algorithm).
+
 ## [1.0.0rc3] - 2026-11-27
 
 Third release candidate, after a family drawn in the web app showed a son of founders married into
